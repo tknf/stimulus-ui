@@ -1,4 +1,5 @@
 import { defineConfig } from "vite-plus";
+import { configDefaults } from "vite-plus/test/config";
 import { defineBrowserCommand, playwright } from "vite-plus/test/browser-playwright";
 import { createEngineReporter } from "./scripts/engine_reporter.mjs";
 
@@ -20,6 +21,7 @@ export default defineConfig({
 		format: ["esm"],
 	},
 	test: {
+		exclude: [...configDefaults.exclude, "scripts/**/*.test.mjs"],
 		fileParallelism: false,
 		// engine-results.json preserves test names, engines, and assertions from one run.
 		// Keep standard JSON for negative controls and outputFile at the top level,

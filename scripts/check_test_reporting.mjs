@@ -36,6 +36,28 @@ const run = (name, additionalArguments = []) => {
 };
 
 try {
+  const collectionFile = join(workDirectory, "collection.json");
+  const collection = spawnSync(
+    "vp",
+    ["run", "test", "list", "--filesOnly", "--json", collectionFile],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(collection.status, 0, collection.stderr);
+  /** @type {unknown} */
+  const modules = JSON.parse(readFileSync(collectionFile, "utf8"));
+  assert.ok(Array.isArray(modules), "ブラウザテストの収集結果が配列ではありません");
+  for (const engine of engines) {
+    assert.ok(
+      modules.some(
+        (module) => module.projectName === engine && module.file.endsWith("/test/tabs.test.ts"),
+      ),
+      `${engine} のコンポーネントテストが収集されていません`,
+    );
+  }
+  assert.ok(
+    modules.every((module) => !module.file.startsWith(join(root, "scripts") + "/")),
+    "Node用のscriptテストがブラウザに収集されています",
+  );
   writeFileSync(
     fixture,
     `import { expect, test } from "vite-plus/test";
