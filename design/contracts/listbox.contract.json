@@ -1,0 +1,730 @@
+{
+  "name": "listbox",
+  "controller": "listbox",
+  "pattern": "A permanently visible listbox following the WAI-ARIA APG Listbox Pattern",
+  "responsibility": "Provide option selection, ARIA, keyboard interaction, state outputs, and selection events without generating elements or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/listbox/",
+    "https://www.w3.org/TR/wai-aria-1.2/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <ul> or <ol> with data-controller=\"listbox\", named by consumer-authored aria-label or aria-labelledby",
+    "option": "Native <li> descendants with data-listbox-target=\"option\" and nonempty data-listbox-value",
+    "initialSelection": "data-listbox-value-value is a comma-separated selection set. When absent, initialize from aria-selected=\"true\". Option values must not contain commas.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": ["The root is ul or ol.", "Options are li descendants of the root."],
+    "options": [
+      "At least one option exists.",
+      "Values are nonempty.",
+      "Values are unique.",
+      "Roles are absent or consistent with listbox/option."
+    ],
+    "invalidMarkup": "Invalid markup emits one warning per connection and disables ARIA, listeners, state, and selection manipulation.",
+    "completion": {
+      "attributes": ["role=\"listbox\" on the root", "role=\"option\" on options"],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning.",
+      "excluded": "Root tabindex is required for controller behavior and does not produce a completion warning."
+    },
+    "warning": "The warning identifies listbox controller, expected markup, and the violated condition."
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "String",
+        "htmlAttribute": "data-listbox-value-value",
+        "default": "",
+        "description": "Comma-separated initial selection set"
+      },
+      "multiple": {
+        "type": "Boolean",
+        "htmlAttribute": "data-listbox-multiple-value",
+        "default": false
+      }
+    },
+    "properties": {
+      "values": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Current selection set. Assignment emits no events."
+      }
+    },
+    "methods": {
+      "select(value)": {
+        "returns": "void",
+        "description": "Select a registered option without programmatic events."
+      },
+      "deselect(value)": {
+        "returns": "void",
+        "description": "Deselect an option without programmatic events."
+      },
+      "selectAll()": {
+        "returns": "void",
+        "description": "Select all eligible options in multiple mode without programmatic events."
+      },
+      "clear()": {
+        "returns": "void",
+        "description": "Clear the selection without programmatic events."
+      }
+    },
+    "events": {
+      "listbox:beforechange": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "values": "string[]",
+          "previousValues": "string[]",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "listbox:change": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "values": "string[]",
+          "previousValues": "string[]",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "Properties, methods, initialization, dynamic reconciliation, and disconnect/reconnect emit no events."
+    }
+  },
+  "selection": {
+    "single": "multiple=false permits at most one selected option. Space or pointer activation selects the active option.",
+    "multiple": "multiple=true toggles with Space; Shift+Arrow also toggles the destination option.",
+    "disabled": "Options with aria-disabled=\"true\" or hidden are excluded from navigation/pointer selection; existing selection is retained while data-state=disabled is output."
+  },
+  "keyboard": {
+    "focusModel": "Keep DOM focus on the root and identify the active option through aria-activedescendant. Options do not participate in the tab sequence.",
+    "ArrowUp": "Previous enabled visible option, wrapping at the boundary",
+    "ArrowDown": "Next enabled visible option, wrapping at the boundary",
+    "Home": "First enabled visible option",
+    "End": "Last enabled visible option",
+    "Space": "Select or toggle the active option",
+    "ShiftArrow": "Select or toggle the destination option in multiple mode",
+    "typeahead": "Append an unmodified printable character to the typeahead buffer and activate the next enabled visible option whose label starts with it. Search after the current option and wrap at the end. Repeated identical characters cycle through options starting with that character. Match lowercased option textContent without kana/full-width normalization. On macOS, Japanese-label typeahead does not work because non-editable roots receive only non-IME keydowns. Clear the buffer after 500ms inactivity without changing focus, aria-activedescendant, or data-state. Space selects rather than entering the buffer. Ignore Ctrl/Meta/Alt combinations and IME keydowns with event.isComposing or keyCode 229; see the IME section of docs/notes/browser-engine-differences.md.",
+    "excluded": ["Ctrl+A", "Escape close", "popup open/close"]
+  },
+  "managedMarkup": {
+    "root": [
+      "Supply missing role=\"listbox\".",
+      "Supply missing tabindex=\"0\".",
+      "Set aria-multiselectable=\"true\" when multiple=true."
+    ],
+    "option": [
+      "Supply role=\"option\" and ids only when absent.",
+      "aria-selected is controller-owned state.",
+      "aria-activedescendant is controller-owned root state."
+    ],
+    "preservation": "Preserve authored id, role, tabindex, labels, and other attributes, except synchronizing aria-selected, aria-activedescendant, and data-state."
+  },
+  "stateOutputs": {
+    "option": {
+      "disabled": "data-state=disabled",
+      "active": "data-state=active",
+      "selected": "data-state=selected",
+      "inactive": "data-state=inactive"
+    },
+    "priority": "disabled > active > selected > inactive"
+  },
+  "lifecycle": [
+    "Observe optionTargetConnected/Disconnected and hidden/aria-disabled/value changes.",
+    "Register listeners/observers in connect() and remove them in disconnect().",
+    "Do not duplicate listeners/observers on Turbo reconnection."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices and Windows IME such as MS-IME or ATOK",
+        "item": "aria-activedescendant multiple-selection announcements and Windows IME typeahead behavior",
+        "status": "unverified",
+        "impact": "The Listbox selection model and IME guards are fixed. Recorded macOS Chrome/Firefox/Safari IME results remain verified; Windows behavior is not inferred from them."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "WCAG 2.2 Level AA",
+    "Meet APG Listbox Pattern role, name, focus, keyboard, and selection requirements.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device aria-activedescendant multi-select screen-reader verification as unverified.",
+    "Actual typeahead IME behavior is measured on macOS Chrome/Firefox/Safari; see the IME section of docs/notes/browser-engine-differences.md. Report Windows IME such as MS-IME/ATOK as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "listbox-state-sync",
+      "description": "Synchronize role, name, tabindex, ARIA, state, and ids"
+    },
+    {
+      "testId": "listbox-id-preservation-negative",
+      "description": "Preserve authored option ids. tabs-id-preservation owns the mutation breaking ensureElementId's existing-id guard; do not duplicate it here."
+    },
+    {
+      "testId": "listbox-selection",
+      "description": "Single/multiple pointer and Space selection, before/change events, and cancellation"
+    },
+    {
+      "testId": "listbox-navigation",
+      "description": "Arrows, Home, End, boundary wrapping, disabled/hidden skipping, and aria-activedescendant"
+    },
+    {
+      "testId": "listbox-programmatic-silence",
+      "description": "Event suppression for values/select/deselect/selectAll/clear"
+    },
+    {
+      "testId": "listbox-dynamic-targets",
+      "description": "Option addition/removal, attribute changes, and reconnection"
+    },
+    {
+      "testId": "listbox-semantic-validation",
+      "description": "Warnings and disabled enhancement for invalid markup"
+    },
+    {
+      "testId": "listbox-completion-warning",
+      "description": "Completion warnings for missing attributes, no warnings for complete markup, and distinction from invalid-markup warnings"
+    },
+    {
+      "testId": "listbox-typeahead",
+      "description": "Printable prefix matching, wrapping, repeated-character cycling, 500ms buffer expiry, Space exclusion, modifier suppression, IME guards, and event suppression for timers"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "listbox-semantic-validation-negative",
+      "guard": "semantic validation",
+      "mutation": {
+        "description": "Remove invalid-markup guards",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-semantic-validation-negative fails."
+    },
+    {
+      "testId": "listbox-root-validity-negative",
+      "guard": "Native ul/ol root validation",
+      "mutation": {
+        "description": "Remove rootValid native ul/ol validation",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst rootValid =\n\t\t\tthis.element instanceof HTMLUListElement || this.element instanceof HTMLOListElement;",
+            "replace": "\t\tconst rootValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-root-validity-negative fails."
+    },
+    {
+      "testId": "listbox-name-validity-negative",
+      "guard": "Accessible-name validation",
+      "mutation": {
+        "description": "Remove nameValid aria-label/aria-labelledby validation",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst nameValid =\n\t\t\t(this.element.getAttribute(\"aria-label\") ?? \"\").trim() !== \"\" ||\n\t\t\t(this.element.getAttribute(\"aria-labelledby\") ?? \"\").trim() !== \"\";",
+            "replace": "\t\tconst nameValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-name-validity-negative fails."
+    },
+    {
+      "testId": "listbox-role-validity-negative",
+      "guard": "Root role validation",
+      "mutation": {
+        "description": "Remove root-role compatibility checks against listbox",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst roleValid =\n\t\t\tthis.element.getAttribute(\"role\") === null || this.element.getAttribute(\"role\") === \"listbox\";",
+            "replace": "\t\tconst roleValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-role-validity-negative fails."
+    },
+    {
+      "testId": "listbox-option-count-negative",
+      "guard": "Option existence validation",
+      "mutation": {
+        "description": "Remove the requirement for at least one option",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.optionTargets.length > 0 &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-option-count-negative fails."
+    },
+    {
+      "testId": "listbox-option-li-negative",
+      "guard": "Native li option validation",
+      "mutation": {
+        "description": "Remove the HTMLLIElement option check",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\toption instanceof HTMLLIElement &&",
+            "replace": "\t\t\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-option-li-negative fails."
+    },
+    {
+      "testId": "listbox-option-contains-negative",
+      "guard": "Option containment within the root",
+      "mutation": {
+        "description": "Remove the option root-containment check",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\tthis.element.contains(option) &&",
+            "replace": "\t\t\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-option-contains-negative fails."
+    },
+    {
+      "testId": "listbox-option-role-negative",
+      "guard": "Option role validation",
+      "mutation": {
+        "description": "Remove option-role compatibility checks",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\t(option.getAttribute(\"role\") === null || option.getAttribute(\"role\") === \"option\") &&",
+            "replace": "\t\t\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-option-role-negative fails."
+    },
+    {
+      "testId": "listbox-option-value-negative",
+      "guard": "Nonempty option value validation",
+      "mutation": {
+        "description": "Remove empty-string option value checks",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\t(option.dataset.listboxValue ?? \"\") !== \"\",",
+            "replace": "\t\t\t\t\ttrue,"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-option-value-negative fails."
+    },
+    {
+      "testId": "listbox-value-uniqueness-negative",
+      "guard": "Unique option value validation",
+      "mutation": {
+        "description": "Remove duplicate option value checks",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\trootValid && nameValid && roleValid && optionsValid && new Set(values).size === values.length",
+            "replace": "\t\t\trootValid && nameValid && roleValid && optionsValid && true"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-value-uniqueness-negative fails."
+    },
+    {
+      "testId": "listbox-semantic-validation-root-contains-negative",
+      "guard": "Independent rootValid and option-containment guards",
+      "mutation": {
+        "description": "Simultaneously remove independent rootValid and option-containment checks",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst rootValid =\n\t\t\tthis.element instanceof HTMLUListElement || this.element instanceof HTMLOListElement;",
+            "replace": "\t\tconst rootValid = true;"
+          },
+          {
+            "find": "\t\t\t\t\tthis.element.contains(option) &&",
+            "replace": "\t\t\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-semantic-validation-root-contains-negative fails. rootValid and contains are independent guards, so also test the mutation breaking both."
+    },
+    {
+      "testId": "listbox-tabindex-preservation-negative",
+      "guard": "Preservation of authored tabindex",
+      "mutation": {
+        "description": "Remove the root tabindex hasAttribute guard",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"tabindex\")) {\n\t\t\tthis.element.setAttribute(\"tabindex\", \"0\");\n\t\t}",
+            "replace": "\t\tthis.element.setAttribute(\"tabindex\", \"0\");"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-tabindex-preservation-negative fails."
+    },
+    {
+      "testId": "listbox-initial-aria-selected-negative",
+      "guard": "Initial selection from aria-selected",
+      "mutation": {
+        "description": "Always treat the initial value attribute as present, disabling aria-selected fallback",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tconst requested = this.element.hasAttribute(\"data-listbox-value-value\")",
+            "replace": "\t\t\tconst requested = true"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-initial-aria-selected-negative fails."
+    },
+    {
+      "testId": "listbox-state-priority-active-negative",
+      "guard": "Active-state priority",
+      "mutation": {
+        "description": "Remove the active-state condition",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t: this.activeOption === option",
+            "replace": "\t\t\t\t: false"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-state-priority-active-negative fails."
+    },
+    {
+      "testId": "listbox-state-priority-disabled-negative",
+      "guard": "Disabled-state priority",
+      "mutation": {
+        "description": "Remove the disabled-state condition",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\toption.dataset.state = !isEnabledVisibleOption(option)",
+            "replace": "\t\t\toption.dataset.state = false"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-state-priority-disabled-negative fails."
+    },
+    {
+      "testId": "listbox-state-priority-selected-negative",
+      "guard": "Selected-state priority",
+      "mutation": {
+        "description": "Remove the selected-state condition, breaking inactive fallback",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\t: selected",
+            "replace": "\t\t\t\t\t: false"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-state-priority-selected-negative fails."
+    },
+    {
+      "testId": "listbox-click-trusted-negative",
+      "guard": "Click isTrusted validation",
+      "mutation": {
+        "description": "Remove the synthetic-click guard",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted || event.detail === 0) {",
+            "replace": "\t\tif (!this.ensureEnhanced() || event.detail === 0) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-click-trusted-negative fails."
+    },
+    {
+      "testId": "listbox-keydown-trusted-negative",
+      "guard": "Keydown isTrusted validation",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from keydown.",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted || event.target !== this.element) {",
+            "replace": "\t\tif (!this.ensureEnhanced() || event.target !== this.element) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-keydown-trusted-negative fails."
+    },
+    {
+      "testId": "listbox-keydown-target-negative",
+      "guard": "Root-only keydown targeting",
+      "mutation": {
+        "description": "Remove the check that keydown originates on the root itself",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted || event.target !== this.element) {",
+            "replace": "\t\tif (!this.ensureEnhanced() || !event.isTrusted) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-keydown-target-negative fails."
+    },
+    {
+      "testId": "listbox-disabled-guard-negative",
+      "guard": "Exclusion of aria-disabled options",
+      "mutation": {
+        "description": "Treat aria-disabled options as enabled",
+        "file": "src/internal/listbox_navigation.ts",
+        "replacements": [
+          {
+            "find": "\t!option.hidden && option.getAttribute(\"aria-disabled\") !== \"true\";",
+            "replace": "\t!option.hidden && true;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-disabled-guard-negative fails. aria-disabled exclusion is shared through listbox_navigation.ts with combobox. Measurements also fail listbox-state-sync, listbox-navigation, listbox-state-priority-disabled-negative, listbox-api-option-guard-negative, listbox-select-all-filter-negative, combobox-state-sync, and combobox-option-guards. All inspect the same invariant."
+    },
+    {
+      "testId": "listbox-hidden-guard-negative",
+      "guard": "Exclusion of hidden options",
+      "mutation": {
+        "description": "Treat hidden options as visible",
+        "file": "src/internal/listbox_navigation.ts",
+        "replacements": [
+          {
+            "find": "\t!option.hidden && option.getAttribute(\"aria-disabled\") !== \"true\";",
+            "replace": "\ttrue && option.getAttribute(\"aria-disabled\") !== \"true\";"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-hidden-guard-negative fails. Hidden-option exclusion is shared through listbox_navigation.ts with combobox. Measurements also fail listbox-activedescendant-clears-negative, listbox-select-all-filter-negative, and combobox-option-guards. All inspect the same invariant."
+    },
+    {
+      "testId": "listbox-api-option-guard-negative",
+      "guard": "Exclusion of disabled/hidden options from the select API",
+      "mutation": {
+        "description": "Remove optionForValue's enabled-visible guard",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t(option) => option.dataset.listboxValue === value && isEnabledVisibleOption(option),",
+            "replace": "\t\t\t(option) => option.dataset.listboxValue === value,"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-api-option-guard-negative fails."
+    },
+    {
+      "testId": "listbox-select-all-filter-negative",
+      "guard": "selectAll enabled-visible filtering",
+      "mutation": {
+        "description": "Remove selectAll's enabled-visible option filter",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst values = enabledVisibleOptions(\n\t\t\tthis.optionTargets,\n\t\t\t(option) => option.dataset.listboxValue ?? \"\",\n\t\t).map((entry) => entry.value);",
+            "replace": "\t\tconst values = this.optionTargets.map((option) => option.dataset.listboxValue ?? \"\");"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-select-all-filter-negative fails."
+    },
+    {
+      "testId": "listbox-selection-noop-negative",
+      "guard": "Early return for unchanged selections",
+      "mutation": {
+        "description": "Remove requestSelection's early return when selection is unchanged",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (next.join(\"\\u0000\") === this.currentValues.join(\"\\u0000\")) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-selection-noop-negative fails."
+    },
+    {
+      "testId": "listbox-activedescendant-clears-negative",
+      "guard": "Removal of aria-activedescendant references to ineligible options",
+      "mutation": {
+        "description": "Remove relationship cleanup when the active option leaves the enabled-visible set",
+        "file": "src/internal/listbox_navigation.ts",
+        "replacements": [
+          {
+            "find": "\tif (!activeEntry) {\n\t\towner.removeAttribute(\"aria-activedescendant\");\n\t\treturn;\n\t}",
+            "replace": "\tif (!activeEntry) return;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-activedescendant-clears-negative fails. Removal of references to ineligible options is shared through listbox_navigation.ts; measured combobox-option-guards also fails on the same invariant."
+    },
+    {
+      "testId": "listbox-navigation-wrap-negative",
+      "guard": "Keyboard-navigation wrapping",
+      "mutation": {
+        "description": "Replace arrow-navigation boundary wrapping with clamping",
+        "file": "src/internal/listbox_navigation.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t: (index + direction + options.length) % options.length;",
+            "replace": "\t\t\t: Math.max(0, Math.min(options.length - 1, index + direction));"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-navigation-wrap-negative fails. Measurements also fail listbox-state-sync and combobox-navigation-wrap, which shares listbox_navigation.ts. All three inspect the same navigation invariant."
+    },
+    {
+      "testId": "listbox-beforechange-cancel-negative",
+      "guard": "beforechange cancellation",
+      "mutation": {
+        "description": "Ignore the cancellation result of beforechange dispatchEvent",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t!this.element.dispatchEvent(",
+            "replace": "\t\t\tthis.element.dispatchEvent("
+          }
+        ]
+      },
+      "expectedFailure": "listbox-beforechange-cancel-negative fails."
+    },
+    {
+      "testId": "listbox-programmatic-silence-negative",
+      "guard": "Event suppression for programmatic selection",
+      "mutation": {
+        "description": "Emit listbox:change from commitValues",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.currentValues = this.normalizeValues(values, known);",
+            "replace": "\t\tthis.currentValues = this.normalizeValues(values, known);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"listbox:change\"));"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "listbox-id-uniqueness-negative",
+      "guard": "Document-wide id collision avoidance",
+      "mutation": {
+        "description": "Remove ensureElementId's document collision loop",
+        "file": "src/internal/ensure_element_id.ts",
+        "replacements": [
+          {
+            "find": "\t} while (document.getElementById(id) !== null);",
+            "replace": "\t} while (false);"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-id-uniqueness-negative and ensureElementId unit tests fail. This mutation removes only the do-while collision check; tabs-id-uniqueness owns the version also removing the counter. Tabs tests require both removals, while listbox detects the do-while removal alone. Multiple tests inspect the shared id-uniqueness invariant."
+    },
+    {
+      "testId": "listbox-disconnect-cleanup-negative",
+      "guard": "Lifecycle, listener, and observer cleanup on disconnect",
+      "mutation": {
+        "description": "Simultaneously remove disconnect's inactive state and listener/observer cleanup",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;",
+            "replace": "\t\tthis.connected = true;"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = undefined;\n\t\tthis.enhanced = false;",
+            "replace": "\t\tthis.enhanced = true;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-disconnect-cleanup-negative fails. The inactive guard and listener/observer cleanup are independent guards, so break both to detect post-disconnect behavior."
+    },
+    {
+      "testId": "listbox-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-completion-warning-negative and listbox-option-contains-negative fail because both inspect completion-warning counts."
+    },
+    {
+      "testId": "listbox-typeahead-ime-negative",
+      "guard": "Typeahead IME guard",
+      "mutation": {
+        "description": "Make isImeKeydown ignore its argument and always return false, disabling the typeahead IME guard",
+        "file": "src/internal/ime.ts",
+        "replacements": [
+          {
+            "find": "export const isImeKeydown = (event: KeyboardEvent) => event.isComposing || event.keyCode === 229;",
+            "replace": "export const isImeKeydown = (_event: KeyboardEvent) => false;"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-typeahead-ime-negative fails. The same shared IME invariant also fails tag-input-ime-guard, tag-input-ime-guard-negative, toggle-group-ignored-keys, toggle-group-keyboard-negative, editable-ime, menu-context-protected, and the catalog/dropdown-menu.html scenario."
+    },
+    {
+      "testId": "listbox-typeahead-timer-negative",
+      "guard": "Suppression of state changes from typeahead timers",
+      "mutation": {
+        "description": "After a typeahead match, reset the active option with a timer, adding timer-driven state changes",
+        "file": "src/listbox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.setActive(options[result.index]?.option);\n\t\t}",
+            "replace": "\t\t\tthis.setActive(options[result.index]?.option);\n\t\t\tsetTimeout(() => this.setActive(options[result.index]?.option), 500);\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-typeahead-timer-negative fails."
+    },
+    {
+      "testId": "listbox-typeahead-wrap-negative",
+      "guard": "Typeahead end-to-start wrapping",
+      "mutation": {
+        "description": "Stop typeahead searching at the end instead of wrapping",
+        "file": "src/internal/typeahead.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tconst index = (start + offset) % candidates.length;",
+            "replace": "\t\t\tconst index = Math.min(start + offset, candidates.length - 1);"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-typeahead-wrap-negative and listbox-typeahead fail because both inspect the shared utility's wrapping invariant."
+    },
+    {
+      "testId": "listbox-typeahead-space-negative",
+      "guard": "Typeahead Space exclusion",
+      "mutation": {
+        "description": "Append Space to the typeahead buffer",
+        "file": "src/internal/typeahead.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.key === \" \" ||",
+            "replace": "\t\t\tfalse ||"
+          }
+        ]
+      },
+      "expectedFailure": "listbox-typeahead-space-negative fails."
+    }
+  ]
+}

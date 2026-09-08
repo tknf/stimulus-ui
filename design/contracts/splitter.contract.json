@@ -1,0 +1,404 @@
+{
+  "name": "splitter",
+  "controller": "splitter",
+  "pattern": "A two-region boundary following the APG Window Splitter Pattern, whose task-force review is incomplete",
+  "responsibility": "Reflect operations on the authored handle in the primary-pane value, providing separator semantics, value ARIA, a ratio CSS custom property, data-state, and cancelable change events. Own no layout or appearance.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/windowsplitter/",
+    "https://www.w3.org/TR/wai-aria-1.2/#separator",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "patternMaturity": "The APG Window Splitter Pattern states that task-force review awaits a functional example matching ARIA 1.1. Revisit the contract when this provisional pattern is updated.",
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"splitter\"",
+    "handle": "An element with data-splitter-target=\"handle\"; the controller supplies tabindex=\"0\"",
+    "primary": "An element with data-splitter-target=\"primary\", representing the pane whose size changes",
+    "range": "Exactly one enabled native input[type=range] with data-splitter-target=range inside the root, distinct from handle and primary. Give it an accessible name through aria-label, aria-labelledby, or a native label. Keep its track independently clickable/tappable; do not disable pointer events or hide it. Consumers choose placement and appearance.",
+    "label": "Consumers name the handle using aria-label or aria-labelledby.",
+    "layout": "Consumer CSS chooses flex, grid, absolute positioning, or another layout; the controller does not choose it.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Exactly one handle target is required.",
+      "Exactly one primary target is required.",
+      "Exactly one named, enabled input[type=range] target is required inside the root, distinct from handle and primary. Native fieldset disabled state is included. Revalidate before range operations and on target replacement.",
+      "handle and primary must descend from the root.",
+      "The handle must have an accessible name.",
+      "value, min, max, and step values must be finite numbers.",
+      "min must be at least 0, max at most 100, and min less than max.",
+      "step must be greater than 0.",
+      "orientation must be vertical or horizontal."
+    ],
+    "invalidMarkup": "Validate markup and values on connection. Invalid markup disables ARIA writes, listeners, pointer capture, state outputs, custom properties, and sizing operations, with one console.warn per connection. Do not throw.",
+    "warning": "The warning identifies splitter controller and the invalid element type or value name.",
+    "completion": {
+      "attributes": ["role=\"separator\" on the handle", "aria-controls on the handle"],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning.",
+      "excluded": "The handle's tabindex is needed for controller behavior and does not produce a completion warning."
+    }
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "Number",
+        "htmlAttribute": "data-splitter-value-value",
+        "default": 50,
+        "description": "The primary-pane ratio as a number from 0 to 100"
+      },
+      "min": {
+        "type": "Number",
+        "htmlAttribute": "data-splitter-min-value",
+        "default": 0,
+        "description": "Minimum ratio"
+      },
+      "max": {
+        "type": "Number",
+        "htmlAttribute": "data-splitter-max-value",
+        "default": 100,
+        "description": "Maximum ratio"
+      },
+      "step": {
+        "type": "Number",
+        "htmlAttribute": "data-splitter-step-value",
+        "default": 1,
+        "description": "Change per arrow-key press"
+      },
+      "orientation": {
+        "type": "String",
+        "htmlAttribute": "data-splitter-orientation-value",
+        "default": "vertical",
+        "allowed": ["vertical", "horizontal"],
+        "description": "Separator orientation: vertical separates left and right panes; horizontal separates upper and lower panes."
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Current primary-pane ratio. Assignment updates ARIA, data-state, and the CSS custom property without custom events."
+      }
+    },
+    "methods": {
+      "collapse()": {
+        "returns": "void",
+        "description": "Collapse the primary pane to min, remembering the previous ratio. Emit no custom events."
+      },
+      "expand()": {
+        "returns": "void",
+        "description": "Restore the ratio saved immediately before collapse(). Do nothing when not collapsed. Emit no custom events."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "splitter:beforechange": {
+        "when": "Immediately before committing a trusted separator operation or native range change",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "Proposed ratio",
+          "previousValue": "Previous ratio",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "If prevented, restore the previous ratio, ARIA, state outputs, and custom property, and do not emit splitter:change."
+      },
+      "splitter:change": {
+        "when": "After committing a trusted separator operation or native range change",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "Committed ratio",
+          "previousValue": "Previous ratio",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "drag": "Continuous pointer-drag changes emit no events. Update the custom property and aria-valuenow during dragging so consumer CSS can read the value. Emit events once when pointerup commits.",
+      "programmatic": "The value setter, collapse(), expand(), initialization, and reconnection emit no custom events.",
+      "sameValue": "Operations that do not change the ratio emit neither beforechange nor change.",
+      "synthetic": "Ignore pointerdown/keydown with isTrusted=false."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Receive splitter:change and splitter:beforechange on the root or ancestors. The controller does not stop event propagation.",
+    "cancelableHook": "Call event.preventDefault() in a splitter:beforechange listener to prevent a change.",
+    "programmatic": "Other controllers can use value, collapse(), and expand() through Stimulus references or outlets. Programmatic APIs emit no events.",
+    "nested": "When receiving nested splitters' events, restrict handling to the root with :self or event.target === event.currentTarget."
+  },
+  "behavior": {
+    "range": "The required native range provides the non-drag pointer path. Synchronize its min/max and current/default value from controller state, using step=any to preserve continuous ratios. Native change commits the ratio through the same cancelable beforechange/change pair. Pointer-initiated changes use pointer; native keyboard/AT adjustments use keyboard. The range preview itself is native; pane state commits on change. Synthetic change is ignored and restored to controller state. Native form reset restores the current controller value rather than resetting the splitter. Do not move focus from the range. API/state/target/connection changes made by before listeners take precedence over stale commits.",
+    "sizing": "Output only the ratio, not dimensions. Do not write layout properties to element.style.",
+    "pointer": "Capture the pointer on handle pointerdown, update the ratio on pointermove, and commit on pointerup. Release capture on pointercancel as well.",
+    "pointerGeometry": "Calculate the ratio from the root's getBoundingClientRect(): use clientX, rect.left, and rect.width for vertical orientation, or clientY, rect.top, and rect.height for horizontal. The primary pane's rectangle changes with the result, so using it would make the calculation unstable. In vertical RTL, measure distance from rect.right.",
+    "pointerInitial": "Retain the offset between the pointerdown position and the current ratio throughout dragging so grabbing a handle edge does not make the ratio jump.",
+    "valueClamp": "Clamp out-of-range or nonfinite values to min/max and write the adjusted value back.",
+    "keyboard": "For vertical orientation, ArrowLeft/ArrowRight move by step; for horizontal, use ArrowUp/ArrowDown. Home selects min and End max. Enter collapses an expanded pane or restores its previous ratio when collapsed.",
+    "direction": "Reverse horizontal arrows for vertical orientation in dir=\"rtl\".",
+    "clamp": "Clamp the ratio between min and max.",
+    "secondary": "The opposite pane is outside controller scope; consumer CSS determines its size using calc() or another approach."
+  },
+  "managedMarkup": {
+    "range": "Synchronize native min, max, step=any, value, and defaultValue without warnings. Do not add ARIA value attributes, roles, classes, or state outputs to the range. Preserve authored names and ids.",
+    "handle": "Add role=\"separator\" and tabindex=\"0\" only when absent. Synchronize aria-valuenow/min/max with the ratio and aria-orientation with the orientation value. Set missing aria-controls to the primary target's id.",
+    "primary": "Generate an id only when absent.",
+    "customProperty": "Output --splitter-value on the root as a number from 0 to 100. Output only the value; consumer CSS decides how to use it.",
+    "stateOnly": "Managed state outputs are limited to root/handle data-state and --splitter-value.",
+    "preservation": "Preserve authored id, role, tabindex, aria-controls, and other attributes. Synchronize aria-valuenow, aria-valuemin, aria-valuemax, and aria-orientation."
+  },
+  "stateOutputs": {
+    "ownership": "Only root/handle data-state and root --splitter-value are controller-owned state outputs; CSS state is not expressed through ARIA attributes.",
+    "root": "data-state=\"collapsed\" when the ratio equals min; otherwise data-state=\"expanded\"",
+    "handle": "data-state=\"dragging\" while pointer capture is held; otherwise data-state=\"idle\""
+  },
+  "lifecycle": [
+    "Bind native range change/pointerdown/keydown listeners on connection and remove them on disconnection or replacement. Track rangeTargetConnected/Disconnected. The range and pane remain synchronized on public API calls, configuration changes, and reconnection.",
+    "Register handle pointerdown/keydown listeners in connect() and remove them in disconnect().",
+    "Release pointer capture in disconnect().",
+    "Track handle/primary additions and removals through Stimulus TargetConnected/TargetDisconnected callbacks.",
+    "Leave generated ARIA, ids, data-state, and custom properties on disconnect().",
+    "On reconnection, synchronize ARIA and state outputs to the current ratio.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers and mouse/touch devices across browser engines",
+        "item": "Continuous aria-valuenow announcements, pointercancel conditions, post-drag focus, and scrolling interaction without touch-action",
+        "status": "unverified",
+        "impact": "Separator semantics, pointer/keyboard behavior, and the required native non-drag range are fixed. Real-device compatibility is not inferred from headless tests."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "WCAG 2.2 AA 2.5.7: the required range track changes the pane ratio by clicks/taps without dragging. Verify this route in each catalog configuration and all three engines, along with cancellation, keyboard input, synthetic-event rejection, replacement, and cleanup.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The handle has role=\"separator\", aria-valuenow/min/max, aria-orientation, and aria-controls, and requires an accessible name.",
+    "Keyboard alone can change the ratio and use Enter to collapse and restore it (WCAG 2.1.1).",
+    "Only trusted operations emit one cancelable beforechange followed by one committed change, in that order.",
+    "During dragging, update only the custom property and aria-valuenow, without change events.",
+    "The controller does not write layout properties to element.style.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Verify pointer-capture engine differences and record any in docs/notes/browser-engine-differences.md.",
+    "Report screen-reader announcements of continuous aria-valuenow updates during dragging as unverified.",
+    "Report pointer-capture differences, including pointercancel conditions and touch versus mouse behavior, as unverified.",
+    "Report agreement of post-drag focus across the three engines as unverified. WebKit's known lack of focus movement on button click is relevant when the handle is a button.",
+    "Report potential scrolling conflicts without touch-action as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "splitter-range",
+      "description": "Native non-drag ratio changes, keyboard reason, cancellation, silent programmatic synchronization, required markup, replacement, and disconnected listener cleanup"
+    },
+    {
+      "testId": "splitter-state-sync",
+      "description": "Role, value ARIA, aria-orientation, aria-controls, generated ids, data-state, --splitter-value, and authored attribute preservation"
+    },
+    {
+      "testId": "splitter-keyboard",
+      "description": "Orientation-specific arrows, Home, End, step, clamping, and RTL reversal"
+    },
+    {
+      "testId": "splitter-collapse-expand",
+      "description": "Enter collapse/restoration and event suppression for collapse()/expand()"
+    },
+    {
+      "testId": "splitter-pointer-drag",
+      "description": "Pointer capture, custom-property updates during dragging, and one change event at commitment"
+    },
+    {
+      "testId": "splitter-beforechange-cancel",
+      "description": "beforechange cancellation, change detail, ordering, and bubbling"
+    },
+    {
+      "testId": "splitter-programmatic-silence",
+      "description": "Value-setter event suppression and state synchronization"
+    },
+    {
+      "testId": "splitter-disconnect-cleanup",
+      "description": "Listener and pointer-capture cleanup on disconnect/reconnect"
+    },
+    {
+      "testId": "splitter-semantic-validation",
+      "description": "Warnings and disabled enhancement for missing handle/primary/name or inconsistent min/max"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    "2.1.3 Keyboard (No Exception) evidence: splitter-keyboard and splitter-collapse-expand reach the same operations as splitter-pointer-drag.",
+    {
+      "testId": "splitter-completion-warning",
+      "description": "Warnings for missing completed attributes, no warnings for complete markup, and distinction from invalid-markup warnings"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "splitter-primary-reentry-negative",
+      "guard": "Primary target replacement takes precedence over stale changes",
+      "plannedMutation": "Ignore primary replacement inside beforechange",
+      "mutation": {
+        "description": "Remove primary target identity revalidation",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          { "find": "\t\t\tthis.primaryTargets[0] !== primary ||", "replace": "\t\t\tfalse ||" }
+        ]
+      },
+      "expectedFailure": "splitter-primary-reentry-negative fails."
+    },
+    {
+      "testId": "splitter-range-sync-negative",
+      "guard": "Native range synchronization with controller state",
+      "plannedMutation": "Write zero instead of the current ratio to the range",
+      "mutation": {
+        "description": "Break native range value synchronization",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\trange.value = String(this.currentValue);",
+            "replace": "\t\t\trange.value = \"0\";"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-range-sync-negative, splitter-range-trusted-negative, splitter-primary-reentry-negative, and catalog/splitter.html behavior fail on native range synchronization."
+    },
+    {
+      "testId": "splitter-range-trusted-negative",
+      "guard": "Synthetic native range change rejection",
+      "plannedMutation": "Accept synthetic native range changes",
+      "mutation": {
+        "description": "Remove the native range isTrusted guard",
+        "file": "src/splitter_controller.ts",
+        "replacements": [{ "find": "\t\tif (!event.isTrusted) {", "replace": "\t\tif (false) {" }]
+      },
+      "expectedFailure": "splitter-range-trusted-negative fails."
+    },
+    {
+      "testId": "splitter-semantic-validation-negative",
+      "guard": "Semantic and value validation",
+      "plannedMutation": "Disable isValidMarkup() guards to keep enhancement active with missing handle/primary/name or invalid min/max/step",
+      "mutation": {
+        "description": "Disable semantic and value validation to enhance invalid markup",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-semantic-validation-negative, the splitter-range invalid-control check, and splitter-completion-warning fail on invalid-markup rejection."
+    },
+    {
+      "testId": "splitter-clamp-negative",
+      "guard": "Clamping to min and max",
+      "plannedMutation": "Remove clamping to allow out-of-range ratios",
+      "mutation": {
+        "description": "Disable clamping to allow out-of-range ratios",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate clamp = (value: number) => Math.min(this.maxValue, Math.max(this.minValue, value));",
+            "replace": "\tprivate clamp = (value: number) => value;"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-clamp-negative and splitter-keyboard fail. Multiple tests detect clamping because keyboard and pointer operations share this invariant."
+    },
+    {
+      "testId": "splitter-drag-silence-negative",
+      "guard": "Event suppression during dragging",
+      "plannedMutation": "Emit change on pointermove as well",
+      "mutation": {
+        "description": "Replace pointermove preview with a committed operation",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.previewValue(rawValue + this.drag.offset);",
+            "replace": "\t\tthis.requestUserChange(rawValue + this.drag.offset, this.currentValue, \"pointer\");"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-drag-silence-negative fails."
+    },
+    {
+      "testId": "splitter-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and ratio restoration",
+      "plannedMutation": "Ignore dispatchEvent's return value and always commit",
+      "mutation": {
+        "description": "Disable beforechange cancellation handling",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!accepted) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-beforechange-cancel-negative and splitter-range-sync-negative fail on cancellation."
+    },
+    {
+      "testId": "splitter-direction-negative",
+      "guard": "Reversal of horizontal arrows in RTL",
+      "plannedMutation": "Remove direction detection and always use LTR behavior",
+      "mutation": {
+        "description": "Disable RTL direction detection",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tconst rtl = this.isRtl();",
+            "replace": "\t\t\tconst rtl = false;"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-direction-negative fails."
+    },
+    {
+      "testId": "splitter-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit beforechange and change from the value setter and collapse/expand",
+      "mutation": {
+        "description": "Treat programmatic API commits as user changes",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate commitProgrammaticValue = (value: number) => {\n\t\tthis.applyValue(this.clamp(value));\n\t};",
+            "replace": "\tprivate commitProgrammaticValue = (value: number) => {\n\t\tthis.requestUserChange(this.clamp(value), this.currentValue, \"keyboard\");\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-programmatic-silence-negative, splitter-range-sync-negative, and splitter-primary-reentry-negative fail on public API event suppression."
+    },
+    {
+      "testId": "splitter-disconnect-cleanup-negative",
+      "guard": "Listener removal and pointer-capture release on disconnect",
+      "plannedMutation": "Simultaneously remove disconnect() removeEventListener and releasePointerCapture calls. Removing only one leaves capture cleanup, so break both independent guards together.",
+      "mutation": {
+        "description": "Simultaneously disable disconnect listener cleanup and pointer-capture release",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate disconnectCleanup = () => {\n\t\tthis.releasePointerCapture();\n\t\tthis.unbind();\n\t};",
+            "replace": "\tprivate disconnectCleanup = () => {\n\t\t// cleanup omitted\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "splitter-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/splitter_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "splitter-completion-warning-negative fails."
+    }
+  ]
+}

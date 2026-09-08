@@ -1,0 +1,826 @@
+{
+  "name": "tooltip",
+  "controller": "tooltip",
+  "pattern": "A hover/focus tooltip using authored triggers and the WAI-ARIA tooltip role",
+  "responsibility": "Provide trigger/content relationships, visibility state, and hover/focus/Escape behavior without generating elements, wording, or positioning.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/tooltip/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+    "https://html.spec.whatwg.org/multipage/popover.html",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "An existing HTMLElement with data-controller=\"tooltip\"",
+    "trigger": "A native button/link or focusable HTMLElement inside the root with data-tooltip-target=\"trigger\", named by the consumer",
+    "content": "An existing HTMLElement inside the root with data-tooltip-target=\"content\", with consumer-authored wording",
+    "position": "Consumer CSS determines position, offset, z-index, and transitions.",
+    "contentRules": "Content must not contain focusable descendants. Use dialog for interactive supplemental information."
+  },
+  "contractValidation": {
+    "targets": [
+      "Exactly one trigger descending from the root",
+      "Exactly one content target descending from the root",
+      "Content and trigger are distinct elements.",
+      "Content has no focusable descendants.",
+      "The Popover API is available."
+    ],
+    "invalidMarkup": "Invalid markup emits one warning per connection and disables ARIA, listeners, timers, state, and visibility operations. Do not throw.",
+    "completion": {
+      "attributes": ["role=\"tooltip\" on content", "popover=\"manual\" on content"],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning"
+    },
+    "warning": "The warning identifies tooltip controller, expected markup, and the violated condition."
+  },
+  "api": {
+    "values": {
+      "delay": {
+        "type": "Number",
+        "htmlAttribute": "data-tooltip-delay-value",
+        "default": 0,
+        "description": "Nonnegative delay in milliseconds before opening from hover or focus"
+      }
+    },
+    "properties": {
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current visibility. Assignment emits no events."
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Show programmatically without custom events."
+      },
+      "hide()": {
+        "returns": "void",
+        "description": "Hide programmatically without custom events."
+      }
+    },
+    "events": {
+      "tooltip:beforetoggle": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "open": "boolean",
+          "previousOpen": "boolean",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "tooltip:toggle": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "open": "boolean",
+          "previousOpen": "boolean",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "The open setter, show/hide, initialization, reconnection, external popover toggles, and disconnect emit no custom events."
+    }
+  },
+  "managedMarkup": {
+    "role": "Supply role=\"tooltip\" only when content has no role.",
+    "describedby": "Append the content id to trigger aria-describedby, preserving existing tokens and ids.",
+    "id": "Generate a missing content id without collisions in ownerDocument.",
+    "popover": "Supply missing popover=\"manual\" and use Popover API visibility state.",
+    "stateOnly": "Output data-state=\"open\" or \"closed\" on root/content, without classes."
+  },
+  "behavior": {
+    "hover": "Stay open as the pointer moves from trigger to content and while hovering content.",
+    "focus": "Stay open while the trigger has focus. The controller does not move focus.",
+    "dismiss": "Escape closes the tooltip. After Escape, hover alone cannot reopen it until the pointer leaves the trigger.",
+    "persistent": "There is no automatic close timer limiting visibility duration.",
+    "delay": "Apply delay only to opening. Cancel pending opening when pointer/focus leaves."
+  },
+  "keyboard": {
+    "Escape": "Close an open tooltip and prevent the default action.",
+    "focusModel": "Keep DOM focus on the trigger; tooltip content does not receive focus."
+  },
+  "lifecycle": [
+    "Register trigger/content/document listeners in connect() and remove them in disconnect().",
+    "Do not duplicate listeners/timers on Turbo reconnection.",
+    "Reconcile target/value changes."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "VoiceOver, JAWS, and Narrator on real devices",
+        "item": "Differences in aria-describedby announcements",
+        "status": "unverified",
+        "impact": "The tooltip description relationship and dismissal behavior are fixed; compatibility wording does not select a new API."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Meet WCAG 2.2 Level AA, especially 1.4.13 Dismissible, Hoverable, and Persistent.",
+    "Synchronize the tooltip role and aria-describedby relationship.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device differences in aria-describedby announcements among VoiceOver, JAWS, and Narrator as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "tooltip-state-sync",
+      "description": "Synchronize role, id, aria-describedby, popover, and data-state"
+    },
+    {
+      "testId": "tooltip-focus-escape",
+      "description": "Focus opening, Escape dismissal, keyboard reason, and cancellation"
+    },
+    {
+      "testId": "tooltip-hoverable-delay",
+      "description": "pointer hover、content hover、delay、pointer reason"
+    },
+    {
+      "testId": "tooltip-programmatic-silence",
+      "description": "Event suppression for open/show/hide"
+    },
+    {
+      "testId": "tooltip-lifecycle",
+      "description": "Dynamic targets, disconnect/reconnect, and listener cleanup"
+    },
+    {
+      "testId": "tooltip-semantic-validation",
+      "description": "Warnings and disabled enhancement for focusable content"
+    },
+    {
+      "testId": "tooltip-event-trust",
+      "description": "Synthetic-event suppression in each pointer/focus/keydown handler"
+    },
+    {
+      "testId": "tooltip-hover-transitions",
+      "description": "Trigger/content pointer transitions and pending-timer cleanup"
+    },
+    {
+      "testId": "tooltip-external-toggle",
+      "description": "State synchronization from external popover toggles"
+    },
+    {
+      "testId": "tooltip-schedule-noop",
+      "description": "No reopening timer while already open"
+    },
+    {
+      "testId": "tooltip-popover-failure",
+      "description": "No state/event commitment when the Popover API fails"
+    },
+    {
+      "testId": "tooltip-disconnect-cleanup",
+      "description": "Listener, timer, and connection-state cleanup on disconnect"
+    },
+    {
+      "testId": "tooltip-markup-guards",
+      "description": "Target count, trigger, Popover API, delay, and disabled/hidden content validation"
+    },
+    {
+      "testId": "tooltip-structure-preservation",
+      "description": "Preservation of authored role and popover"
+    },
+    {
+      "testId": "tooltip-warning-once",
+      "description": "One invalid-markup warning per connection"
+    },
+    {
+      "testId": "tooltip-completion-warning",
+      "description": "Completion warning for missing attributes, no warning for complete markup, and separation from the invalid-markup warning"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "tooltip-semantic-validation-negative",
+      "guard": "semantic validation",
+      "mutation": {
+        "description": "Remove invalid-markup guards",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tooltip-semantic-validation-negative, tooltip-markup-guards, and tooltip-warning-once fail because all inspect warnings and disabled enhancement for invalid markup."
+    },
+    {
+      "testId": "tooltip-trigger-count-negative",
+      "guard": "trigger target count",
+      "mutation": {
+        "description": "Allow multiple trigger targets instead of requiring exactly one",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate currentTrigger = () => (this.triggerTargets.length === 1 ? this.triggerTargets[0] : null);",
+            "replace": "\tprivate currentTrigger = () => (this.triggerTargets.length > 0 ? this.triggerTargets[0] : null);"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-count-negative fails."
+    },
+    {
+      "testId": "tooltip-content-count-negative",
+      "guard": "content target count",
+      "mutation": {
+        "description": "Allow multiple content targets instead of requiring exactly one",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate currentContent = () => (this.contentTargets.length === 1 ? this.contentTargets[0] : null);",
+            "replace": "\tprivate currentContent = () => (this.contentTargets.length > 0 ? this.contentTargets[0] : null);"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-count-negative fails."
+    },
+    {
+      "testId": "tooltip-trigger-element-type-negative",
+      "guard": "Trigger HTMLElement validation",
+      "mutation": {
+        "description": "Remove the trigger HTMLElement check",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger instanceof HTMLElement &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-element-type-negative fails."
+    },
+    {
+      "testId": "tooltip-content-element-type-negative",
+      "guard": "Content HTMLElement validation",
+      "mutation": {
+        "description": "Remove the content HTMLElement check",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tcontent instanceof HTMLElement &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-element-type-negative fails."
+    },
+    {
+      "testId": "tooltip-trigger-content-distinct-negative",
+      "guard": "Distinct trigger/content validation",
+      "mutation": {
+        "description": "Remove the check that trigger and content differ",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger !== content &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-content-distinct-negative fails."
+    },
+    {
+      "testId": "tooltip-trigger-focusable-negative",
+      "guard": "Focusable-trigger validation",
+      "mutation": {
+        "description": "Remove the check for trigger tabindex >= 0",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger.tabIndex >= 0 &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-focusable-negative fails."
+    },
+    {
+      "testId": "tooltip-focusable-content-negative",
+      "guard": "Focusable-content validation",
+      "mutation": {
+        "description": "Remove the focusable-descendant content check",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t!this.hasFocusableContent(content) &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "tooltip-focusable-content-negative and tooltip-warning-once fail because both inspect disabled enhancement for focusable content."
+    },
+    {
+      "testId": "tooltip-popover-show-negative",
+      "guard": "Popover show API validation",
+      "mutation": {
+        "description": "Remove the check that content.showPopover is a function",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttypeof content.showPopover === \"function\" &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-popover-show-negative fails."
+    },
+    {
+      "testId": "tooltip-popover-hide-negative",
+      "guard": "Popover hide API validation",
+      "mutation": {
+        "description": "Remove the check that content.hidePopover is a function",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttypeof content.hidePopover === \"function\" &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-popover-hide-negative fails."
+    },
+    {
+      "testId": "tooltip-delay-finite-negative",
+      "guard": "Finite-delay validation",
+      "mutation": {
+        "description": "Remove the finite-delay check",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tNumber.isFinite(this.delayValue) &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-delay-finite-negative fails."
+    },
+    {
+      "testId": "tooltip-delay-nonnegative-negative",
+      "guard": "Nonnegative-delay validation",
+      "mutation": {
+        "description": "Remove the delay >= 0 check",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.delayValue >= 0",
+            "replace": "\t\t\ttrue"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-delay-nonnegative-negative fails."
+    },
+    {
+      "testId": "tooltip-disabled-content-negative",
+      "guard": "Exclusion of disabled elements from focusable content",
+      "mutation": {
+        "description": "Treat disabled elements as focusable content",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (element.hasAttribute(\"disabled\") || element.hidden) {",
+            "replace": "\t\tif (element.hidden) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-disabled-content-negative fails."
+    },
+    {
+      "testId": "tooltip-hidden-content-negative",
+      "guard": "Exclusion of hidden elements from focusable content",
+      "mutation": {
+        "description": "Treat hidden elements as focusable content",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (element.hasAttribute(\"disabled\") || element.hidden) {",
+            "replace": "\t\tif (element.hasAttribute(\"disabled\")) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-hidden-content-negative fails."
+    },
+    {
+      "testId": "tooltip-role-preservation-negative",
+      "guard": "role hasAttribute guard",
+      "mutation": {
+        "description": "Overwrite authored role",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!content.hasAttribute(\"role\")) {\n\t\t\tcontent.setAttribute(\"role\", \"tooltip\");\n\t\t}",
+            "replace": "\t\tcontent.setAttribute(\"role\", \"tooltip\");"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-role-preservation-negative fails."
+    },
+    {
+      "testId": "tooltip-popover-preservation-negative",
+      "guard": "popover hasAttribute guard",
+      "mutation": {
+        "description": "Overwrite authored popover mode",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!content.hasAttribute(\"popover\")) {\n\t\t\tcontent.setAttribute(\"popover\", \"manual\");\n\t\t}",
+            "replace": "\t\tcontent.setAttribute(\"popover\", \"manual\");"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-popover-preservation-negative fails."
+    },
+    {
+      "testId": "tooltip-warning-once-negative",
+      "guard": "warningIssued guard",
+      "mutation": {
+        "description": "Remove the once-per-connection invalid-markup warning guard",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.warningIssued) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-warning-once-negative fails."
+    },
+    {
+      "testId": "tooltip-trigger-enter-trusted-negative",
+      "guard": "trigger pointerenter isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from trigger pointerenter",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.triggerHovered = true;",
+            "replace": "\t\tthis.triggerHovered = true;"
+          }
+        ]
+      },
+      "expectedFailure": "tooltip-trigger-enter-trusted-negative and tooltip-isTrusted-guard fail because both inspect suppression of synthetic-event state changes and custom events."
+    },
+    {
+      "testId": "tooltip-trigger-leave-trusted-negative",
+      "guard": "trigger pointerleave isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from trigger pointerleave",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.triggerHovered = false;",
+            "replace": "\t\tthis.triggerHovered = false;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-leave-trusted-negative fails."
+    },
+    {
+      "testId": "tooltip-focus-trusted-negative",
+      "guard": "trigger focus isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from trigger focus",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.triggerFocused = true;",
+            "replace": "\t\tthis.triggerFocused = true;"
+          }
+        ]
+      },
+      "expectedFailure": "tooltip-focus-trusted-negative and tooltip-isTrusted-guard fail because both inspect suppression of synthetic-event state changes and custom events."
+    },
+    {
+      "testId": "tooltip-blur-trusted-negative",
+      "guard": "trigger blur isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from trigger blur",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.triggerFocused = false;",
+            "replace": "\t\tthis.triggerFocused = false;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-blur-trusted-negative fails."
+    },
+    {
+      "testId": "tooltip-content-enter-trusted-negative",
+      "guard": "content pointerenter isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from content pointerenter",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.contentHovered = true;",
+            "replace": "\t\tthis.contentHovered = true;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-enter-trusted-negative fails."
+    },
+    {
+      "testId": "tooltip-content-leave-trusted-negative",
+      "guard": "content pointerleave isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from content pointerleave",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tthis.contentHovered = false;",
+            "replace": "\t\tthis.contentHovered = false;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-leave-trusted-negative fails."
+    },
+    {
+      "testId": "tooltip-document-keydown-trusted-negative",
+      "guard": "document keydown isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from Escape keydown",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.key !== \"Escape\" || !event.isTrusted) {",
+            "replace": "\t\tif (event.key !== \"Escape\") {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-document-keydown-trusted-negative fails."
+    },
+    {
+      "testId": "tooltip-hoverable-guard-negative",
+      "guard": "active hover/focus guard",
+      "mutation": {
+        "description": "Remove close suppression while hovering trigger/content or focusing the trigger",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.triggerHovered || this.contentHovered || this.triggerFocused) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-hoverable-guard-negative fails."
+    },
+    {
+      "testId": "tooltip-trigger-to-content-negative",
+      "guard": "trigger to content hover transition",
+      "mutation": {
+        "description": "Remove close suppression during trigger-to-content pointer transitions",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.movesInto(this.boundContent, event.relatedTarget)) {\n\t\t\tthis.contentHovered = true;\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tif (false) return;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-trigger-to-content-negative fails."
+    },
+    {
+      "testId": "tooltip-content-to-trigger-negative",
+      "guard": "content to trigger hover transition",
+      "mutation": {
+        "description": "Remove the branch preserving open state during content-to-trigger pointer transitions",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.movesInto(this.boundTrigger, event.relatedTarget)) {\n\t\t\tthis.triggerHovered = true;\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tif (false) {\n\t\t\tthis.triggerHovered = true;\n\t\t\treturn;\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-to-trigger-negative fails."
+    },
+    {
+      "testId": "tooltip-content-enter-timer-negative",
+      "guard": "content pointerenter timer cleanup",
+      "mutation": {
+        "description": "Remove pending-open timer cleanup on content pointerenter",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.contentHovered = true;\n\t\tthis.clearOpenTimer();",
+            "replace": "\t\tthis.contentHovered = true;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-content-enter-timer-negative fails."
+    },
+    {
+      "testId": "tooltip-inactive-timer-negative",
+      "guard": "inactive timer cleanup",
+      "mutation": {
+        "description": "Remove pending-open timer cleanup when trigger/content/focus become inactive",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.clearOpenTimer();\n\t\tthis.requestToggle(false, reason);",
+            "replace": "\t\tthis.requestToggle(false, reason);"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-inactive-timer-negative fails."
+    },
+    {
+      "testId": "tooltip-programmatic-silence-negative",
+      "guard": "Programmatic event suppression",
+      "mutation": {
+        "description": "Emit tooltip:toggle from programmatic show",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\tshow = () => {\n\t\tthis.commitOpen(true);\n\t};",
+            "replace": "\tshow = () => {\n\t\tthis.commitOpen(true);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"tooltip:toggle\"));\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "tooltip-commit-noop-negative",
+      "guard": "commitOpen same-state early return",
+      "mutation": {
+        "description": "Remove commitOpen's unchanged-state early return",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate commitOpen = (open: boolean) => {\n\t\tif (!this.ensureEnhanced() || open === this.currentOpen) {",
+            "replace": "\tprivate commitOpen = (open: boolean) => {\n\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-commit-noop-negative fails."
+    },
+    {
+      "testId": "tooltip-request-noop-negative",
+      "guard": "requestToggle same-state early return",
+      "mutation": {
+        "description": "Remove requestToggle's unchanged-state early return",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate requestToggle = (open: boolean, reason: ToggleReason) => {\n\t\tif (!this.ensureEnhanced() || open === this.currentOpen) {",
+            "replace": "\tprivate requestToggle = (open: boolean, reason: ToggleReason) => {\n\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-request-noop-negative fails."
+    },
+    {
+      "testId": "tooltip-beforetoggle-cancel-negative",
+      "guard": "beforetoggle cancel",
+      "mutation": {
+        "description": "Ignore tooltip:beforetoggle preventDefault() cancellation",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t) {\n\t\t\treturn;",
+            "replace": "\t\t) {\n\t\t\tvoid 0;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-beforetoggle-cancel-negative fails."
+    },
+    {
+      "testId": "tooltip-schedule-open-noop-negative",
+      "guard": "scheduleOpen same-state early return",
+      "mutation": {
+        "description": "Remove scheduleOpen's early return that avoids timers while already open",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.currentOpen) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-schedule-open-noop-negative fails."
+    },
+    {
+      "testId": "tooltip-popover-toggle-listener-negative",
+      "guard": "external popover toggle listener",
+      "mutation": {
+        "description": "Remove the content external-toggle listener registration",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tcontent.addEventListener(\"toggle\", this.handlePopoverToggle);",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-popover-toggle-listener-negative fails."
+    },
+    {
+      "testId": "tooltip-commit-popover-failure-negative",
+      "guard": "commitOpen Popover failure",
+      "mutation": {
+        "description": "Remove the guard aborting commitOpen when the Popover API throws",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t} catch {\n\t\t\treturn;\n\t\t}\n\t\tthis.currentOpen = open;",
+            "replace": "\t\t} catch {}\n\t\tthis.currentOpen = open;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-commit-popover-failure-negative fails."
+    },
+    {
+      "testId": "tooltip-request-commit-failure-negative",
+      "guard": "requestToggle commit failure check",
+      "mutation": {
+        "description": "Remove toggle notification suppression when commitOpen cannot commit state",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.currentOpen !== open) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-request-commit-failure-negative fails."
+    },
+    {
+      "testId": "tooltip-disconnect-listener-negative",
+      "guard": "disconnect listener cleanup",
+      "mutation": {
+        "description": "Remove trigger/content/document listener cleanup on disconnect",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.boundTrigger?.removeEventListener(\"pointerenter\", this.handleTriggerPointerEnter);\n\t\tthis.boundTrigger?.removeEventListener(\"pointerleave\", this.handleTriggerPointerLeave);\n\t\tthis.boundTrigger?.removeEventListener(\"focus\", this.handleTriggerFocus);\n\t\tthis.boundTrigger?.removeEventListener(\"blur\", this.handleTriggerBlur);\n\t\tthis.boundContent?.removeEventListener(\"pointerenter\", this.handleContentPointerEnter);\n\t\tthis.boundContent?.removeEventListener(\"pointerleave\", this.handleContentPointerLeave);\n\t\tthis.boundContent?.removeEventListener(\"toggle\", this.handlePopoverToggle);\n\t\tthis.element.ownerDocument.removeEventListener(\"keydown\", this.handleDocumentKeydown);",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-disconnect-listener-negative fails."
+    },
+    {
+      "testId": "tooltip-disconnect-timer-negative",
+      "guard": "disconnect timer cleanup",
+      "mutation": {
+        "description": "Simultaneously remove pending-open timer cleanup in disconnect and unbind",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.clearOpenTimer();\n\t\tthis.unbind();\n\t\tthis.connected = false;",
+            "replace": "\t\tthis.unbind();\n\t\tthis.connected = false;"
+          },
+          {
+            "find": "\tprivate unbind = () => {\n\t\tthis.clearOpenTimer();",
+            "replace": "\tprivate unbind = () => {"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-disconnect-timer-negative fails."
+    },
+    {
+      "testId": "tooltip-disconnect-connected-negative",
+      "guard": "disconnect connected state reset",
+      "mutation": {
+        "description": "Remove connected=false after disconnect",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.enhanced = false;",
+            "replace": "\t\tthis.connected = true;\n\t\tthis.enhanced = false;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-disconnect-connected-negative fails."
+    },
+    {
+      "testId": "tooltip-disconnect-enhanced-negative",
+      "guard": "disconnect enhancement state reset",
+      "mutation": {
+        "description": "Remove enhanced=false after disconnect",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.enhanced = false;",
+            "replace": "\t\tthis.connected = false;\n\t\tthis.enhanced = true;"
+          }
+        ]
+      },
+      "expectedFailure": "Only tooltip-disconnect-enhanced-negative fails."
+    },
+    {
+      "testId": "tooltip-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/tooltip_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "tooltip-completion-warning-negative fails."
+    }
+  ]
+}

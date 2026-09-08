@@ -1,0 +1,268 @@
+{
+  "name": "number-field",
+  "controller": "number-field",
+  "pattern": "A headless number field adding PageUp/PageDown and cancelable change events to native input[type=number]",
+  "responsibility": "Preserves native number value, min, max, step, arrow keys, typing, and form semantics. Adds PageUp/PageDown, user-originated change events, data-state, and semantic markup validation that native input lacks. Does not generate appearance or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/spinbutton/",
+    "https://html.spec.whatwg.org/multipage/input.html#number-state-(type=number)",
+    "https://www.w3.org/TR/html-aam-1.0/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <input type=\"number\"> with data-controller=\"number-field\"",
+    "label": "The consumer provides an accessible name through <label>, aria-label, or aria-labelledby.",
+    "range": "The consumer supplies min, max, step, and value as native attributes.",
+    "form": "The consumer supplies name and uses native number-input form submission.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLInputElement with type=number.",
+      "pageStep must be a positive integer."
+    ],
+    "invalidMarkup": "Validate root and configuration on connection. Invalid markup prevents listeners, state output, keyboard handling, and value operations and issues console.warn once per connection. Do not throw.",
+    "warning": "Use the standard English disabling warning, including a native input[type=number] root and a positive integer pageStep."
+  },
+  "api": {
+    "values": {
+      "pageStep": {
+        "type": "Number",
+        "htmlAttribute": "data-number-field-page-step-value",
+        "default": 10,
+        "description": "Number of native steps moved by one PageUp/PageDown operation; a positive integer."
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Current native input.valueAsNumber, or NaN for nonnumeric input. Assignment changes value and data-state without custom events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "number-field:beforechange": {
+        "when": "Before trusted pointer/keyboard changes: native change from typing, arrows, or the spinner, and controller-committed PageUp/PageDown",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "The proposed value",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), restore the previous native value and data-state and suppress number-field:change."
+      },
+      "number-field:change": {
+        "when": "After a trusted value change is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The committed value",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "pageKeys": "The controller commits PageUp/PageDown with reason keyboard.",
+      "wheel": "Chromium wheel changes cannot be tracked as pending through pointerdown/keydown, so they synchronize state output without custom events. See docs/notes/browser-engine-differences.md.",
+      "programmatic": "The value setter, initialization, form reset, and reconnection do not emit custom events.",
+      "sameValue": "Do not emit beforechange/change when the value has not changed.",
+      "synthetic": "input/change with isTrusted=false only synchronize native value and state outputs; they do not emit custom events. The controller does not dispatch synthetic native input/change events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for number-field:change and number-field:beforechange on the root or an ancestor. The controller does not stop propagation.",
+    "cancelableHook": "Cancel a change by calling event.preventDefault() in a number-field:beforechange listener.",
+    "programmatic": "Other controllers may read/write value through a Stimulus controller reference or outlets. Programmatic API changes emit no events.",
+    "nested": "Use :self or event.target === event.currentTarget to restrict events to the root when listening outside nested number-field controllers."
+  },
+  "behavior": {
+    "scope": "Use one native input[type=number] as the root; there are no targets.",
+    "initial": "The native value attribute determines the initial value; the controller has no separate initial value.",
+    "native": "Delegate typing, arrows, spinner, wheel, and form semantics to the browser. The controller neither validates nor corrects native values.",
+    "disabled": "Do not handle PageUp/PageDown when native input.disabled is true. Do not add disabled data-* attributes. Public API changes remain allowed regardless of disabled state.",
+    "readonly": "Do not handle PageUp/PageDown when native input.readOnly is true, matching native arrow keys not changing readonly values."
+  },
+  "keyboard": {
+    "pageUp": "Increase by pageStep native steps using stepUp(pageStep); delegate min/max clamping and numeric-error handling to the browser. Use preventDefault to suppress page scrolling.",
+    "pageDown": "Decrease through stepDown(pageStep), following the same rules as pageUp.",
+    "stepAny": "For step=\"any\", stepUp/stepDown throw InvalidStateError in all three measured engines. Use an effective step of one, compute value +/- pageStep, and clamp to min/max, matching the implied step of one used by native arrow keys.",
+    "homeEnd": "Do not implement Home/End. Chromium moves the caret even on macOS (see docs/notes/browser-engine-differences.md), and Windows text fields conventionally use these keys for caret movement. Intercepting them would break editing. APG Spinbutton Home/End guidance assumes a custom widget, not an editable native input; this deviation is intentional.",
+    "arrows": "Leave arrow-key handling entirely to the browser."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Use the native input[type=number] implicit spinbutton role, value, min, max, step, keyboard handling, and form semantics.",
+    "aria": "Do not write role, aria-valuenow, aria-valuemin, aria-valuemax, or aria-valuetext. HTML-AAM maps input[type=number] to spinbutton; Chromium measurements show native attributes automatically exposed as value/valuemin/valuemax/valuetext in the accessibility tree. Preserve authored aria-valuetext.",
+    "stateOnly": "Only root data-state is controller-managed output. Do not output a CSS custom property: the number is displayed as text and no CSS value consumer is required.",
+    "preservation": "Preserve authored id, name, value, min, max, step, disabled, ARIA, and other attributes."
+  },
+  "stateOutputs": {
+    "ownership": "Only root data-state is controller-owned; do not use ARIA as a visual state output.",
+    "min": "data-state=\"min\" when value equals min. This state cannot occur without min.",
+    "max": "data-state=\"max\" when value equals max. This state cannot occur without max.",
+    "between": "data-state=\"between\" otherwise, including nonnumeric values such as empty input or badInput."
+  },
+  "lifecycle": [
+    "Register root keydown, input, and change listeners and associated-form reset in connect(); remove them in disconnect().",
+    "Leave generated data-state on disconnect().",
+    "Synchronize state output from the current native value on reconnection.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Firefox, WebKit, and screen readers on real devices",
+        "item": "Accessibility-tree value exposure and number-input announcements",
+        "status": "unverified",
+        "impact": "Native number input semantics and validation remain authoritative; the controller does not select alternative ARIA from announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Conforming input[type=number] preserves native value, min, max, step, typing, arrow keys, and form semantics.",
+    "PageUp/PageDown move by pageStep steps, stop at min/max, and suppress page scrolling.",
+    "Home/End remain native caret operations, intentionally differing from the APG Spinbutton Pattern; measurements are recorded in docs/notes/browser-engine-differences.md.",
+    "Only trusted value changes emit one cancelable beforechange followed by one committed change, in that order. Cancellation preserves value and state.",
+    "Public API calls, initialization, form reset, and reconnection synchronize state outputs without custom events.",
+    "The controller adds neither role nor aria-value attributes and preserves authored attributes.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Engine differences in badInput display and wheel value changes are recorded in docs/notes/browser-engine-differences.md.",
+    "Report Firefox/WebKit accessibility-tree value exposure and real-device screen reader announcements as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "number-field-state-sync",
+      "description": "data-state min/max/between, missing bounds, nonnumeric values, and authored-attribute preservation"
+    },
+    {
+      "testId": "number-field-page-keys",
+      "description": "PageUp/PageDown delegation to stepUp/stepDown, pageStep, effective step one for step=\"any\", min/max clamping, preventDefault, and disabled/readonly no-ops"
+    },
+    {
+      "testId": "number-field-beforechange-cancel",
+      "description": "beforechange cancellation and restoration; change detail, order, and bubbling"
+    },
+    {
+      "testId": "number-field-native-change",
+      "description": "Capturing trusted native change from typing/arrows, converting to custom events, and determining reason"
+    },
+    {
+      "testId": "number-field-programmatic-silence",
+      "description": "No events from value assignment or synthetic input/change, with state synchronization"
+    },
+    {
+      "testId": "number-field-semantic-validation",
+      "description": "One warning and disabled enhancement for invalid roots or pageStep"
+    },
+    {
+      "testId": "number-field-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and state"
+    },
+    "Home/End left to native behavior (covered by number-field-page-keys)",
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "number-field-semantic-validation-negative",
+      "guard": "Semantic root and pageStep validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid roots and pageStep.",
+      "mutation": {
+        "description": "Remove reconcile()'s semantic validation guard and continue enhancement for invalid markup",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-semantic-validation-negative fails."
+    },
+    {
+      "testId": "number-field-page-keys-negative",
+      "guard": "PageUp/PageDown handling",
+      "plannedMutation": "Remove the page-key branch, leaving keys to which native input does not respond.",
+      "mutation": {
+        "description": "Remove PageUp/PageDown handling, leaving keys to which native input does not respond.",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.handlePageKey(input, event.key);",
+            "replace": "\t\t\treturn;"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-page-keys-negative and number-field-beforechange-cancel-negative fail because PageUp commitment and cancellation share the same invariant."
+    },
+    {
+      "testId": "number-field-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and value restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "description": "Ignore beforechange cancellation and always commit.",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-beforechange-cancel-negative and number-field-native-change fail because native change commitment shares the beforechange cancellation invariant."
+    },
+    {
+      "testId": "number-field-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit number-field:change from the value setter.",
+      "mutation": {
+        "description": "Emit number-field:change from the value setter.",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.valueAsNumber = value;\n\t\tthis.syncState(input);",
+            "replace": "\t\tinput.valueAsNumber = value;\n\t\tthis.syncState(input);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"number-field:change\", { bubbles: true }));"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "number-field-state-sync-negative",
+      "guard": "data-state synchronization",
+      "plannedMutation": "Remove data-state writes.",
+      "mutation": {
+        "description": "Remove data-state writes so state outputs are not synchronized.",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;",
+            "replace": "\t\tvoid state;"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-state-sync-negative, number-field-beforechange-cancel-negative, number-field-programmatic-silence-negative, number-field-semantic-validation-negative, and number-field-disconnect-cleanup-negative fail. Changes, cancellation restoration, public API, validation, and reconnection share data-state output."
+    },
+    {
+      "testId": "number-field-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave listeners active after disconnect.",
+      "mutation": {
+        "description": "Leave connected state and listeners active after disconnect.",
+        "file": "src/number_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "number-field-disconnect-cleanup-negative fails."
+    }
+  ]
+}

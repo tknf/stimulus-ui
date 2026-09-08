@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>clipboard | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states=""
+      data-catalog-properties=""
+      data-catalog-events="clipboard:beforecopy clipboard:copy"
+    >
+      <h1>clipboard</h1>
+      <section>
+        <h2>source target</h2>
+        <div class="catalog-component" data-controller="clipboard">
+          <code data-clipboard-target="source">https://example.com/share</code>
+          <button type="button" data-clipboard-target="trigger">Copy</button>
+        </div>
+      </section>
+      <section>
+        <h2>text</h2>
+        <div
+          class="catalog-component"
+          data-controller="clipboard"
+          data-clipboard-source-value="text"
+          data-clipboard-text-value="https://example.com/fixed"
+        >
+          <button type="button" data-clipboard-target="trigger">Copy</button>
+        </div>
+      </section>
+      <section>
+        <h2>selection</h2>
+        <div
+          class="catalog-component"
+          data-controller="clipboard"
+          data-clipboard-source-value="selection"
+        >
+          <span>Select part of this text to copy it.</span>
+          <button type="button" data-clipboard-target="trigger">Copy</button>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

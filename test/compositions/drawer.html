@@ -1,0 +1,45 @@
+<style>
+  .drawer-demo-panel {
+    box-sizing: border-box;
+    position: fixed;
+    inset: auto 0 0;
+    margin: 0;
+    inline-size: 100%;
+    max-inline-size: none;
+    max-block-size: none;
+    block-size: calc(30dvh + 60dvh * var(--slider-value, 0.5));
+    overflow: auto;
+  }
+
+  .drawer-demo-size {
+    inline-size: 240px;
+  }
+</style>
+<div data-controller="dialog" id="drawer-demo">
+  <button type="button" data-dialog-target="trigger" aria-controls="drawer-panel">
+    パネルを開く
+  </button>
+  <div data-controller="slider" id="drawer-size">
+    <dialog
+      id="drawer-panel"
+      class="drawer-demo-panel"
+      data-dialog-target="dialog"
+      aria-labelledby="drawer-title"
+    >
+      <h2 id="drawer-title" data-dialog-target="title">詳細</h2>
+      <button type="button" data-dialog-target="close" autofocus>パネルを閉じる</button>
+      <label for="drawer-height">パネルの高さ（画面に対する割合、%）</label>
+      <input
+        id="drawer-height"
+        class="drawer-demo-size"
+        data-slider-target="input"
+        type="range"
+        min="30"
+        max="90"
+        step="30"
+        value="60"
+      />
+      <p>パネルの内容</p>
+    </dialog>
+  </div>
+</div>

@@ -1,0 +1,280 @@
+{
+  "name": "character-count",
+  "controller": "character-count",
+  "pattern": "A headless character counter exposing input/textarea length and the effective limit through CSS custom properties, with overflow in data-state",
+  "responsibility": "Exposes field length and the effective limit on root CSS custom properties, marks overflow in root data-state, and associates a counter target with the field description. Does not render numbers, appearance, or content, or notify AT.",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/form-control-infrastructure.html",
+    "https://design-system.service.gov.uk/components/character-count/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"character-count\", containing the field and optional counter. CSS custom properties inherit to descendants, so fields/display elements outside the root cannot read them.",
+    "field": "Exactly one textarea or input of type text/search/url/tel/email/password with data-character-count-target=\"field\"",
+    "counter": "An optional display element with data-character-count-target=\"counter\". Consumers write its contents; the controller does not write the count.",
+    "max": "Set the limit with field maxlength or data-character-count-max-value.",
+    "label": "Consumers name the field through label, aria-label, or aria-labelledby.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Exactly one field target is required.",
+      "The field must be an HTMLTextAreaElement or HTMLInputElement of type text, search, url, tel, email, or password.",
+      "Zero or one counter target is allowed.",
+      "Field and counter targets must be root descendants."
+    ],
+    "typeRestrictionRationale": "input.maxLength returns the authored maxlength even for number/date/checkbox types in all three measured engines, so it cannot identify supported types. Explicitly restrict the contract to types where maxlength applies.",
+    "invalidMarkup": "Validate markup on connection. Invalid markup prevents listeners, CSS custom properties, data-state, and aria-describedby and warns once per connection. Do not throw.",
+    "warning": "Disabling warnings describe exactly one field target and supported field types.",
+    "completion": [],
+    "completionExempt": "Generated id and composed aria-describedby are operational attributes, not missing authored markup. Do not issue completion warnings."
+  },
+  "api": {
+    "values": {
+      "max": {
+        "type": "Number",
+        "htmlAttribute": "data-character-count-max-value",
+        "default": 0,
+        "description": "Limit; values <= 0 mean unlimited. A field maxlength attribute takes precedence."
+      }
+    },
+    "properties": {
+      "length": {
+        "type": "number",
+        "access": "getter",
+        "description": "Current field length in UTF-16 code units, or zero for invalid field markup."
+      },
+      "max": {
+        "type": "number",
+        "access": "getter",
+        "description": "The effective limit, or zero when unlimited."
+      },
+      "over": {
+        "type": "boolean",
+        "access": "getter",
+        "description": "True when an effective limit exists and length exceeds it."
+      }
+    },
+    "methods": {},
+    "events": {
+      "none": "Emit no custom events: the native field input event already reports value changes. Consumers listen to input and read length/max/over if needed, rather than receiving a duplicate event."
+    }
+  },
+  "consumerIntegration": {
+    "css": "Consumer CSS reads --character-count-value and --character-count-max. Do not output remaining count because CSS can derive it with calc(var(--character-count-max) - var(--character-count-value)).",
+    "counterTrick": "To render counts with CSS only, use counter-reset: n var(--character-count-value) and content: counter(n), verified in all three engines. Do not register --character-count-value with @property: all three measured engines then fail to use it in the counter.",
+    "accessibleCount": "CSS counters are visual-only. Value changes cause no DOM content mutation detectable by live regions: measurements in all three engines show zero content mutations and empty textContent/innerText. Consumers needing AT announcements must write DOM text to the counter target and manage the live region; the controller does not generate content.",
+    "programmatic": "Other controllers may read length/max/over through a Stimulus controller reference or outlets.",
+    "nested": "With no custom events, nested controllers cannot mix their events."
+  },
+  "behavior": {
+    "scope": "The root is a wrapper containing one field and zero or one counter.",
+    "counting": "Count field.value.length in UTF-16 code units, matching native maxlength. Specifications and three-engine measurements agree: entering 👍ab into maxlength=3 yields 👍a with length 3, because 👍 consumes two units. Do not count graphemes with Intl.Segmenter, which would disagree with maxlength.",
+    "newline": "Count textarea line breaks as one LF in the API value: \"a\\nb\" measures three in all engines. Do not normalize the value.",
+    "maxResolution": "Use field maxlength when present; otherwise use the max value. maxlength wins when both exist, avoiding competing limits. Without either, there is no limit.",
+    "overReachability": "maxlength prevents user input beyond the limit; over can still represent overlong server-provided initial values. To allow overflow and display a negative remaining count, omit maxlength and use max only.",
+    "initial": "Synchronize outputs from the field value at connect(); the controller has no separate initial value.",
+    "reset": "Synchronize outputs after associated-form reset.",
+    "disabled": "Field disabled/readOnly does not affect outputs because it does not change value length."
+  },
+  "keyboard": {
+    "none": "No keyboard operations. Delegate field input, editing, and caret movement entirely to native behavior."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Retain native field semantics: role, value, maxlength enforcement, and form behavior. Do not write role.",
+    "customProperty": "Set root --character-count-value to field length. Set --character-count-max only when a limit exists; remove it otherwise. Output unitless integer strings.",
+    "wiring": "When a counter exists, ensure its ID is unique in ownerDocument and compose it into field aria-describedby. Preserve authored IDs and description tokens; do not duplicate tokens.",
+    "ariaLive": "Do not supply aria-live. Consumers render the count, and the controller cannot decide whether their display is a live region. CSS counters produce no DOM content changes for live-region notification in all three measured engines. Chromium exposes generated content as an accessible name, but tested macOS Safari VoiceOver does not announce the counter; other AT remains unverified. Do not claim unverified behavior as controller responsibility.",
+    "preservation": "Preserve authored id, aria-describedby tokens, maxlength, and other attributes."
+  },
+  "stateOutputs": {
+    "ownership": "Only root data-state and CSS custom properties are controller-owned visual state outputs. Do not use ARIA for visual state or write count content to the counter.",
+    "over": "Set data-state=\"over\" only when a limit exists and length exceeds it; remove data-state otherwise.",
+    "rationale": "Overflow compares two numbers and is not consistently derivable in supported CSS. Measured Firefox lacks typed attr(), and numeric comparison of custom properties is not shared across all three engines. Output data-state because the two numeric properties alone are insufficient.",
+    "itemState": "Output overflow on the root because the component has one overall state; do not add per-item counter state."
+  },
+  "lifecycle": [
+    "Register field input and associated-form reset when enabling enhancement; remove them on disconnect() or invalidation.",
+    "Track structure through fieldTargetConnected, fieldTargetDisconnected, counterTargetConnected, and counterTargetDisconnected.",
+    "Recompute the effective limit and synchronize outputs in maxValueChanged.",
+    "Leave generated CSS custom properties and data-state on disconnect().",
+    "Synchronize from the current field value on reconnection.",
+    "Do not duplicate listeners when reconnecting the same instance."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers other than the tested macOS Safari + VoiceOver combination",
+        "item": "Announcements of CSS-generated counter content",
+        "status": "unverified",
+        "impact": "The controller exposes CSS values, not live-region content. The recorded VoiceOver non-announcement is preserved; other AT results do not change that responsibility."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Never move focus. There are no additional keyboard operations, satisfying 2.1.3.",
+    "For WCAG 4.1.3 Status Messages, the controller renders no count and owns no status message. Consumers displaying a count are responsible for its status-message semantics, as specified in consumerIntegration.accessibleCount.",
+    "--character-count-value equals field UTF-16 length; --character-count-max is absent when unlimited.",
+    "maxlength takes precedence over max; when only one is supplied, use that limit.",
+    "data-state=\"over\" exists only during overflow and is removed when overflow ends.",
+    "Ensure the counter ID and compose it into field aria-describedby while preserving existing tokens.",
+    "The controller emits no custom events.",
+    "Invalid markup disables enhancement with one warning",
+    "The controller must not write aria-live.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Tested macOS Safari VoiceOver does not announce CSS counter content; report other screen readers as unverified. Controller behavior does not depend on that result."
+  ],
+  "testMatrix": [
+    {
+      "testId": "character-count-value-output",
+      "description": "Initial/input synchronization of --character-count-value, UTF-16 counting (👍 uses two units), textarea LF counting as one, and unitless output"
+    },
+    {
+      "testId": "character-count-max-resolution",
+      "description": "Output/removal of --character-count-max with maxlength precedence, max only, both, or neither; max <= 0 means unlimited"
+    },
+    {
+      "testId": "character-count-over-state",
+      "description": "Addition/removal of data-state=\"over\", no overflow state without a limit, and overflow using max without maxlength"
+    },
+    {
+      "testId": "character-count-describedby-wiring",
+      "description": "Counter-ID generation and aria-describedby composition, preserving existing IDs/tokens, no collisions across two instances, and no description writes without a counter"
+    },
+    {
+      "testId": "character-count-event-silence",
+      "description": "No custom events from input, public API, reconnection, or form reset"
+    },
+    {
+      "testId": "character-count-aria-live-absence",
+      "description": "No aria-live, aria-atomic, or role=status on counter/root; preserve authored aria-live"
+    },
+    {
+      "testId": "character-count-semantic-validation",
+      "description": "One warning and disabled enhancement for invalid field counts/types (including number/date/checkbox) or targets outside the root"
+    },
+    {
+      "testId": "character-count-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup, retained outputs, and synchronization on reconnection"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device screen reader results: VoiceOver counter non-announcement verified; other AT unverified"
+  ],
+  "negativeControls": [
+    {
+      "testId": "character-count-semantic-validation-negative",
+      "guard": "Field count and type validation",
+      "plannedMutation": "Disable validation and enhance unsupported field types.",
+      "mutation": {
+        "description": "Remove reconcile()'s semantic validation guard and continue enhancement for invalid markup",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate reconcile = () => {\n\t\tif (!this.isValidMarkup()) {",
+            "replace": "\tprivate reconcile = () => {\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-semantic-validation-negative fails."
+    },
+    {
+      "testId": "character-count-value-output-negative",
+      "guard": "Writing --character-count-value",
+      "plannedMutation": "Remove the CSS custom-property write.",
+      "mutation": {
+        "description": "Remove --character-count-value output.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.style.setProperty(\"--character-count-value\", String(value));",
+            "replace": "\t\tvoid value;"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-value-output-negative and character-count-disconnect-cleanup fail because initial synchronization, input updates, and reconnection share the CSS output."
+    },
+    {
+      "testId": "character-count-max-resolution-negative",
+      "guard": "Resolving maxlength before max",
+      "plannedMutation": "Reverse precedence and always prefer max.",
+      "mutation": {
+        "description": "Remove the maxlength branch and always prefer max.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (rawMaxLength !== null) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-max-resolution-negative and character-count-over-state fail because overflow shares effective-limit resolution."
+    },
+    {
+      "testId": "character-count-over-state-negative",
+      "guard": "Adding and removing data-state=\"over\"",
+      "plannedMutation": "Always report no overflow and omit data-state.",
+      "mutation": {
+        "description": "Always report no overflow and omit data-state.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (max.hasLimit && value > max.value) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-over-state-negative fails."
+    },
+    {
+      "testId": "character-count-describedby-wiring-negative",
+      "guard": "Preserving existing aria-describedby tokens",
+      "plannedMutation": "Replace existing tokens with the generated ID instead of preserving them.",
+      "mutation": {
+        "description": "Replace existing aria-describedby tokens with the generated ID.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.clearDescribedByWiring();\n\t\tconst describedBy = new Set(\n\t\t\t(field.getAttribute(\"aria-describedby\") ?? \"\").split(/\\s+/).filter(Boolean),\n\t\t);",
+            "replace": "\t\tthis.clearDescribedByWiring();\n\t\tconst describedBy = new Set<string>();"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-describedby-wiring-negative fails."
+    },
+    {
+      "testId": "character-count-aria-live-absence-negative",
+      "guard": "Not writing aria-live",
+      "plannedMutation": "Add aria-live=\"polite\" to the counter.",
+      "mutation": {
+        "description": "Add aria-live=\"polite\" to the counter.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst counterId = ensureElementId(counter, \"character-count-counter\");",
+            "replace": "\t\tcounter.setAttribute(\"aria-live\", \"polite\");\n\t\tconst counterId = ensureElementId(counter, \"character-count-counter\");"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-aria-live-absence-negative fails."
+    },
+    {
+      "testId": "character-count-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave listeners active after disconnect.",
+      "mutation": {
+        "description": "Leave connected state and listeners active after disconnect.",
+        "file": "src/character_count_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.disableEnhancement();",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "character-count-disconnect-cleanup-negative fails."
+    }
+  ]
+}

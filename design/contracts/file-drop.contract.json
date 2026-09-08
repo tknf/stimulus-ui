@@ -1,0 +1,237 @@
+{
+  "name": "file-drop",
+  "controller": "file-drop",
+  "pattern": "A headless drop zone using native input[type=file] to intake files dragged and dropped onto a zone and output dragover state",
+  "responsibility": "Provides file-drag state output, intake of dropped files into input.files, the multiple constraint, and a cancelable intake event. Delegates keyboard operation and the file dialog to the native file input; the controller has no key handling. Does not generate appearance or content",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/dnd.html",
+    "https://html.spec.whatwg.org/multipage/input.html#file-upload-state-(type=file)",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any HTMLElement (drop zone) with data-controller=\"file-drop\". Do not use the native <input type=\"file\"> itself as root",
+    "targets": {
+      "input": "One native <input type=\"file\"> with data-file-drop-target=\"input\" inside the root"
+    },
+    "label": "The user supplies the input accessible name with <label>, aria-label, or aria-labelledby",
+    "multiple": "The input's native multiple attribute specifies whether multiple files are accepted",
+    "content": "The controller does not generate elements or content. The user's CSS reads data-state to determine zone appearance, including dragover emphasis"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLElement and not an HTMLInputElement; without a zone there is nowhere to output state",
+      "The input target must be exactly one native <input type=\"file\">"
+    ],
+    "invalidMarkup": "Validate on connection and input-target addition or removal. On violation, do not register listeners, output state, or intake files, and issue one console.warn while connected. Reapply enhancement when markup returns from invalid to valid (do not issue the warning again). Do not throw",
+    "warning": "The enhancement-disabled warning uses the standard English wording and includes the expected markup: an HTMLElement zone root and one native input[type=file] input target"
+  },
+  "api": {
+    "values": {},
+    "properties": {},
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "file-drop:beforedrop": {
+        "when": "Immediately before intaking dropped files into input.files",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "files": "The dropped File array"
+        },
+        "effect": "When preventDefault() is called, do not change input.files or dispatch file-drop:drop. Clear dragover state"
+      },
+      "file-drop:drop": {
+        "when": "After intake into input.files is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "files": "The intaken File array"
+        }
+      },
+      "noReason": "There is no detail.reason. The drop path is OS pointer drag only and has no information to distinguish its trigger. Keyboard file selection is handled by the native change event and does not involve the controller",
+      "syntheticException": "Intake and event dispatch occur for drop events even when isTrusted=false. Real OS drags cannot be synthesized in automated tests, and requiring isTrusted would make the intake path impossible to test. This is a component-specific exception to the isTrusted rejection rule",
+      "nativeEvents": "Assigning input.files does not dispatch native input / change events (measured 2026-08, consistent across three engines). The controller also does not dispatch synthetic native events. file-drop:drop provides the intake notification"
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Receive file-drop:drop and file-drop:beforedrop on the root or an ancestor. The controller does not stop event propagation",
+    "cancelableHook": "To stop intake, call event.preventDefault() in a file-drop:beforedrop listener",
+    "clickToOpen": "The user creates click-to-open dialog UI with label or input. The controller is not involved",
+    "nested": "When receiving an event from a nested file-drop instance outside, narrow it to the root with :self or event.target === event.currentTarget"
+  },
+  "behavior": {
+    "scope": "One zone and one input. No key handling, file dialog, or file validation (type or size). The user validates files by canceling beforedrop or using the native accept attribute",
+    "dragDetection": "React only to drags whose dataTransfer.types includes Files. Text and other drags produce neither state nor preventDefault",
+    "dragoverCounter": "Set dragover state only while the counter incremented by dragenter and decremented by dragleave is positive. Because dragenter / dragleave fire when entering or leaving child elements (measured 2026-08, consistent across three engines), do not consider the root left until the counter reaches 0. Do not use relatedTarget because its presence on real OS drag dragleave is not guaranteed by measurement. Reset the counter to 0 on drop, intake rejection, or disconnect",
+    "allowDrop": "Call preventDefault on dragenter / dragover during file drags to allow drop",
+    "multipleEnforce": "Do not intake or dispatch an event for multiple-file drops onto an input without multiple (the DOM does not apply multiple automatically on assignment; measured 2026-08. Choosing only the first would silently lose the rest). Clear only dragover state",
+    "disabled": "While input.disabled is true, do not output dragover state or intake files, matching the native file input not opening its dialog when disabled. Do not add data-* attributes for disabled state"
+  },
+  "managedMarkup": {
+    "aria": "Do not write ARIA. The zone is decorative and has no role; the user supplies the input accessible name. There are no attributes to supplement",
+    "stateOnly": "The only state output managed by the controller is root data-state",
+    "files": "Write input.files only during drop intake. Do not change files set by the user or native behavior",
+    "preservation": "Do not overwrite authored attributes"
+  },
+  "stateOutputs": {
+    "ownership": "Only root data-state is controller-owned",
+    "dragover": "data-state=\"dragover\" while a file drag is over the zone",
+    "idle": "data-state=\"idle\" otherwise"
+  },
+  "lifecycle": [
+    "Register root dragenter, dragover, dragleave, and drop listeners in connect() and remove them in disconnect()",
+    "Leave generated data-state in place on disconnect() and discard the dragover counter",
+    "Track input-target replacement with inputTargetConnected / inputTargetDisconnected",
+    "Do not duplicate listeners or custom events when the same instance reconnects"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "OS file dragging such as Finder and screen readers on real devices",
+        "item": "External file drops, coexistence with native input drops, and file-input announcements",
+        "status": "unverified",
+        "impact": "The native file picker remains the equivalent non-drag path; the controller processes delivered File objects without replacing native input semantics."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Native file input operation (Tab → Enter / Space to open the dialog) produces the same result as drop intake. The controller has no key handling and satisfies 2.1.3 through the native path",
+    "Synchronize dragover / idle on file-drag entry and exit without switching state incorrectly when entering or leaving child elements",
+    "Dispatch beforedrop → intake → drop once each in order, and have cancellation leave input.files unchanged",
+    "Do not intake or dispatch an event for multiple-file drops onto an input without multiple",
+    "Produce neither state nor intake for a disabled input",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit (synthetic DragEvent + DataTransfer)",
+    "Report real OS drag (drops from Finder and coexistence with native drops onto the input itself) as unverified because automated tests cannot synthesize it",
+    "Report real-device screen-reader results as unverified"
+  ],
+  "testMatrix": [
+    {
+      "testId": "file-drop-state-sync",
+      "description": "dragover / idle synchronization, no incorrect child-entry state changes, ignoring non-Files drags, and preserving authored attributes"
+    },
+    {
+      "testId": "file-drop-intake",
+      "description": "drop intake into input.files, beforedrop cancellation, event order and detail, and no native event dispatch"
+    },
+    {
+      "testId": "file-drop-multiple-enforce",
+      "description": "Reject multiple drops onto an input without multiple (no intake, no event, clear dragover) and intake multiple files when multiple is present"
+    },
+    {
+      "testId": "file-drop-disabled-guard",
+      "description": "No-op state and intake for a disabled input"
+    },
+    {
+      "testId": "file-drop-semantic-validation",
+      "description": "One warning and disabled enhancement when input is root, input target count is zero or two, or the target is not a file input"
+    },
+    {
+      "testId": "file-drop-disconnect-cleanup",
+      "description": "Listener removal and counter disposal on disconnect / reconnect"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real OS drag and real-device screen-reader results (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "file-drop-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid markup",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Disable the isValidMarkup() guard and continue enhancement for invalid markup",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-semantic-validation-negative fails."
+    },
+    {
+      "testId": "file-drop-state-sync-negative",
+      "guard": "Dragover counter and state synchronization",
+      "plannedMutation": "Change the counter check so dragover state is not output",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Fix the positive dragover-counter check to idle",
+        "replacements": [
+          {
+            "find": "\t\tconst state = this.dragDepth > 0 ? \"dragover\" : \"idle\";",
+            "replace": "\t\tconst state = \"idle\";"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-state-sync-negative fails. file-drop-multiple-enforce-negative and file-drop-disconnect-cleanup-negative also fail because they test the same data-state invariant"
+    },
+    {
+      "testId": "file-drop-intake-negative",
+      "guard": "beforedrop cancellation and intake",
+      "plannedMutation": "Ignore cancellation and always intake",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Ignore beforedrop cancellation and continue intake",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeDrop)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeDrop);"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-intake-negative fails."
+    },
+    {
+      "testId": "file-drop-multiple-enforce-negative",
+      "guard": "multiple constraint",
+      "plannedMutation": "Remove multiple-drop rejection and intake into a single-file input",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Remove rejection of multiple drops onto an input without multiple",
+        "replacements": [
+          {
+            "find": "\t\tif (!input.multiple && files.length > 1) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-multiple-enforce-negative fails."
+    },
+    {
+      "testId": "file-drop-disabled-guard-negative",
+      "guard": "Disabled no-op",
+      "plannedMutation": "Remove disabled check and intake",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Remove the disabled guard during drop and intake into a disabled input",
+        "replacements": [
+          {
+            "find": "\t\tif (input.disabled) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-disabled-guard-negative fails."
+    },
+    {
+      "testId": "file-drop-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave listeners active after disconnect.",
+      "mutation": {
+        "file": "src/file_drop_controller.ts",
+        "description": "Remove disconnect enhancement cleanup and leave the root listener",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t\tthis.disableEnhancement();",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t\tthis.dragDepth = 0;"
+          }
+        ]
+      },
+      "expectedFailure": "file-drop-disconnect-cleanup-negative fails."
+    }
+  ]
+}

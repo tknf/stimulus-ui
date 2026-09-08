@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tag-input | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states=""
+      data-catalog-properties=""
+      data-catalog-events="tag-input:beforeadd tag-input:add tag-input:beforeremove tag-input:remove"
+    >
+      <h1>tag-input</h1>
+      <section>
+        <h2>tag-input</h2>
+        <div
+          class="catalog-component"
+          data-controller="tag-input"
+          data-tag-input-delimiter-value=","
+        >
+          <ul aria-label="Selected tags">
+            <li data-tag-input-target="chip" data-tag-input-value="design">
+              Design
+              <button type="button" data-tag-input-target="remove">Remove</button>
+            </li>
+            <li data-tag-input-target="chip" data-tag-input-value="accessibility">
+              Accessibility
+              <button type="button" data-tag-input-target="remove">Remove</button>
+            </li>
+            <li data-tag-input-target="chip" data-tag-input-value="fixed">
+              Fixed
+              <button type="button" data-tag-input-target="remove" disabled>Remove</button>
+            </li>
+          </ul>
+          <label for="tag-input-field">Add a tag</label>
+          <input id="tag-input-field" type="text" data-tag-input-target="input" />
+        </div>
+      </section>
+      <section>
+        <h2>rtl</h2>
+        <div dir="rtl">
+          <div
+            class="catalog-component"
+            data-controller="tag-input"
+            data-tag-input-delimiter-value=","
+          >
+            <ul aria-label="Selected tags">
+              <li data-tag-input-target="chip" data-tag-input-value="design">
+                Design
+                <button type="button" data-tag-input-target="remove">Remove</button>
+              </li>
+              <li data-tag-input-target="chip" data-tag-input-value="accessibility">
+                Accessibility
+                <button type="button" data-tag-input-target="remove">Remove</button>
+              </li>
+            </ul>
+            <label for="tag-input-rtl-field">Add a tag</label>
+            <input id="tag-input-rtl-field" type="text" data-tag-input-target="input" />
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Without an input</h2>
+        <div class="catalog-component" data-controller="tag-input" data-inputless>
+          <ul aria-label="Selected tags">
+            <li data-tag-input-target="chip" data-tag-input-value="design">
+              Design
+              <button type="button" data-tag-input-target="remove" aria-label="Remove design">
+                Remove
+              </button>
+            </li>
+            <li data-tag-input-target="chip" data-tag-input-value="fixed">
+              Fixed
+              <button type="button" data-tag-input-target="remove" disabled>Remove</button>
+            </li>
+            <li data-tag-input-target="chip" data-tag-input-value="accessibility">
+              Accessibility
+              <button
+                type="button"
+                data-tag-input-target="remove"
+                aria-label="Remove accessibility"
+              >
+                Remove
+              </button>
+            </li>
+          </ul>
+          <button type="button" data-tag-input-target="fallback">Choose a tag</button>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

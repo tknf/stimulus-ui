@@ -1,0 +1,321 @@
+{
+  "name": "table-of-contents",
+  "controller": "table-of-contents",
+  "pattern": "Native nav and in-page links, with current location conveyed by aria-current=location",
+  "responsibility": "Determine the current heading from vertical document-viewport scrolling and synchronize the corresponding table-of-contents link. Delegate link activation, focus, hash, history, and scrolling to native behavior.",
+  "references": [
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-current",
+    "https://html.spec.whatwg.org/multipage/browsing-the-web.html#scroll-to-the-fragment",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API",
+    "https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Element/scrollHeight",
+    "https://www.w3.org/TR/accname-1.2/#computation-steps"
+  ],
+  "authorMarkup": {
+    "root": "Place data-controller=\"table-of-contents\" on an HTMLElement containing the nav and all headings. Nested instances remain independent through Stimulus scopes.",
+    "targets": {
+      "nav": "Provide exactly one named native <nav>.",
+      "link": "Provide one native <a href=\"#heading-id\"> per heading inside the nav. Link order is unrestricted.",
+      "heading": "Provide at least one native h1-h6 with a unique authored id. DOM order is reading order."
+    },
+    "labels": "Name the nav with aria-label or text-bearing aria-labelledby. Links and headings use those attributes or naming text content. Image-only naming is out of scope. Link names identify their destinations.",
+    "layout": "Support vertical document-viewport scrolling, not nested scroll containers, CSS-reordered reading order, or vertical writing. Consumers coordinate scroll-margin/scroll-padding and offset for fixed headers."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root is an HTMLElement, the single nav target a native nav, links descendant HTMLAnchorElements, and headings HTMLHeadingElements.",
+      "Heading ids must be nonempty, contain no whitespace, be unique among targets, and resolve to the same element through ownerDocument.getElementById. Consumers guarantee document-wide id uniqueness.",
+      "Links map one-to-one to headings. Resolved URL origin/pathname/search must match the document URL, with a nonempty fragment decoded from percent encoding for id matching.",
+      "offset must be a finite nonnegative Number."
+    ],
+    "names": "Validate the same text/explicit-ARIA naming subset as toggle-group. Ordinary content names exclude hidden text and SVG-only content, but directly referenced hidden aria-labelledby text counts. Consumers own name content and correct semantics.",
+    "invalidMarkup": "Validate on connection, target/root-subtree changes, and refresh. Invalid markup removes controller outputs, sets currentId=null, and emits one standard warning per connection. Resume when valid. Native links always remain usable.",
+    "completionExempt": "Use native semantics without completing static attributes or ids. Write aria-current without warnings because it synchronizes observed state."
+  },
+  "api": {
+    "values": {
+      "offset": {
+        "type": "Number",
+        "default": 0,
+        "description": "Detection position below the viewport top in CSS pixels, capped at viewport height minus 1."
+      }
+    },
+    "properties": {
+      "currentId": {
+        "type": "string | null",
+        "readonly": true,
+        "description": "Last output current heading id; null with no candidate, invalid markup, or disconnection."
+      }
+    },
+    "methods": {
+      "refresh()": {
+        "returns": "void",
+        "description": "Synchronously recalculate markup validity and current location. Call after unobservable layout changes such as external stylesheet updates. Emit no events."
+      }
+    },
+    "events": {
+      "none": "Emit no custom events and do not infer whether scrolling originated from the user or JS. The browser handles native click and hashchange."
+    }
+  },
+  "behavior": {
+    "current": "Select the last available heading in DOM order whose top <= effective offset + 1px, allowing 1px tolerance for native fragment scrolling. If none has passed, select the first. If the document has more than 1px of scroll range and is within 1px of its bottom, select the last heading. Do not treat short non-scrolling documents as at the bottom.",
+    "availability": "Exclude headings with no client rect, or whose self/ancestors have hidden, inert, aria-hidden=true, display:none, visibility:hidden/collapse, or content-visibility:hidden. With no candidates, currentId=null and all links are inactive.",
+    "native": "Do not subscribe to/cancel click or keydown, or write href, hash, history, focus, tabindex, or scroll position. Preserve native Tab order in RTL.",
+    "observation": "Recalculate next frame on document scroll; window resize/hashchange/pageshow; heading IntersectionObserver; root/documentElement/heading ResizeObserver; or root-subtree structure, text, id/href/name/display-attribute changes. Use refresh for arbitrary positioning changes from external ancestors or stylesheets. State-display CSS must not change heading layout."
+  },
+  "keyboard": {
+    "Tab": "Move through links in native order without roving tabindex.",
+    "Shift+Tab": "Native reverse order",
+    "Enter": "Activate native in-page links without adding arrow-key navigation."
+  },
+  "managedMarkup": {
+    "link": "Only the current link has aria-current=\"location\" and data-state=\"current\"; others have aria-current=\"false\" and data-state=\"inactive\".",
+    "preservation": "Do not change role, id, href, tabindex, style, class, labels, or content. Save pre-connection values of the two managed attributes and restore them on target disconnection, invalidation, or disconnect.",
+    "root": "Write no state, ARIA, or CSS custom properties on the root or headings."
+  },
+  "stateOutputs": {
+    "link": ["current", "inactive"],
+    "root": "No output",
+    "cssCustomProperties": "No output"
+  },
+  "lifecycle": [
+    "Batch target changes into the next frame and ignore pre-connection target callbacks.",
+    "disconnect removes all listeners/observers and pending animation frames, restoring outputs. Delayed callbacks do not write state after disconnection.",
+    "Reconnecting must not duplicate observers; recalculate from current markup and viewport."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver",
+        "item": "Announcements of native nav/link/heading semantics and aria-current=location",
+        "status": "unverified",
+        "impact": "Compatibility observation: public behavior follows native semantics and ARIA's current-location definition, independently of announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 Level AA, preserving current-location semantics and native keyboard operation. Consumers own document structure, link names, appearance, and focus indicators.",
+    "AAA 2.1.3 Keyboard (No Exception): no pointer-only features; all links activate through native keyboard behavior.",
+    "AAA 3.2.5 Change on Request: the controller does not move focus or change context while passively tracking scrolling.",
+    "Verify detection boundaries, short final sections, offset, dynamic targets, name/URL validation, native operations, and disconnect in Chromium, Firefox, and WebKit.",
+    "Retain real-device VoiceOver announcements in the completion report as unverified observations when not checked."
+  ],
+  "testMatrix": [
+    {
+      "testId": "toc-position",
+      "description": "Select the last heading that passed the top in DOM order, including scrolling through gaps"
+    },
+    {
+      "testId": "toc-bottom",
+      "description": "Select a short final section at the document bottom"
+    },
+    {
+      "testId": "toc-short-document",
+      "description": "Select the first heading in a non-scrolling document"
+    },
+    {
+      "testId": "toc-offset",
+      "description": "Apply offset changes and constrain the detection position to the viewport"
+    },
+    {
+      "testId": "toc-availability",
+      "description": "Exclude hidden/inert/aria-hidden headings and ancestors, including no-candidate states"
+    },
+    {
+      "testId": "toc-validation",
+      "description": "Disable invalid native structure, mappings, or offsets and resume after repair"
+    },
+    {
+      "testId": "toc-url",
+      "description": "Accept only same-document fragments and decode percent encoding"
+    },
+    {
+      "testId": "toc-names",
+      "description": "Name validation"
+    },
+    {
+      "testId": "toc-dynamic",
+      "description": "Observe target addition/replacement/removal and layout changes"
+    },
+    {
+      "testId": "toc-native",
+      "description": "Native behavior verification"
+    },
+    {
+      "testId": "toc-cleanup",
+      "description": "Disconnect while retaining DOM nodes removes outputs/observers and stops pending updates"
+    },
+    {
+      "testId": "toc-observer-cleanup",
+      "description": "disconnect removes registered observers/listeners and scheduled frames"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "toc-position-negative",
+      "guard": "Select the first passed heading instead of the last",
+      "mutation": {
+        "description": "Select the first passed heading instead of the last",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "passed.at(-1) ?? headings[0]",
+            "replace": "headings[0]"
+          }
+        ]
+      },
+      "expectedFailure": "toc-position-negative fails, along with toc-offset, toc-dynamic, toc-cleanup, and catalog current-location checks."
+    },
+    {
+      "testId": "toc-state-negative",
+      "guard": "Output current-location ARIA with a value other than location",
+      "mutation": {
+        "description": "Output current-location ARIA with a value other than location",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "current ? \"location\" : \"false\"",
+            "replace": "current ? \"page\" : \"false\""
+          }
+        ]
+      },
+      "expectedFailure": "toc-state-negative and the catalog aria-current check fail."
+    },
+    {
+      "testId": "toc-bottom-negative",
+      "guard": "Remove the document-bottom special case",
+      "mutation": {
+        "description": "Remove the document-bottom special case",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "atBottom ? headings.at(-1) :",
+            "replace": "false ? headings.at(-1) :"
+          }
+        ]
+      },
+      "expectedFailure": "toc-bottom-negative and the catalog bottom check fail."
+    },
+    {
+      "testId": "toc-range-negative",
+      "guard": "Treat non-scrolling documents as at the bottom",
+      "mutation": {
+        "description": "Treat non-scrolling documents as at the bottom",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "range > 1 &&",
+            "replace": "true &&"
+          }
+        ]
+      },
+      "expectedFailure": "toc-range-negative fails."
+    },
+    {
+      "testId": "toc-offset-negative",
+      "guard": "Ignore offset",
+      "mutation": {
+        "description": "Ignore offset",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "Math.min(this.offsetValue, Math.max(0, viewport - 1))",
+            "replace": "0"
+          }
+        ]
+      },
+      "expectedFailure": "toc-offset-negative and the catalog fixed-table-of-contents check fail."
+    },
+    {
+      "testId": "toc-availability-negative",
+      "guard": "Include unavailable headings as candidates",
+      "mutation": {
+        "description": "Include unavailable headings as candidates",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "this.headingTargets.filter(this.isAvailable)",
+            "replace": "this.headingTargets"
+          }
+        ]
+      },
+      "expectedFailure": "toc-availability-negative fails."
+    },
+    {
+      "testId": "toc-validation-negative",
+      "guard": "Keep enhancement active with invalid markup",
+      "mutation": {
+        "description": "Keep enhancement active with invalid markup",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "this.enhanced = this.isValidMarkup();",
+            "replace": "this.enhanced = true;"
+          }
+        ]
+      },
+      "expectedFailure": "toc-validation-negative fails, along with invalidation checks in toc-url and toc-names."
+    },
+    {
+      "testId": "toc-url-negative",
+      "guard": "Accept URLs with a different query",
+      "mutation": {
+        "description": "Accept URLs with a different query",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "url.search !== current.search",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "toc-url-negative fails."
+    },
+    {
+      "testId": "toc-dynamic-negative",
+      "guard": "Do not restore disconnected link state",
+      "mutation": {
+        "description": "Do not restore disconnected link state",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "this.restoreLink(link);\n\t\tthis.scheduleRefresh();",
+            "replace": "this.scheduleRefresh();"
+          }
+        ]
+      },
+      "expectedFailure": "toc-dynamic-negative fails."
+    },
+    {
+      "testId": "toc-cleanup-negative",
+      "guard": "Do not restore state on disconnect",
+      "mutation": {
+        "description": "Do not restore state on disconnect",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "this.frame = undefined;\n\t\tthis.restoreAll();",
+            "replace": "this.frame = undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "toc-cleanup-negative fails."
+    },
+    {
+      "testId": "toc-observer-cleanup-negative",
+      "guard": "Observer, listener, and frame cleanup",
+      "mutation": {
+        "description": "Remove MutationObserver cleanup",
+        "file": "src/table_of_contents_controller.ts",
+        "replacements": [
+          {
+            "find": "this.observer?.disconnect();",
+            "replace": "if (false) this.observer?.disconnect();"
+          }
+        ]
+      },
+      "expectedFailure": "toc-observer-cleanup-negative fails."
+    }
+  ]
+}

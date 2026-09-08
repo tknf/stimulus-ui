@@ -1,0 +1,36 @@
+<button type="button" id="navigation-outside">ナビゲーションの外</button>
+<nav aria-label="検証用サイト">
+  <ul>
+    <li>
+      <details
+        id="products-navigation"
+        data-controller="disclosure navigation-demo"
+        data-navigation-demo-disclosure-outlet="#products-navigation"
+        data-action="keydown.esc@window->navigation-demo#escape pointerenter->navigation-demo#enter pointerleave->navigation-demo#leave focusout->navigation-demo#leave"
+      >
+        <summary data-disclosure-target="trigger" data-navigation-demo-target="trigger">
+          製品
+        </summary>
+        <ul data-disclosure-target="panel">
+          <li><a href="#product-overview">製品概要</a></li>
+          <li><a href="#product-price">料金</a></li>
+        </ul>
+      </details>
+    </li>
+    <li>
+      <details
+        id="company-navigation"
+        data-controller="disclosure navigation-demo"
+        data-navigation-demo-disclosure-outlet="#company-navigation"
+        data-action="keydown.esc@window->navigation-demo#escape pointerenter->navigation-demo#enter pointerleave->navigation-demo#leave focusout->navigation-demo#leave"
+      >
+        <summary data-disclosure-target="trigger" data-navigation-demo-target="trigger">
+          会社
+        </summary>
+        <ul data-disclosure-target="panel">
+          <li><a href="#company-overview">会社概要</a></li>
+        </ul>
+      </details>
+    </li>
+  </ul>
+</nav>

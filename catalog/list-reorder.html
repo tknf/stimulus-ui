@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>list-reorder | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="idle picked data-drop-position"
+      data-catalog-properties=""
+      data-catalog-events="list-reorder:beforechange list-reorder:change"
+    >
+      <h1>list-reorder</h1>
+      <section>
+        <h2>Vertical ordered list</h2>
+        <div
+          class="catalog-reorder"
+          data-controller="list-reorder"
+          role="group"
+          aria-label="Task order"
+        >
+          <p data-list-reorder-target="instructions">
+            Press Enter or Space on a reorder button to pick an item up. Use Up, Down, Home, or End
+            to focus a destination. Enter or Space drops it at that position; Escape cancels. Tab or
+            Shift+Tab cancels and moves focus normally. You can also drag or use the previous/next
+            buttons.
+          </p>
+          <ol
+            id="reorder-vertical"
+            class="catalog-reorder-list"
+            data-list-reorder-target="list"
+            role="list"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+          >
+            <li id="reorder-plan" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Planning</span>
+              <button type="button" data-list-reorder-target="handle">Reorder planning</button>
+              <button type="button" data-list-reorder-target="previous">
+                Move planning earlier
+              </button>
+              <button type="button" data-list-reorder-target="next">Move planning later</button>
+            </li>
+            <li id="reorder-build" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Implementation</span>
+              <button type="button" data-list-reorder-target="handle">
+                Reorder implementation
+              </button>
+              <button type="button" data-list-reorder-target="previous">
+                Move implementation earlier
+              </button>
+              <button type="button" data-list-reorder-target="next">
+                Move implementation later
+              </button>
+            </li>
+            <li id="reorder-test" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Verification</span>
+              <button type="button" data-list-reorder-target="handle">Reorder verification</button>
+              <button type="button" data-list-reorder-target="previous">
+                Move verification earlier
+              </button>
+              <button type="button" data-list-reorder-target="next">Move verification later</button>
+            </li>
+          </ol>
+        </div>
+      </section>
+      <section>
+        <h2>Horizontal unordered list</h2>
+        <div
+          class="catalog-reorder"
+          data-controller="list-reorder"
+          data-list-reorder-orientation-value="horizontal"
+          role="group"
+          aria-label="Display order"
+        >
+          <p data-list-reorder-target="instructions">
+            Press Enter or Space to pick an item up. Use Left, Right, Home, or End to focus a
+            destination. Enter or Space drops it at that position; Escape cancels. Tab or Shift+Tab
+            moves focus normally. You can also drag or use the previous/next buttons.
+          </p>
+          <ul
+            id="reorder-horizontal"
+            class="catalog-reorder-list catalog-reorder-horizontal"
+            data-list-reorder-target="list"
+            role="list"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+          >
+            <li id="reorder-red" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Red</span>
+              <button type="button" data-list-reorder-target="handle">Reorder red</button>
+              <button type="button" data-list-reorder-target="previous">Move red earlier</button>
+              <button type="button" data-list-reorder-target="next">Move red later</button>
+            </li>
+            <li id="reorder-green" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Green</span>
+              <button type="button" data-list-reorder-target="handle">Reorder green</button>
+              <button type="button" data-list-reorder-target="previous">Move green earlier</button>
+              <button type="button" data-list-reorder-target="next">Move green later</button>
+            </li>
+            <li id="reorder-blue" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Blue</span>
+              <button type="button" data-list-reorder-target="handle">Reorder blue</button>
+              <button type="button" data-list-reorder-target="previous">Move blue earlier</button>
+              <button type="button" data-list-reorder-target="next">Move blue later</button>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <section>
+        <h2>Horizontal, RTL, disabled</h2>
+        <div
+          class="catalog-reorder"
+          data-controller="list-reorder"
+          data-list-reorder-orientation-value="horizontal"
+          dir="rtl"
+          role="group"
+          aria-label="Right-to-left display order"
+        >
+          <p data-list-reorder-target="instructions">
+            Press Enter or Space to pick an item up. Use Left, Right, Home, or End to focus a
+            destination. Enter or Space drops it at that position; Escape cancels. Tab or Shift+Tab
+            moves focus normally. You can also drag or use the previous/next buttons.
+          </p>
+          <ul
+            id="reorder-rtl"
+            class="catalog-reorder-list catalog-reorder-horizontal"
+            data-list-reorder-target="list"
+            role="list"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+          >
+            <li id="reorder-one" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>One</span>
+              <button type="button" data-list-reorder-target="handle">Reorder one</button>
+              <button type="button" data-list-reorder-target="previous">Move one earlier</button>
+              <button type="button" data-list-reorder-target="next">Move one later</button>
+            </li>
+            <li id="reorder-two" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Two</span>
+              <button type="button" data-list-reorder-target="handle" disabled>Reorder two</button>
+              <button type="button" data-list-reorder-target="previous" disabled>
+                Move two earlier
+              </button>
+              <button type="button" data-list-reorder-target="next" disabled>Move two later</button>
+            </li>
+            <li id="reorder-three" class="catalog-reorder-item" data-list-reorder-target="item">
+              <span>Three</span>
+              <button type="button" data-list-reorder-target="handle">Reorder three</button>
+              <button type="button" data-list-reorder-target="previous">Move three earlier</button>
+              <button type="button" data-list-reorder-target="next">Move three later</button>
+            </li>
+          </ul>
+        </div>
+      </section>
+      <section>
+        <h2>Empty list</h2>
+        <div
+          class="catalog-reorder"
+          data-controller="list-reorder"
+          role="group"
+          aria-label="Empty task order"
+        >
+          <p data-list-reorder-target="instructions">
+            Press Enter or Space on an item's reorder button to pick it up. Choose a destination
+            with arrows, Home, or End; drop with Enter or Space, or cancel with Escape. Tab and
+            Shift+Tab move focus normally. The previous/next buttons also move items.
+          </p>
+          <ol
+            class="catalog-reorder-list"
+            data-list-reorder-target="list"
+            role="list"
+            aria-live="polite"
+            aria-atomic="false"
+            aria-relevant="additions"
+          ></ol>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

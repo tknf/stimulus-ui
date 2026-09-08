@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>image-cropper | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="idle moving resizing adjusting"
+      data-catalog-properties="--image-cropper-x --image-cropper-y --image-cropper-width --image-cropper-height --image-cropper-zoom --image-cropper-offset-x --image-cropper-offset-y"
+      data-catalog-events="image-cropper:beforechange image-cropper:change"
+    >
+      <h1>image-cropper</h1>
+      <section>
+        <h2>default LTR</h2>
+        <div
+          class="catalog-component catalog-image-cropper"
+          data-controller="image-cropper"
+          role="group"
+          aria-label="Image cropper"
+        >
+          <div
+            id="catalog-image-cropper-ltr-viewport"
+            class="catalog-image-cropper-viewport"
+            data-image-cropper-target="viewport"
+          >
+            <img
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232c5282'/%3E%3Ccircle cx='90' cy='100' r='55' fill='%23f6ad55'/%3E%3Crect x='175' y='45' width='95' height='145' fill='%2368d391'/%3E%3C/svg%3E"
+              alt="Circles and squares on a blue background"
+              draggable="false"
+              data-image-cropper-target="image"
+            />
+            <button
+              type="button"
+              data-image-cropper-target="selection"
+              aria-label="Adjust crop position"
+              aria-controls="catalog-image-cropper-ltr-x catalog-image-cropper-ltr-y"
+              aria-describedby="catalog-image-cropper-ltr-instructions"
+            >
+              Position
+            </button>
+            <button
+              type="button"
+              data-image-cropper-target="resize"
+              aria-label="Adjust crop size"
+              aria-controls="catalog-image-cropper-ltr-width catalog-image-cropper-ltr-height"
+              aria-describedby="catalog-image-cropper-ltr-instructions"
+            >
+              Size
+            </button>
+          </div>
+          <p id="catalog-image-cropper-ltr-instructions" data-image-cropper-target="instructions">
+            Use position arrows, Shift+arrows, size arrows, +/-, Escape, and Enter or Space.
+          </p>
+          <div class="catalog-image-cropper-controls">
+            <label for="catalog-image-cropper-ltr-x">X position (%)</label>
+            <input
+              id="catalog-image-cropper-ltr-x"
+              type="range"
+              min="0"
+              max="50"
+              step="any"
+              value="25"
+              aria-controls="catalog-image-cropper-ltr-viewport"
+              data-image-cropper-target="xControl"
+            />
+            <label for="catalog-image-cropper-ltr-y">Y position (%)</label>
+            <input
+              id="catalog-image-cropper-ltr-y"
+              type="range"
+              min="0"
+              max="50"
+              step="any"
+              value="25"
+              aria-controls="catalog-image-cropper-ltr-viewport"
+              data-image-cropper-target="yControl"
+            />
+            <label for="catalog-image-cropper-ltr-width">Width (%)</label>
+            <input
+              id="catalog-image-cropper-ltr-width"
+              type="range"
+              min="1"
+              max="75"
+              step="any"
+              value="50"
+              aria-controls="catalog-image-cropper-ltr-viewport"
+              data-image-cropper-target="widthControl"
+            />
+            <label for="catalog-image-cropper-ltr-height">Height (%)</label>
+            <input
+              id="catalog-image-cropper-ltr-height"
+              type="range"
+              min="1"
+              max="75"
+              step="any"
+              value="50"
+              aria-controls="catalog-image-cropper-ltr-viewport"
+              data-image-cropper-target="heightControl"
+            />
+            <label for="catalog-image-cropper-ltr-zoom">Scale</label>
+            <input
+              id="catalog-image-cropper-ltr-zoom"
+              type="range"
+              min="1"
+              max="5"
+              step="any"
+              value="1"
+              aria-controls="catalog-image-cropper-ltr-viewport"
+              data-image-cropper-target="zoomControl"
+            />
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>RTL</h2>
+        <div
+          dir="rtl"
+          class="catalog-component catalog-image-cropper"
+          data-controller="image-cropper"
+          role="group"
+          aria-label="Right-to-left image cropper"
+        >
+          <div
+            id="catalog-image-cropper-rtl-viewport"
+            class="catalog-image-cropper-viewport"
+            data-image-cropper-target="viewport"
+          >
+            <img
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232c5282'/%3E%3Ccircle cx='90' cy='100' r='55' fill='%23f6ad55'/%3E%3Crect x='175' y='45' width='95' height='145' fill='%2368d391'/%3E%3C/svg%3E"
+              alt="Circles and squares on a blue background"
+              draggable="false"
+              data-image-cropper-target="image"
+            />
+            <button
+              type="button"
+              data-image-cropper-target="selection"
+              aria-label="Adjust right-to-left crop position"
+              aria-controls="catalog-image-cropper-rtl-x catalog-image-cropper-rtl-y"
+              aria-describedby="catalog-image-cropper-rtl-instructions"
+            >
+              Position
+            </button>
+            <button
+              type="button"
+              data-image-cropper-target="resize"
+              aria-label="Adjust right-to-left crop size"
+              aria-controls="catalog-image-cropper-rtl-width catalog-image-cropper-rtl-height"
+              aria-describedby="catalog-image-cropper-rtl-instructions"
+            >
+              Size
+            </button>
+          </div>
+          <p id="catalog-image-cropper-rtl-instructions" data-image-cropper-target="instructions">
+            Use position arrows, Shift+arrows, size arrows, +/-, Escape, and Enter or Space.
+          </p>
+          <div class="catalog-image-cropper-controls">
+            <label for="catalog-image-cropper-rtl-x">X position (%)</label>
+            <input
+              id="catalog-image-cropper-rtl-x"
+              type="range"
+              min="0"
+              max="50"
+              step="any"
+              value="25"
+              aria-controls="catalog-image-cropper-rtl-viewport"
+              data-image-cropper-target="xControl"
+            />
+            <label for="catalog-image-cropper-rtl-y">Y position (%)</label>
+            <input
+              id="catalog-image-cropper-rtl-y"
+              type="range"
+              min="0"
+              max="50"
+              step="any"
+              value="25"
+              aria-controls="catalog-image-cropper-rtl-viewport"
+              data-image-cropper-target="yControl"
+            />
+            <label for="catalog-image-cropper-rtl-width">Width (%)</label>
+            <input
+              id="catalog-image-cropper-rtl-width"
+              type="range"
+              min="1"
+              max="75"
+              step="any"
+              value="50"
+              aria-controls="catalog-image-cropper-rtl-viewport"
+              data-image-cropper-target="widthControl"
+            />
+            <label for="catalog-image-cropper-rtl-height">Height (%)</label>
+            <input
+              id="catalog-image-cropper-rtl-height"
+              type="range"
+              min="1"
+              max="75"
+              step="any"
+              value="50"
+              aria-controls="catalog-image-cropper-rtl-viewport"
+              data-image-cropper-target="heightControl"
+            />
+            <label for="catalog-image-cropper-rtl-zoom">Scale</label>
+            <input
+              id="catalog-image-cropper-rtl-zoom"
+              type="range"
+              min="1"
+              max="5"
+              step="any"
+              value="1"
+              aria-controls="catalog-image-cropper-rtl-viewport"
+              data-image-cropper-target="zoomControl"
+            />
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Controls inside native details</h2>
+        <div
+          class="catalog-component catalog-image-cropper"
+          data-controller="image-cropper"
+          role="group"
+          aria-label="Image cropper with advanced controls"
+        >
+          <div
+            id="catalog-image-cropper-details-viewport"
+            class="catalog-image-cropper-viewport"
+            data-image-cropper-target="viewport"
+          >
+            <img
+              src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='320' height='240' viewBox='0 0 320 240'%3E%3Crect width='320' height='240' fill='%232c5282'/%3E%3Ccircle cx='90' cy='100' r='55' fill='%23f6ad55'/%3E%3Crect x='175' y='45' width='95' height='145' fill='%2368d391'/%3E%3C/svg%3E"
+              alt="Circles and squares on a blue background"
+              draggable="false"
+              data-image-cropper-target="image"
+            />
+            <button
+              type="button"
+              data-image-cropper-target="selection"
+              aria-label="Adjust advanced crop position"
+              aria-controls="catalog-image-cropper-details-x catalog-image-cropper-details-y"
+              aria-describedby="catalog-image-cropper-details-instructions"
+            >
+              Position
+            </button>
+            <button
+              type="button"
+              data-image-cropper-target="resize"
+              aria-label="Adjust advanced crop size"
+              aria-controls="catalog-image-cropper-details-width catalog-image-cropper-details-height"
+              aria-describedby="catalog-image-cropper-details-instructions"
+            >
+              Size
+            </button>
+          </div>
+          <p
+            id="catalog-image-cropper-details-instructions"
+            data-image-cropper-target="instructions"
+          >
+            Use position arrows, Shift+arrows, size arrows, +/-, Escape, and Enter or Space.
+          </p>
+          <details class="catalog-image-cropper-details">
+            <summary>Crop controls</summary>
+            <div class="catalog-image-cropper-controls">
+              <label for="catalog-image-cropper-details-x">X position (%)</label>
+              <input
+                id="catalog-image-cropper-details-x"
+                type="range"
+                min="0"
+                max="50"
+                step="any"
+                value="25"
+                aria-controls="catalog-image-cropper-details-viewport"
+                data-image-cropper-target="xControl"
+              />
+              <label for="catalog-image-cropper-details-y">Y position (%)</label>
+              <input
+                id="catalog-image-cropper-details-y"
+                type="range"
+                min="0"
+                max="50"
+                step="any"
+                value="25"
+                aria-controls="catalog-image-cropper-details-viewport"
+                data-image-cropper-target="yControl"
+              />
+              <label for="catalog-image-cropper-details-width">Width (%)</label>
+              <input
+                id="catalog-image-cropper-details-width"
+                type="range"
+                min="1"
+                max="75"
+                step="any"
+                value="50"
+                aria-controls="catalog-image-cropper-details-viewport"
+                data-image-cropper-target="widthControl"
+              />
+              <label for="catalog-image-cropper-details-height">Height (%)</label>
+              <input
+                id="catalog-image-cropper-details-height"
+                type="range"
+                min="1"
+                max="75"
+                step="any"
+                value="50"
+                aria-controls="catalog-image-cropper-details-viewport"
+                data-image-cropper-target="heightControl"
+              />
+              <label for="catalog-image-cropper-details-zoom">Scale</label>
+              <input
+                id="catalog-image-cropper-details-zoom"
+                type="range"
+                min="1"
+                max="5"
+                step="any"
+                value="1"
+                aria-controls="catalog-image-cropper-details-viewport"
+                data-image-cropper-target="zoomControl"
+              />
+            </div>
+          </details>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

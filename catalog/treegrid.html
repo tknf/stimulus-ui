@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>treegrid | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="expanded collapsed data-selected"
+      data-catalog-properties=""
+      data-catalog-events="treegrid:beforetoggle treegrid:toggle treegrid:beforechange treegrid:change"
+    >
+      <h1>treegrid</h1>
+      <section>
+        <h2>selection none</h2>
+        <table
+          class="catalog-component"
+          data-controller="treegrid"
+          data-treegrid-expanded-value='["projects"]'
+          role="treegrid"
+          aria-label="Files"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="projects">
+              <th scope="row">
+                <button type="button" data-treegrid-target="toggle">Project</button>
+              </th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="2" data-treegrid-value="design">
+              <th scope="row">Design</th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="archive">
+              <th scope="row">Archive</th>
+              <td>Folder</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h2>selection single</h2>
+        <table
+          class="catalog-component"
+          data-controller="treegrid"
+          data-treegrid-selection-value="single"
+          data-treegrid-selected-value='["design"]'
+          role="treegrid"
+          aria-label="Files"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="projects">
+              <th scope="row">
+                <button type="button" data-treegrid-target="toggle">Project</button>
+              </th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="2" data-treegrid-value="design">
+              <th scope="row">Design</th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="archive">
+              <th scope="row">Archive</th>
+              <td>Folder</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h2>selection multiple</h2>
+        <table
+          class="catalog-component"
+          data-controller="treegrid"
+          data-treegrid-selection-value="multiple"
+          data-treegrid-selected-value='["projects", "design"]'
+          role="treegrid"
+          aria-label="Files"
+        >
+          <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="projects">
+              <th scope="row">
+                <button type="button" data-treegrid-target="toggle">Project</button>
+              </th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="2" data-treegrid-value="design">
+              <th scope="row">Design</th>
+              <td>Folder</td>
+            </tr>
+            <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="archive">
+              <th scope="row">Archive</th>
+              <td>Folder</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h2>rtl</h2>
+        <div dir="rtl">
+          <table
+            class="catalog-component"
+            data-controller="treegrid"
+            data-treegrid-expanded-value='["projects"]'
+            role="treegrid"
+            aria-label="Files"
+          >
+            <thead>
+              <tr>
+                <th scope="col">Name</th>
+                <th scope="col">Type</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="projects">
+                <th scope="row">
+                  <button type="button" data-treegrid-target="toggle">Project</button>
+                </th>
+                <td>Folder</td>
+              </tr>
+              <tr data-treegrid-target="row" data-treegrid-level="2" data-treegrid-value="design">
+                <th scope="row">Design</th>
+                <td>Folder</td>
+              </tr>
+              <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="archive">
+                <th scope="row">Archive</th>
+                <td>Folder</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>avatar | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="loading loaded error"
+      data-catalog-properties=""
+      data-catalog-events=""
+    >
+      <h1>avatar</h1>
+      <section>
+        <h2>Loaded image</h2>
+        <div class="catalog-component catalog-avatar" data-controller="avatar">
+          <img
+            alt="Profile image"
+            src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22%3E%3C/svg%3E"
+            data-avatar-target="image"
+          />
+          <span data-avatar-target="fallback">Profile image</span>
+        </div>
+      </section>
+      <section>
+        <h2>Fallback without an image source</h2>
+        <div class="catalog-component catalog-avatar" data-controller="avatar">
+          <img alt="Profile image" data-avatar-target="image" />
+          <span data-avatar-target="fallback">Profile image</span>
+        </div>
+      </section>
+      <section>
+        <h2>Loading image</h2>
+        <div class="catalog-component catalog-avatar" data-controller="avatar">
+          <img
+            alt="Profile image"
+            loading="lazy"
+            src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%221%22 height=%221%22%3E%3C/svg%3E"
+            data-avatar-target="image"
+          />
+          <span data-avatar-target="fallback">Loading profile image</span>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

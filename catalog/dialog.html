@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dialog | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="open closed"
+      data-catalog-properties="--dialog-x --dialog-y --dialog-width --dialog-height"
+      data-catalog-events="dialog:beforeopen dialog:open dialog:beforeclose dialog:close dialog:beforechange dialog:change"
+    >
+      <h1>dialog</h1>
+      <section>
+        <h2>Modal with trigger, close, and title</h2>
+        <div class="catalog-component" data-controller="dialog">
+          <button type="button" data-dialog-target="trigger" aria-controls="catalog-dialog-modal">
+            Open dialog
+          </button>
+          <dialog
+            id="catalog-dialog-modal"
+            data-dialog-target="dialog"
+            aria-labelledby="catalog-dialog-title"
+          >
+            <h2 id="catalog-dialog-title" data-dialog-target="title">Confirm</h2>
+            <p>Save changes?</p>
+            <button type="button" data-dialog-target="close">Close</button>
+          </dialog>
+        </div>
+      </section>
+      <section>
+        <h2>Non-modal movement and resizing inside a container</h2>
+        <div
+          class="catalog-component catalog-dialog-panel"
+          data-controller="dialog"
+          data-dialog-modal-value="false"
+          data-dialog-width-value="70"
+          data-dialog-height-value="70"
+        >
+          <button type="button" data-dialog-target="trigger" aria-controls="catalog-panel-ltr">
+            Open panel
+          </button>
+          <button type="button">Background action</button>
+          <div class="catalog-dialog-container" data-dialog-target="container">
+            <dialog
+              class="catalog-dialog-window"
+              id="catalog-panel-ltr"
+              data-dialog-target="dialog"
+              aria-labelledby="catalog-panel-ltr-title"
+            >
+              <h2 id="catalog-panel-ltr-title" data-dialog-target="title">Workspace panel</h2>
+              <button class="catalog-dialog-handle" type="button" data-dialog-target="move">
+                Move
+              </button>
+              <button class="catalog-dialog-handle" type="button" data-dialog-target="resize">
+                Resize
+              </button>
+              <p id="catalog-panel-ltr-instructions" data-dialog-target="instructions">
+                Use arrows to move or resize. Hold Shift for ten times the step. Escape cancels a
+                drag or otherwise closes the panel. You can also enter numbers and apply them.
+              </p>
+              <label
+                >Start position (%)<input
+                  type="number"
+                  data-dialog-target="xControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Top position (%)<input
+                  type="number"
+                  data-dialog-target="yControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Width (%)<input
+                  type="number"
+                  data-dialog-target="widthControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Height (%)<input
+                  type="number"
+                  data-dialog-target="heightControl"
+                  step="any"
+                  required
+              /></label>
+              <button type="button" data-dialog-target="apply">Apply</button>
+              <button type="button" data-dialog-target="close">Close</button>
+            </dialog>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Non-modal, RTL</h2>
+        <div
+          class="catalog-component catalog-dialog-panel"
+          dir="rtl"
+          data-controller="dialog"
+          data-dialog-modal-value="false"
+          data-dialog-width-value="70"
+          data-dialog-height-value="70"
+        >
+          <button type="button" data-dialog-target="trigger" aria-controls="catalog-panel-rtl">
+            Open panel
+          </button>
+          <button type="button">Background action</button>
+          <div class="catalog-dialog-container" data-dialog-target="container">
+            <dialog
+              class="catalog-dialog-window"
+              id="catalog-panel-rtl"
+              data-dialog-target="dialog"
+              aria-labelledby="catalog-panel-rtl-title"
+            >
+              <h2 id="catalog-panel-rtl-title" data-dialog-target="title">Workspace panel</h2>
+              <button class="catalog-dialog-handle" type="button" data-dialog-target="move">
+                Move
+              </button>
+              <button class="catalog-dialog-handle" type="button" data-dialog-target="resize">
+                Resize
+              </button>
+              <p id="catalog-panel-rtl-instructions" data-dialog-target="instructions">
+                Use arrows to move or resize. Hold Shift for ten times the step. Escape cancels a
+                drag or otherwise closes the panel. You can also enter numbers and apply them.
+              </p>
+              <label
+                >Start position (%)<input
+                  type="number"
+                  data-dialog-target="xControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Top position (%)<input
+                  type="number"
+                  data-dialog-target="yControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Width (%)<input
+                  type="number"
+                  data-dialog-target="widthControl"
+                  step="any"
+                  required
+              /></label>
+              <label
+                >Height (%)<input
+                  type="number"
+                  data-dialog-target="heightControl"
+                  step="any"
+                  required
+              /></label>
+              <button type="button" data-dialog-target="apply">Apply</button>
+              <button type="button" data-dialog-target="close">Close</button>
+            </dialog>
+          </div>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

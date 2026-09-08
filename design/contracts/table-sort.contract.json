@@ -1,0 +1,308 @@
+{
+  "name": "table-sort",
+  "controller": "table-sort",
+  "pattern": "Sorting requests from native table column headers, following the APG Sortable Table Example and synchronizing aria-sort without changing native roles",
+  "responsibility": "Handles sorting operations on consumer-authored native table headers and provides aria-sort, data-state, and sort-request events. Does not reorder rows, generate appearance/content, or write roles.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/table/",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/table/examples/sortable-table/",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-sort",
+    "https://html.spec.whatwg.org/multipage/tables.html#column-header",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <table> with data-controller=\"table-sort\"",
+    "sortable": "Add data-table-sort-target=\"sortable\", a nonempty table-unique data-table-sort-column identifier, and scope=\"col\" to each sortable <th>.",
+    "button": "Place exactly one native <button> inside each sortable <th>; it handles activation and keyboard interaction.",
+    "rows": "The consumer writes thead/tbody structure, tr, th, and td elements.",
+    "content": "The controller generates no elements or content. The consumer or server reorders rows."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLTableElement.",
+      "Every sortable target must be a <th>.",
+      "Each sortable target must contain exactly one native <button>.",
+      "data-table-sort-column must be nonempty and unique within the table.",
+      "Sortable targets must not have colspan."
+    ],
+    "columnRationale": "Headers with colspan refer to multiple columns, making event detail ambiguous. Rowspan does not break column correspondence and is allowed. Non-sortable cell spans are unrestricted because the controller does not use row/column indexes.",
+    "invalidMarkup": "Validate markup on connection. Invalid markup prevents ARIA writes, listener registration, and state outputs and warns once per connection. Do not throw.",
+    "warning": "Warnings identify table-sort controller, the required native table root, and the violated conditions.",
+    "completion": {
+      "attributes": ["scope=\"col\" on sortable targets"],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning."
+    }
+  },
+  "api": {
+    "values": {
+      "column": {
+        "type": "String",
+        "htmlAttribute": "data-table-sort-column-value",
+        "default": "",
+        "description": "The active column's data-table-sort-column; an empty string means no sorting."
+      },
+      "direction": {
+        "type": "String",
+        "htmlAttribute": "data-table-sort-direction-value",
+        "default": "none",
+        "allowed": ["ascending", "descending", "none"],
+        "description": "Sort direction, following ARIA 1.2 aria-sort values."
+      }
+    },
+    "properties": {
+      "column": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "Current sort column. Assignment changes aria-sort and state outputs without custom events."
+      },
+      "direction": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "Current sort direction. Assignment changes aria-sort and state outputs without custom events."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "table-sort:beforesort": {
+        "when": "Before a sort request caused by trusted sortable-button activation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "column": "The target column",
+          "direction": "The proposed direction",
+          "previousColumn": "The previous column",
+          "previousDirection": "The previous direction",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), leave aria-sort and state outputs unchanged and do not emit table-sort:sort."
+      },
+      "table-sort:sort": {
+        "when": "After a sort request caused by trusted sortable-button activation",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "column": "The target column",
+          "direction": "The requested direction",
+          "previousColumn": "The previous column",
+          "previousDirection": "The previous direction",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "The controller does not reorder rows. The consumer or server handles this event and reorders the DOM."
+      },
+      "detailType": "Export the detail type as TableSortSortDetail from src/index.ts. beforesort and sort share one type because their detail shape is identical.",
+      "programmatic": "column assignment, direction assignment, initialization, and reconnection do not emit custom events.",
+      "sameSort": "Do not emit beforesort/sort when activation changes neither column nor direction.",
+      "synthetic": "Ignore clicks with isTrusted=false, changing neither state nor custom events. HTMLElement.click() is also untrusted."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for table-sort:sort and table-sort:beforesort on the root or an ancestor. The controller does not stop propagation.",
+    "cancelableHook": "Cancel sorting with event.preventDefault() in a table-sort:beforesort listener.",
+    "programmatic": "Other controllers may access column and direction through a Stimulus controller reference or outlets. Programmatic API changes emit no events.",
+    "nested": "Use :self or event.target === event.currentTarget when listening outside nested table-sort roots.",
+    "sorting": "The consumer reorders rows after table-sort:sort, either by changing DOM order or requesting and rendering server results.",
+    "grid": "Use grid on the same table when two-dimensional cell navigation is required. The controllers are independent and do not reference each other."
+  },
+  "behavior": {
+    "sorting": "Do not reorder rows in the controller. Comparison depends on consumer data types, so emit a request event only.",
+    "sortToggle": "Sortable-button activation cycles none -> ascending -> descending -> none. The third state provides a way to restore the unsorted initial state.",
+    "sortSingleColumn": "At most one column has an active sort direction, following ARIA 1.2 guidance. Consumers may build multi-key sorting from event history.",
+    "keyboard": "Delegate keyboard interaction to the native button inside sortable. Do not register keydown. Making th itself focusable would require roving tabindex and move toward a grid design."
+  },
+  "managedMarkup": {
+    "role": "Do not write roles on the root or cells; retain native table semantics.",
+    "scope": "Supply scope=\"col\" only when absent on a sortable target. Without scope, th columnheader determination depends on cells in the same row (WHATWG HTML Auto state); explicit scope avoids that structural dependency.",
+    "sort": "Synchronize sortable aria-sort with sorting state; set aria-sort=\"none\" on inactive sortable columns.",
+    "stateOnly": "Only sortable-target data-state is controller-managed state output.",
+    "preservation": "Preserve authored id, scope, and other attributes. The controller synchronizes aria-sort."
+  },
+  "stateOutputs": {
+    "ownership": "Only sortable data-state is controller-owned. Do not use ARIA as a visual state output or aggregate per-column state into root data-state.",
+    "sortable": "data-state=\"ascending\" | \"descending\" | \"none\""
+  },
+  "lifecycle": [
+    "Register root click in connect() and remove it in disconnect().",
+    "Track sortable target additions/removals through Stimulus TargetConnected/TargetDisconnected.",
+    "Leave written aria-sort, scope, and data-state on disconnect().",
+    "Synchronize aria-sort and state outputs with current markup on reconnection without reapplying initial values.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "aria-sort announcements on column headers in a native table",
+        "status": "unverified",
+        "impact": "Native table roles and aria-sort state are fixed; the consumer remains responsible for the actual sort."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Meet WCAG 2.2 Level AA.",
+    "Preserve native table semantics without writing roles.",
+    "Only one column may have an active aria-sort direction.",
+    "Only trusted sortable activation emits one cancelable beforesort followed by one committed sort, in that order.",
+    "The controller must not reorder rows.",
+    "Native buttons provide all keyboard interaction; the controller does not implement keydown.",
+    "Public API calls, initialization, and reconnection synchronize state outputs without custom events.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device screen reader announcements of aria-sort on columnheaders within role=\"table\" as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "table-sort-state-sync",
+      "description": "aria-sort/data-state synchronization, scope=\"col\" completion and authored-scope preservation, no roles added, and authored-attribute preservation"
+    },
+    {
+      "testId": "table-sort-request",
+      "description": "Sort-direction cycling on activation, no event for clicks outside the button, one active sort column, and sort detail/reason"
+    },
+    {
+      "testId": "table-sort-cancel",
+      "description": "beforesort cancellation preserving aria-sort and state"
+    },
+    {
+      "testId": "table-sort-no-reorder",
+      "description": "No controller changes to row order"
+    },
+    {
+      "testId": "table-sort-programmatic-silence",
+      "description": "No events from column/direction assignment"
+    },
+    {
+      "testId": "table-sort-dynamic-targets",
+      "description": "Tracking sortable additions/removals"
+    },
+    {
+      "testId": "table-sort-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup"
+    },
+    {
+      "testId": "table-sort-semantic-validation",
+      "description": "Warnings and disabled enhancement for non-table roots, non-th sortables, missing/multiple buttons, duplicate/empty columns, and sortable colspan"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    {
+      "testId": "table-sort-completion-warning",
+      "description": "Completion warnings for missing attributes, none for complete markup, and separation from invalid-markup warnings"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "table-sort-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable isValidMarkup() and continue enhancement with non-table roots or duplicate columns.",
+      "mutation": {
+        "description": "Disable semantic validation and enhance invalid markup.",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-semantic-validation-negative fails."
+    },
+    {
+      "testId": "table-sort-single-column-negative",
+      "guard": "Only one column has an active aria-sort direction.",
+      "plannedMutation": "Remove restoration of other columns' aria-sort to none.",
+      "mutation": {
+        "description": "Remove synchronization resetting other columns' aria-sort to none when sorting commits.",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst state = isActive ? direction : \"none\";",
+            "replace": "\t\tconst state = isActive ? direction : direction === \"none\" ? \"none\" : (sortable.getAttribute(\"aria-sort\") ?? \"none\");"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-single-column-negative and table-sort-request fail because exclusive active aria-sort is a shared invariant."
+    },
+    {
+      "testId": "table-sort-cancel-negative",
+      "guard": "beforesort cancellation",
+      "plannedMutation": "Ignore dispatchEvent's return value and always update aria-sort.",
+      "mutation": {
+        "description": "Ignore beforesort dispatchEvent's return value and commit sorting state.",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(before)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(before);"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-cancel-negative fails."
+    },
+    {
+      "testId": "table-sort-no-reorder-negative",
+      "guard": "The controller does not reorder rows.",
+      "plannedMutation": "Make the controller reorder tbody rows when sorting commits.",
+      "mutation": {
+        "description": "Move the first tbody row to the end when sorting commits.",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.columnValue = column;\n\t\tthis.directionValue = direction;\n\t\tthis.syncState();",
+            "replace": "\t\tthis.columnValue = column;\n\t\tthis.directionValue = direction;\n\t\tthis.syncState();\n\t\tconst firstRow = this.table()?.tBodies[0]?.rows[0];\n\t\tif (firstRow !== undefined) firstRow.parentElement?.append(firstRow);"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-no-reorder-negative fails."
+    },
+    {
+      "testId": "table-sort-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit beforesort and sort from the column setter.",
+      "mutation": {
+        "description": "Emit beforesort and sort from the column setter.",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\tset column(value: string) {\n\t\tthis.columnValue = value.trim();\n\t}",
+            "replace": "\tset column(value: string) {\n\t\tthis.columnValue = value.trim();\n\t\tthis.element.dispatchEvent(new CustomEvent(\"table-sort:beforesort\"));\n\t\tthis.element.dispatchEvent(new CustomEvent(\"table-sort:sort\"));\n\t}"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "table-sort-disconnect-cleanup-negative",
+      "guard": "Removing listeners on disconnect",
+      "plannedMutation": "Remove removeEventListener calls from disconnect().",
+      "mutation": {
+        "description": "Remove click-listener removal from disconnect cleanup",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);",
+            "replace": "\t\t// click listener は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "table-sort-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/table_sort_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "table-sort-completion-warning-negative fails."
+    }
+  ]
+}

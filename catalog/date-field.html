@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>date-field | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="min max between"
+      data-catalog-properties=""
+      data-catalog-events="date-field:beforechange date-field:change"
+    >
+      <h1>date-field</h1>
+      <section>
+        <h2>date-field</h2>
+        <label for="date-field-input">Date</label>
+        <input
+          id="date-field-input"
+          class="catalog-component"
+          type="date"
+          name="date"
+          min="2026-01-01"
+          max="2026-12-31"
+          value="2026-09-02"
+          data-controller="date-field"
+        />
+        <span class="catalog-state" aria-hidden="true"></span>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

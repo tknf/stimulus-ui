@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>character-count | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="over"
+      data-catalog-properties="--character-count-value --character-count-max"
+      data-catalog-events=""
+    >
+      <h1>character-count</h1>
+      <section>
+        <h2>Max value and counter target</h2>
+        <div
+          class="catalog-component"
+          data-controller="character-count"
+          data-character-count-max-value="3"
+        >
+          <label for="character-count-value-field">Content</label>
+          <textarea id="character-count-value-field" data-character-count-target="field"></textarea>
+          <p id="character-count-value-counter" data-character-count-target="counter">0 / 3</p>
+        </div>
+      </section>
+      <section>
+        <h2>Native field maxlength attribute</h2>
+        <div class="catalog-component" data-controller="character-count">
+          <label for="character-count-maxlength-field">Title</label>
+          <input
+            id="character-count-maxlength-field"
+            type="text"
+            maxlength="40"
+            data-character-count-target="field"
+          />
+          <p id="character-count-maxlength-counter" data-character-count-target="counter">0 / 40</p>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

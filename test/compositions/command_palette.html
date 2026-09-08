@@ -1,0 +1,83 @@
+<div
+  data-controller="dialog palette-demo"
+  data-palette-demo-dialog-outlet="#palette-demo"
+  data-palette-demo-combobox-outlet="#palette-options"
+  data-action="dialog:open->palette-demo#reset"
+  id="palette-demo"
+>
+  <button
+    type="button"
+    data-dialog-target="trigger"
+    data-palette-demo-target="trigger"
+    aria-controls="palette-dialog"
+  >
+    コマンドを開く
+  </button>
+  <dialog id="palette-dialog" data-dialog-target="dialog" aria-labelledby="palette-title">
+    <h2 id="palette-title">コマンド</h2>
+    <div
+      id="palette-options"
+      data-controller="combobox"
+      data-action="input->palette-demo#filter combobox:change->palette-demo#execute"
+    >
+      <label for="palette-query">コマンドを検索</label>
+      <input
+        id="palette-query"
+        type="text"
+        autofocus
+        role="combobox"
+        aria-controls="palette-list"
+        data-combobox-target="input"
+        data-palette-demo-target="input"
+      />
+      <ul id="palette-list" role="listbox" data-combobox-target="listbox">
+        <li role="presentation" data-palette-demo-target="group">
+          <span id="palette-page-heading">ページ</span>
+          <ul role="group" aria-labelledby="palette-page-heading">
+            <li
+              role="option"
+              data-combobox-target="option"
+              data-palette-demo-target="option"
+              data-combobox-value="open-projects"
+            >
+              プロジェクトを開く
+            </li>
+            <li
+              role="option"
+              data-combobox-target="option"
+              data-palette-demo-target="option"
+              data-combobox-value="open-settings"
+            >
+              設定を開く
+            </li>
+          </ul>
+        </li>
+        <li role="presentation" data-palette-demo-target="group">
+          <span id="palette-action-heading">操作</span>
+          <ul role="group" aria-labelledby="palette-action-heading">
+            <li
+              role="option"
+              aria-disabled="true"
+              data-combobox-target="option"
+              data-palette-demo-target="option"
+              data-combobox-value="delete-project"
+            >
+              プロジェクトを削除
+            </li>
+            <li
+              role="option"
+              data-combobox-target="option"
+              data-palette-demo-target="option"
+              data-combobox-value="create-project"
+            >
+              プロジェクトを作成
+            </li>
+          </ul>
+        </li>
+      </ul>
+      <p data-palette-demo-target="empty" hidden>該当するコマンドはありません</p>
+    </div>
+    <button type="button" data-dialog-target="close">閉じる</button>
+  </dialog>
+  <output data-palette-demo-target="result" aria-label="実行したコマンド"></output>
+</div>

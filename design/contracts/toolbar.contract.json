@@ -1,0 +1,347 @@
+{
+  "name": "toolbar",
+  "controller": "toolbar",
+  "pattern": "WAI-ARIA APG Toolbar Pattern",
+  "responsibility": "Provides toolbar role, orientation, focus, and keyboard interaction only; generates neither appearance nor content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/toolbar/",
+    "https://www.w3.org/TR/wai-aria-1.2/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"toolbar\"; the consumer supplies its accessible name through aria-label or aria-labelledby.",
+    "control": "An HTMLElement inside the root with data-toolbar-target=\"control\", such as a button, link, input, or menu button",
+    "content": "The controller does not generate elements or content.",
+    "nestedComposite": "Coordination with nested composite widgets is outside scope; composite widgets manage their own keyboard interaction."
+  },
+  "contractValidation": {
+    "controls": [
+      "At least one control target is required.",
+      "Control targets must be root descendants."
+    ],
+    "invalidMarkup": "With no control targets, warn once per connection and disable role, ARIA, listeners, and tabindex operations. Do not throw.",
+    "warning": "Warnings identify toolbar controller and the requirement for control targets.",
+    "completionExempt": "aria-orientation reflects the orientation configuration and is not subject to completion warnings."
+  },
+  "api": {
+    "values": {
+      "orientation": {
+        "type": "String",
+        "htmlAttribute": "data-toolbar-orientation-value",
+        "allowed": ["horizontal", "vertical"],
+        "default": "horizontal"
+      }
+    },
+    "properties": {
+      "activeControl": {
+        "type": "HTMLElement | undefined",
+        "access": "getter",
+        "description": "The current roving-tabindex Tab stop, or undefined when no enabled control is available."
+      }
+    },
+    "methods": {
+      "focusFirst()": {
+        "returns": "void",
+        "description": "Focus the first enabled control, or do nothing if none exists."
+      },
+      "focusLast()": {
+        "returns": "void",
+        "description": "Focus the last enabled control, or do nothing if none exists."
+      }
+    },
+    "events": {
+      "none": "Toolbar emits no custom events. Consumers and nested widgets manage their controls' own events."
+    }
+  },
+  "keyboard": {
+    "focusModel": "Exactly one enabled control has tabindex=\"0\"; others have tabindex=\"-1\". Tab enters at that control. Exclude disabled controls from both the Tab stop and navigation.",
+    "horizontalLtr": {
+      "ArrowLeft": "Move to the previous enabled control.",
+      "ArrowRight": "Move to the next enabled control."
+    },
+    "horizontalRtl": {
+      "ArrowLeft": "Move to the next enabled control.",
+      "ArrowRight": "Move to the previous enabled control.",
+      "directionSource": "Use the toolbar root's computed direction, including inherited direction."
+    },
+    "horizontalIgnored": ["ArrowUp", "ArrowDown"],
+    "vertical": {
+      "ArrowUp": "Move to the previous enabled control.",
+      "ArrowDown": "Move to the next enabled control.",
+      "ArrowLeft": "Ignore.",
+      "ArrowRight": "Ignore."
+    },
+    "common": {
+      "Home": "Move to the first enabled control.",
+      "End": "Move to the last enabled control.",
+      "wrap": "Previous/next navigation wraps at both ends."
+    },
+    "selection": "Toolbar has no selection state or events; moving focus does not change a control's selection."
+  },
+  "managedMarkup": {
+    "root": [
+      "Supply role=\"toolbar\" only when absent.",
+      "Supply aria-orientation=\"vertical\" only when orientation=vertical and the attribute is absent."
+    ],
+    "control": ["Give one enabled control tabindex=\"0\" and set the others to \"-1\"."],
+    "disabled": "Prefer the native disabled property on controls that have one; otherwise treat aria-disabled=\"true\" as disabled. Do not add disabled data-* attributes.",
+    "preservation": "Preserve authored role, aria-label, aria-labelledby, aria-orientation, and other attributes. Synchronize tabindex as controller-owned focus state."
+  },
+  "stateOutputs": {
+    "none": "Do not output data-state on toolbar roots or controls; toolbar has no component state."
+  },
+  "lifecycle": [
+    "Register event subscriptions and MutationObserver in connect(), and remove them in disconnect(). Do not duplicate them during Turbo reconnection.",
+    "Leave generated role, aria-orientation, and tabindex on disconnect().",
+    "Track dynamic controls through controlTargetConnected/Disconnected.",
+    "Track native disabled, aria-disabled, and orientation changes."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Toolbar name, orientation, and roving-focus announcements",
+        "status": "unverified",
+        "impact": "The Toolbar pattern and native control semantics are fixed independently of announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "For conforming markup, controller role, orientation, focus, and keyboard interaction must meet WCAG 2.2 Level AA. Consumers determine accessible names, control meaning, focus indicators, and layout.",
+    "Role, name, orientation, focus, and keyboard interaction must match the WAI-ARIA APG Toolbar Pattern.",
+    "Whenever enabled controls exist, exactly one is a Tab stop; exclude disabled controls.",
+    "Home, End, wrapping, horizontal LTR/RTL, and vertical keyboard behavior agree across all three engines.",
+    "Dynamic targets, disabled changes, and disconnect/reconnect do not duplicate listeners or MutationObserver.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device screen reader verification as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "toolbar-state-sync",
+      "description": "Role, orientation, tabindex, authored attributes, and absence of data-state"
+    },
+    {
+      "testId": "toolbar-navigation",
+      "description": "Arrow、Home、End、wrap、horizontal/vertical"
+    },
+    {
+      "testId": "toolbar-direction",
+      "description": "Horizontal RTL arrow mapping"
+    },
+    {
+      "testId": "toolbar-disabled-guard",
+      "description": "Exclusion of controls disabled natively or through aria-disabled"
+    },
+    {
+      "testId": "toolbar-focus-api",
+      "description": "activeControl、focusFirst、focusLast"
+    },
+    {
+      "testId": "toolbar-dynamic-targets",
+      "description": "Target addition/removal and disabled changes"
+    },
+    {
+      "testId": "toolbar-disconnect-cleanup",
+      "description": "Listener removal on disconnect/reconnect"
+    },
+    {
+      "testId": "toolbar-semantic-validation",
+      "description": "Warnings and disabled enhancement without control targets"
+    },
+    {
+      "testId": "toolbar-value-validation",
+      "description": "Warnings and disabled enhancement for unsupported orientation"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "toolbar-semantic-validation-negative",
+      "guard": "semantic validation",
+      "mutation": {
+        "description": "Remove invalid-markup validation and enhance a root without control targets.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-semantic-validation-negative and toolbar-value-validation fail because both check warning and disabled enhancement for invalid markup."
+    },
+    {
+      "testId": "toolbar-role-preservation-negative",
+      "guard": "authored role preservation",
+      "mutation": {
+        "description": "Remove the hasAttribute guard and overwrite authored role with toolbar.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"role\")) {\n\t\t\tthis.element.setAttribute(\"role\", \"toolbar\");\n\t\t}",
+            "replace": "\t\tthis.element.setAttribute(\"role\", \"toolbar\");"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-role-preservation-negative fails."
+    },
+    {
+      "testId": "toolbar-orientation-preservation-negative",
+      "guard": "authored aria-orientation preservation",
+      "mutation": {
+        "description": "Remove the hasAttribute guard and overwrite authored aria-orientation with vertical.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!this.element.hasAttribute(\"aria-orientation\")) {",
+            "replace": "\t\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-orientation-preservation-negative fails."
+    },
+    {
+      "testId": "toolbar-orientation-cleanup-negative",
+      "guard": "managed orientation cleanup",
+      "mutation": {
+        "description": "Remove the guard clearing controller-managed aria-orientation when changing to horizontal.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t} else if (this.managedOrientation) {",
+            "replace": "\t\t} else if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-orientation-cleanup-negative fails."
+    },
+    {
+      "testId": "toolbar-keydown-prevent-default-negative",
+      "guard": "keyboard default action suppression",
+      "mutation": {
+        "description": "Remove preventDefault() on navigation keys, allowing native default actions.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tevent.preventDefault();",
+            "replace": "\t\t// navigation key の default action は抑止しない"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-keydown-prevent-default-negative fails."
+    },
+    {
+      "testId": "toolbar-focus-api-enhanced-negative",
+      "guard": "focus API enhancement guard",
+      "mutation": {
+        "description": "Remove the enhanced guard preventing focusLast() while disconnected.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.enhanced) {\n\t\t\treturn;\n\t\t}\n\t\tconst controls = this.enabledControls();",
+            "replace": "\t\tconst controls = this.enabledControls();"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-focus-api-enhanced-negative fails."
+    },
+    {
+      "testId": "toolbar-active-control-guard-negative",
+      "guard": "activeControl enabled guard",
+      "mutation": {
+        "description": "Return a now-disabled currentControl as activeControl.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn this.currentControl && this.isEnabled(this.currentControl)\n\t\t\t? this.currentControl\n\t\t\t: undefined;",
+            "replace": "\t\treturn this.currentControl;"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-active-control-guard-negative fails."
+    },
+    {
+      "testId": "toolbar-disconnect-disable-enhancement-negative",
+      "guard": "disconnect disableEnhancement call",
+      "mutation": {
+        "description": "Remove the disableEnhancement() call from disconnect().",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t\tthis.disableEnhancement();\n\t};",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-disconnect-disable-enhancement-negative, toolbar-focus-api-enhanced-negative, and toolbar-disconnect-pending-reconcile-negative fail because they check disabled enhancement after disconnection."
+    },
+    {
+      "testId": "toolbar-disconnect-listener-negative",
+      "guard": "disconnect listener cleanup",
+      "mutation": {
+        "description": "Remove focusin and keydown listener cleanup on disconnect.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-disconnect-listener-negative and toolbar-disconnect-pending-reconcile-negative fail because they check keydown-listener removal on disconnection."
+    },
+    {
+      "testId": "toolbar-disconnect-combined-negative",
+      "guard": "disconnect cleanup pair",
+      "mutation": {
+        "description": "Remove both disableEnhancement() and listener cleanup from disconnect(), breaking the independent guards together.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t\tthis.disableEnhancement();\n\t};",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t};"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-disconnect-combined-negative, toolbar-focus-api-enhanced-negative, and toolbar-disconnect-pending-reconcile-negative fail because they check disabled enhancement after disconnection."
+    },
+    {
+      "testId": "toolbar-disconnect-pending-reconcile-negative",
+      "guard": "pending reconcile disconnect guard",
+      "mutation": {
+        "description": "Remove the connected guard preventing queued reconciliation after disconnect.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (this.connected) {\n\t\t\t\tthis.reconcile();\n\t\t\t}",
+            "replace": "\t\t\tthis.reconcile();"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-disconnect-pending-reconcile-negative fails."
+    },
+    {
+      "testId": "toolbar-enhancement-guard-negative",
+      "guard": "enhancement idempotence guard",
+      "mutation": {
+        "description": "Remove the enhanced guard preventing duplicate listener and MutationObserver registration on reconciliation.",
+        "file": "src/toolbar_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.enhanced) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toolbar-enhancement-guard-negative fails."
+    }
+  ]
+}

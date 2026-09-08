@@ -1,0 +1,452 @@
+{
+  "name": "tag-input",
+  "controller": "tag-input",
+  "pattern": "No corresponding APG pattern. Use native lists without explicit roles and roving focus among chip removal buttons. In macOS Safari VoiceOver comparisons, role=grid, as used by React Aria TagGroup, was announced as a one-column, N-row table and repeated tag names in row announcements, mismatching a horizontal chip list. Native-list announcements distinguished tag, action, and position (English paraphrase of Japanese speech: remove <tag>, button, list <name>, N items).",
+  "responsibility": "Add roving chip focus, keyboard add/remove commitment, and cancelable custom events to free-form tag input or an existing input-free chip list. Consumers insert/remove chip DOM; the controller generates no markup and writes no ARIA.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/practices/keyboard-interface/",
+    "https://react-aria.adobe.com/TagGroup",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"tag-input\"",
+    "targets": {
+      "input": "Zero or one native single-line <input> inside the root with data-tag-input-target=\"input\"",
+      "fallback": "A native <button type=\"button\"> with data-tag-input-target=\"fallback\", required inside the root but outside chips when no input exists, optional otherwise. Provide an accessible name and an ordinary Tab stop without hidden/disabled. Keep it visible/enabled even when removing the final chip. Consumers define its action and name.",
+      "chip": "A <li> with data-tag-input-target=\"chip\" inside a root-contained <ul>/<ol>, representing one tag and carrying nonempty data-tag-input-value",
+      "remove": "Exactly one native <button type=\"button\"> with data-tag-input-target=\"remove\" per chip, used for roving focus and removal"
+    },
+    "label": "Consumers name the chip list, removal buttons, and fallback button using aria-label, aria-labelledby, or nonempty button text. The library cannot supply meaningful wording.",
+    "content": "The controller generates no chips, buttons, lists, suggestions, or other content.",
+    "validity": "Provide zero or one input and zero or one fallback, with at least one present. Fallback is an enabled native type=button outside chips, without hidden, with nonnegative tabindex and naming material. Each chip is a <li> in ul/ol with nonempty data-tag-input-value and exactly one named remove button, using aria-label/aria-labelledby or nonempty text.",
+    "fallbackVisibility": "Consumers prevent fallback hiding/deactivation through CSS, hidden/inert ancestors, disabled fieldsets, or similar mechanisms. The controller does not validate rendered visibility so it can connect inside an initially closed modal."
+  },
+  "contractValidation": {
+    "validity": [
+      "Provide zero or one input and zero or one fallback within the root; fallback is required when input is absent.",
+      "Fallback is a native type=button outside chips, without disabled/hidden, with nonnegative tabindex and accessible-name material.",
+      "Chip targets are <li> elements inside a root-contained ul/ol.",
+      "Chips have nonempty data-tag-input-value.",
+      "Each chip contains exactly one native button remove target.",
+      "Removal buttons have aria-label/aria-labelledby naming attributes or nonempty text content."
+    ],
+    "invalidMarkup": "Invalid markup emits one warning per connection and disables listeners, tabindex manipulation, and events without throwing. Use the standard tag-input controller warning identifying expected markup, the violation, and disabled enhancement.",
+    "completion": "No attributes are completed. This component writes neither roles nor ARIA; its native-only semantic structure was verified with VoiceOver.",
+    "completionExempt": "Set removal-button tabindex without warnings because it enables roving focus."
+  },
+  "api": {
+    "values": {
+      "delimiter": {
+        "type": "String",
+        "htmlAttribute": "data-tag-input-delimiter-value",
+        "default": "",
+        "description": "A single-character add delimiter. Empty disables it; two or more characters cannot match event.key and therefore do not work, without validation/warnings. Do not commit during IME composition. The delimiter itself does not remain in input after commitment."
+      }
+    },
+    "properties": {
+      "values": {
+        "type": "string[]",
+        "access": "getter",
+        "description": "Chip target data-tag-input-value values in DOM order"
+      }
+    },
+    "methods": {
+      "none": "No add/remove methods: consumers directly insert/remove chip DOM. This follows the rule that programmatic changes emit no events."
+    },
+    "events": {
+      "tag-input:beforeadd": {
+        "cancelable": true,
+        "bubbles": true,
+        "detail": "TagInputAddDetail { value: string; reason: \"keyboard\" }",
+        "description": "Immediately before an add from Enter in nonempty input or delimiter input. preventDefault() cancels the add and retains input text."
+      },
+      "tag-input:add": {
+        "cancelable": false,
+        "bubbles": true,
+        "detail": "TagInputAddDetail",
+        "description": "Add commitment. The controller only clears input and emits the event; the consumer or server adds chip DOM."
+      },
+      "tag-input:beforeremove": {
+        "cancelable": true,
+        "bubbles": true,
+        "detail": "TagInputRemoveDetail { value: string; chip: HTMLElement; reason: \"pointer\" | \"keyboard\" }",
+        "description": "Immediately before removal from trusted remove-button click or Delete/Backspace on a chip. preventDefault() cancels removal."
+      },
+      "tag-input:remove": {
+        "cancelable": false,
+        "bubbles": true,
+        "detail": "TagInputRemoveDetail",
+        "description": "Removal commitment. Consumers remove chip DOM; the controller detects chip-target disconnection and moves focus."
+      },
+      "trustedOnly": "Emit events only for user-originated operations. isTrusted excludes synthetic events, including HTMLElement.click().",
+      "programmatic": "Programmatic chip DOM insertion/removal emits no events.",
+      "detailTypes": "Export TagInputAddDetail and TagInputRemoveDetail from src/index.ts. Before and notification events share the same detail types."
+    }
+  },
+  "consumerIntegration": {
+    "addFlow": "On beforeadd or add, insert chip markup consisting of li, data-tag-input-value, and a remove button. chipTargetConnected includes the new chip in roving focus.",
+    "removeFlow": "On remove, remove the chip from the DOM. For asynchronous removal after a server response, the controller moves focus when removal occurs. Removing the final enabled chip without an input returns focus to fallback.",
+    "duplicates": "Do not validate duplicate values. Consumers can prohibit duplicate tags by canceling beforeadd.",
+    "paste": "Pasted-text splitting and bulk addition are out of scope. Only Enter and delimiter input commit additions.",
+    "combobox": "There is no suggestion list, popup, or filtering. Candidate-based multiple selection belongs to combobox multiple, with consumer chip markup and deselect(value). These responsibilities do not overlap."
+  },
+  "behavior": {
+    "addFlow": "Enter or delimiter in nonempty input emits cancelable beforeadd; if allowed, clear input and emit add.",
+    "removeFlow": "Trusted remove-button click from pointer/keyboard activation or chip Delete/Backspace emits cancelable beforeremove; if allowed, emit remove. Consumers perform DOM removal.",
+    "reasonDerivation": "Click reason is pointer when event.detail > 0 and keyboard when detail=0; trusted keyboard-activation clicks have detail=0.",
+    "ime": "IME keydowns do not commit additions or move focus. Use src/internal/ime.ts isImeKeydown, including keyCode 229; see documented engine differences in the IME section."
+  },
+  "keyboard": {
+    "focusModel": "Exactly one enabled removal button has tabindex=\"0\", making the chip list one Tab stop. Input/fallback retain native Tab stops in authored DOM order. Add no chip Tab stop for empty/all-disabled lists.",
+    "onInput": {
+      "Enter": "For nonempty input, prevent default and commit the add rather than implicitly submitting a form. For empty input, delegate to native behavior.",
+      "delimiter": "When configured, delimiter input commits an add like Enter.",
+      "ArrowLeft (LTR)": "When the caret is at the start, selectionStart=selectionEnd=0, move focus to the final chip's removal button. Otherwise retain native caret movement.",
+      "Backspace": "When input is empty, move focus to the final chip's removal button without immediately removing it. Removal requires an explicit chip action to avoid accidental deletion. For nonempty input, preserve native behavior."
+    },
+    "onChip": {
+      "ArrowLeft / ArrowRight (LTR)": "Move to previous/next chip removal buttons. ArrowLeft on the first chip does nothing. ArrowRight on the last chip moves to input when present, otherwise stays on the last chip. Arrows do not navigate to fallback.",
+      "Home": "Move to the first chip's removal button.",
+      "End": "Move focus to input when present, otherwise the final enabled chip's removal button.",
+      "Delete / Backspace": "Commit removal of that chip.",
+      "Enter / Space": "Reach removal through native button activation and its trusted click.",
+      "ArrowUp / ArrowDown": "Ignore these keys; the logical list is one row even if visually wrapped."
+    },
+    "rtl": "Use computed direction to reverse logical ArrowLeft/ArrowRight navigation in RTL, including logical caret-edge handling.",
+    "wrap": "Stop at boundaries without wrapping, because crossing to the opposite end would conflict with caret navigation and make behavior unpredictable."
+  },
+  "focus": {
+    "afterRemoval": "When a removal-committed chip leaves the DOM and focus is still within it, move to the next enabled chip, then previous enabled chip, then input, then fallback. If focus moves outside between removal detection and execution, do not move it.",
+    "programmaticRemoval": "Do not move focus when a chip disconnects without a committed removal, such as programmatic removal.",
+    "disabledChips": "Exclude chips whose removal button is natively disabled from the roving Tab stop and arrow navigation. CSS can use :disabled.",
+    "emptyState": "Empty/all-disabled chip lists have no chip Tab stop; input or fallback remains a native Tab stop. Initialization and programmatic DOM changes do not force focus."
+  },
+  "managedMarkup": {
+    "aria": "Write no ARIA attributes. Native ul/ol, li, and button semantics already supply the necessary roles/state/relationships.",
+    "tabindex": "Synchronize only removal-button tabindex for roving focus.",
+    "id": "Do not generate ids because the controller creates no id-reference relationships.",
+    "preservation": "Preserve authored attributes except synchronizing tabindex as controller-owned focus state.",
+    "disconnect": "Leave tabindex on disconnect()."
+  },
+  "stateOutputs": {
+    "none": "Output neither data-state nor CSS custom properties. There is no single component-wide state, and consumers derive chip presence with :has()/:empty. No continuous chip-count output is required."
+  },
+  "lifecycle": [
+    "Register listeners in connect() and remove them in disconnect(), without duplication on Turbo reconnection.",
+    "Track dynamic targets through chipTargetConnected/Disconnected and removeTargetConnected/Disconnected, preserving one roving Tab stop when enabled chips exist. These callbacks can run before connect().",
+    "Process pending committed removals on the corresponding chip disconnection and discard pending state in disconnect().",
+    "Track native disabled changes on removal buttons.",
+    "Track configuration replacement through input/fallback target callbacks. Disable enhancement if both disappear and revalidate when a valid target connects. Revalidate connected fallback type/disabled/hidden/name/tabindex changes. If only attributes are repaired after invalidation without changing target counts, reconnect."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver and other screen readers on real devices",
+        "item": "Announcements after adding a tag, leading-input Backspace, removal, input-free operation, and fallback focus restoration",
+        "status": "unverified",
+        "impact": "The recorded chip-focus result remains limited to that interaction. Native list/button semantics are fixed; these observations do not select new roles or ARIA."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features and Delete/Backspace equivalents for remove-button clicks; and 3.2.5 Change on Request, with focus movement only from user-originated operations, never programmatic chip removal.",
+    "Controller focus, keyboard, and event behavior for conforming markup must meet WCAG 2.2 Level AA. Consumers own accessible-name wording, chip content, and layout.",
+    "Do not commit additions from Enter/delimiter during IME composition, using the keyCode 229 guard.",
+    "Nonempty-input Enter does not implicitly submit the form; empty-input Enter retains native behavior.",
+    "Enabled chips have exactly one roving Tab stop, excluding disabled removal buttons. Apply the same rule without input; empty/all-disabled lists have zero chip Tab stops.",
+    "LTR/RTL arrows, Home/End, and post-removal focus behavior agree across all three engines.",
+    "Emit events only for user-originated operations, not synthetic clicks or programmatic DOM changes.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Real-device macOS Safari VoiceOver chip-focus announcements were verified (English paraphrase of Japanese speech: remove <tag>, button, list <name>, N items). Announcements after add commitment, leading-input Backspace, and removal remain unverified.",
+    "Without input, trailing LTR/RTL arrows do not wrap, End reaches the final enabled chip, and removing the final enabled chip returns to fallback. Prefer input when both input and fallback exist.",
+    "Input addition/removal and fallback replacement emit no events or automatic focus movement. Input-free synchronous/asynchronous removal preserves cancellation, synthetic-event exclusion, and external focus.",
+    "Input-free operation and fallback-return screen-reader compatibility remain unverified observations. Preserve existing list/button semantics; selection of new roles/ARIA does not depend on these results."
+  ],
+  "testMatrix": [
+    {
+      "testId": "tag-input-add",
+      "description": "Enter/delimiter add commitment, beforeadd cancellation, input clearing, and native empty-input Enter"
+    },
+    {
+      "testId": "tag-input-ime-guard",
+      "description": "No Enter/delimiter commitment during IME composition with keyCode 229"
+    },
+    {
+      "testId": "tag-input-remove",
+      "description": "Trusted click/Delete/Backspace removal, beforeremove cancellation, and reason derivation"
+    },
+    {
+      "testId": "tag-input-events-guard",
+      "description": "No events for synthetic clicks or programmatic DOM changes"
+    },
+    {
+      "testId": "tag-input-navigation",
+      "description": "Arrows, Home/End, input transitions, caret-start detection, and no wrapping"
+    },
+    {
+      "testId": "tag-input-direction",
+      "description": "RTL arrow mapping and logical caret-edge detection"
+    },
+    {
+      "testId": "tag-input-focus-after-removal",
+      "description": "Post-removal focus next/previous/input and no movement for uncommitted disconnections"
+    },
+    {
+      "testId": "tag-input-dynamic-targets",
+      "description": "Chip additions/removals/disabled changes and one-Tab-stop preservation"
+    },
+    {
+      "testId": "tag-input-values-api",
+      "description": "DOM order from the values getter"
+    },
+    {
+      "testId": "tag-input-semantic-validation",
+      "description": "Warnings and disabled enhancement for missing input and fallback, non-li chips, missing values, non-button remove targets, or missing naming material"
+    },
+    {
+      "testId": "tag-input-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and pending-state disposal"
+    },
+    {
+      "testId": "tag-input-inputless-navigation",
+      "description": "Input-free LTR/RTL, Home/End, end stopping, disabled chips, and native fallback Tab stops"
+    },
+    {
+      "testId": "tag-input-inputless-removal",
+      "description": "Input-free cancellation, synthetic-click exclusion, and next/previous/fallback focus return"
+    },
+    {
+      "testId": "tag-input-inputless-empty",
+      "description": "Empty/all-disabled chip lists and focus preservation at initialization"
+    },
+    {
+      "testId": "tag-input-inputless-async",
+      "description": "No stealing external focus during asynchronous or programmatic removal"
+    },
+    {
+      "testId": "tag-input-inputless-microtask",
+      "description": "Preserve external focus between removal detection and focus execution"
+    },
+    {
+      "testId": "tag-input-inputless-dynamic",
+      "description": "Dynamic input/fallback replacement and input priority"
+    },
+    {
+      "testId": "tag-input-fallback-validation",
+      "description": "Validate duplicate inputs and fallback type/name/count/location/disabled/hidden/tabindex"
+    },
+    {
+      "testId": "tag-input-inputless-reconnect",
+      "description": "Disable when the last return destination disappears; resume on target reconnection"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device screen-reader results: chip-focus announcements verified; remaining interactions unverified"
+  ],
+  "negativeControls": [
+    {
+      "testId": "tag-input-semantic-validation-negative",
+      "guard": "semantic validation",
+      "mutation": {
+        "description": "Remove invalid-markup validation guards to permit enhancement",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-semantic-validation-negative, static/dynamic tag-input-fallback-validation, and tag-input-inputless-reconnect fail."
+    },
+    {
+      "testId": "tag-input-ime-guard-negative",
+      "guard": "The isImeKeydown call-site guard",
+      "mutation": {
+        "description": "Remove keydown's isImeKeydown guard, permitting focus movement during composition",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (isImeKeydown(event)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-ime-guard-negative fails."
+    },
+    {
+      "testId": "tag-input-trusted-guard-negative",
+      "guard": "Synthetic-event exclusion through isTrusted",
+      "mutation": {
+        "description": "Remove the remove-click isTrusted guard to accept synthetic clicks",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.enhanced || !event.isTrusted) {",
+            "replace": "\t\tif (!this.enhanced) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-events-guard and tag-input-inputless-removal fail."
+    },
+    {
+      "testId": "tag-input-beforeadd-cancel-negative",
+      "guard": "beforeadd cancellation",
+      "mutation": {
+        "description": "Ignore beforeadd dispatch results and commit the add",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeAdd)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-beforeadd-cancel-negative and catalog/tag-input.html behavior fail."
+    },
+    {
+      "testId": "tag-input-beforeremove-cancel-negative",
+      "guard": "beforeremove cancellation",
+      "mutation": {
+        "description": "Ignore beforeremove dispatch results and emit remove",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeRemove)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-beforeremove-cancel-negative, tag-input-inputless-removal, and catalog/tag-input.html behavior fail."
+    },
+    {
+      "testId": "tag-input-focus-request-negative",
+      "guard": "Guard against focus movement after focus leaves a removal-committed chip (3.2.5)",
+      "mutation": {
+        "description": "Simultaneously remove the focused flag and actual-focus checks at removal/execution, stealing external focus",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst shouldRestoreFocus =\n\t\t\tpending !== undefined && this.shouldRestoreFocusAfterRemoval(chip, pending);",
+            "replace": "\t\tconst shouldRestoreFocus = pending !== undefined;"
+          },
+          {
+            "find": "\t\t\tif (!this.shouldRestoreFocusAfterRemoval(chip, pending)) {\n\t\t\t\treturn;\n\t\t\t}\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-focus-after-removal, tag-input-inputless-async, and tag-input-inputless-microtask fail."
+    },
+    {
+      "testId": "tag-input-prevent-default-negative",
+      "guard": "Nonempty Enter preventDefault() suppressing implicit form submission",
+      "mutation": {
+        "description": "Remove nonempty Enter preventDefault() to permit form submission",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif ((isEnter || isDelimiter) && input.value !== \"\") {\n\t\t\tevent.preventDefault();",
+            "replace": "\t\tif ((isEnter || isDelimiter) && input.value !== \"\") {\n\t\t\t// input の default action を許す"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-add fails."
+    },
+    {
+      "testId": "tag-input-tabstop-negative",
+      "guard": "Synchronization preserving one roving Tab stop",
+      "mutation": {
+        "description": "Remove reconciliation of roving tabindex to create multiple Tab stops",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.currentRemove = current;\n\t\tthis.syncTabIndexes(current);",
+            "replace": "\t\tthis.currentRemove = current;"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-dynamic-targets, tag-input-inputless-navigation, and tag-input-inputless-empty fail."
+    },
+    {
+      "testId": "tag-input-input-count-negative",
+      "guard": "Maximum input-target count",
+      "mutation": {
+        "description": "Remove the maximum input-count check to allow two inputs",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [{ "find": "this.inputTargets.length > 1", "replace": "false" }]
+      },
+      "expectedFailure": "The static input-count check in tag-input-fallback-validation fails."
+    },
+    {
+      "testId": "tag-input-fallback-validation-negative",
+      "guard": "Valid native fallback-button configuration",
+      "mutation": {
+        "description": "Remove fallback element-type/name/state/location checks",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          { "find": "\t\tif (!fallbackValid) {\n\t\t\treturn false;\n\t\t}\n", "replace": "" }
+        ]
+      },
+      "expectedFailure": "Static and dynamic tag-input-fallback-validation checks fail."
+    },
+    {
+      "testId": "tag-input-inputless-end-negative",
+      "guard": "Logical End destination without input",
+      "mutation": {
+        "description": "Ignore End when input is absent",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "if (event.key === \"End\") {",
+            "replace": "if (event.key === \"End\" && this.inputTargets.length > 0) {"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-inputless-navigation, tag-input-inputless-reconnect, and catalog/tag-input.html behavior fail."
+    },
+    {
+      "testId": "tag-input-fallback-focus-negative",
+      "guard": "Fallback return after removing the final enabled chip",
+      "mutation": {
+        "description": "Remove the final focus-return destination when input is absent",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "const fallback = this.inputTargets[0] ?? this.fallbackTargets[0];",
+            "replace": "const fallback = this.inputTargets[0];"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-inputless-removal and tag-input-inputless-dynamic fail."
+    },
+    {
+      "testId": "tag-input-fallback-tabindex-negative",
+      "guard": "Observation of fallback tabindex changes",
+      "mutation": {
+        "description": "Stop observing fallback tabindex changes, preserving enhancement with invalid Tab order",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          { "find": "\t\t\t\t\"tabindex\",\n\t\t\t\t\"type\",", "replace": "\t\t\t\t\"type\"," }
+        ]
+      },
+      "expectedFailure": "The dynamic tabindex check in tag-input-fallback-validation fails."
+    },
+    {
+      "testId": "tag-input-disconnect-cleanup-negative",
+      "guard": "Listener cleanup and pending-state disposal on disconnect",
+      "mutation": {
+        "description": "Simultaneously remove enhancement-listener cleanup and pending-state disposal in disconnect()",
+        "file": "src/tag_input_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.disableEnhancement();\n\t\tthis.pendingRemovals.clear();",
+            "replace": "\t\t// disconnect の cleanup を行わない"
+          }
+        ]
+      },
+      "expectedFailure": "tag-input-disconnect-cleanup fails."
+    }
+  ]
+}

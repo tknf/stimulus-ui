@@ -1,0 +1,201 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>toggle-group | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="on off"
+      data-catalog-properties=""
+      data-catalog-events="toggle-group:beforechange toggle-group:change"
+    >
+      <h1>toggle-group</h1>
+      <section>
+        <h2>Single selection</h2>
+        <div
+          class="catalog-component catalog-toggle-group"
+          data-controller="toggle-group"
+          role="group"
+          aria-label="Single selection"
+          data-toggle-group-selected-value='["a"]'
+        >
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="a"
+            aria-label="Bold"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="b"
+            aria-label="Italic"
+          >
+            Italic
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="c"
+            aria-label="Underline"
+          >
+            Underline
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="d"
+            aria-label="Strikethrough"
+            disabled
+          >
+            Strikethrough
+          </button>
+        </div>
+      </section>
+      <section>
+        <h2>Multiple selection</h2>
+        <div
+          class="catalog-component catalog-toggle-group"
+          data-controller="toggle-group"
+          role="group"
+          aria-label="Multiple selection"
+          data-toggle-group-selected-value='["a"]'
+          data-toggle-group-multiple-value="true"
+        >
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="a"
+            aria-label="Bold"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="b"
+            aria-label="Italic"
+          >
+            Italic
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="c"
+            aria-label="Underline"
+          >
+            Underline
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="d"
+            aria-label="Strikethrough"
+            disabled
+          >
+            Strikethrough
+          </button>
+        </div>
+      </section>
+      <section>
+        <h2>Single selection, RTL</h2>
+        <div
+          class="catalog-component catalog-toggle-group"
+          data-controller="toggle-group"
+          role="group"
+          aria-label="Single selection, RTL"
+          data-toggle-group-selected-value='["a"]'
+          dir="rtl"
+        >
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="a"
+            aria-label="Bold"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="b"
+            aria-label="Italic"
+          >
+            Italic
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="c"
+            aria-label="Underline"
+          >
+            Underline
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="d"
+            aria-label="Strikethrough"
+            disabled
+          >
+            Strikethrough
+          </button>
+        </div>
+      </section>
+      <section>
+        <h2>Multiple selection, vertical</h2>
+        <div
+          class="catalog-component catalog-toggle-group catalog-toggle-group-vertical"
+          data-controller="toggle-group"
+          role="group"
+          aria-label="Multiple selection, vertical"
+          data-toggle-group-selected-value='["a"]'
+          data-toggle-group-multiple-value="true"
+          data-toggle-group-orientation-value="vertical"
+        >
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="a"
+            aria-label="Bold"
+          >
+            Bold
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="b"
+            aria-label="Italic"
+          >
+            Italic
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="c"
+            aria-label="Underline"
+          >
+            Underline
+          </button>
+          <button
+            type="button"
+            data-toggle-group-target="item"
+            data-toggle-group-value="d"
+            aria-label="Strikethrough"
+            disabled
+          >
+            Strikethrough
+          </button>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

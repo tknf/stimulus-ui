@@ -1,0 +1,487 @@
+{
+  "name": "treegrid",
+  "controller": "treegrid",
+  "pattern": "The APG Treegrid Pattern's cell-only focus configuration, adding two-dimensional roving-tabindex navigation and row expansion/collapse to a hierarchical native <table>",
+  "responsibility": "Provide behavior, hierarchy ARIA, keyboard interaction, and state outputs without generating appearance/content. Use grid's focus model and Enter/toggle click/public APIs for expansion. When selection is enabled, Shift+Space/cell click/public APIs select rows and synchronize aria-selected/aria-multiselectable.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/treegrid/",
+    "https://www.w3.org/TR/wai-aria-1.2/#treegrid",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <table> with data-controller=\"treegrid\", named through consumer-authored aria-label or aria-labelledby",
+    "targets": {
+      "row": "A native <tr> in tbody with data-treegrid-target=\"row\", positive-integer data-treegrid-level, and unique nonempty data-treegrid-value",
+      "toggle": "Optional native <button type=\"button\"> inside a row for pointer expansion/collapse"
+    },
+    "hierarchy": "Represent hierarchy with flat <tr> rows and data-treegrid-level. The first row has level 1; later levels cannot exceed the previous level plus 1. HTML forbids nested <tbody>, so do not use nested DOM hierarchy. A row has children when the immediately following row is one level deeper.",
+    "cells": "Cells are native <td>/<th>, without rowspan/colspan spans and with equal cell counts across rows.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be a named native <table>.",
+      "At least one row target is required, all HTMLTableRowElements inside the root.",
+      "data-treegrid-level must be a positive integer, starting at 1 and increasing by at most one from the preceding row. Level jumps are invalid.",
+      "data-treegrid-value must be nonempty and unique across rows.",
+      "Toggle targets must be native <button type=\"button\"> elements inside rows.",
+      "Rows must have no spanning cells and must share the same cell count.",
+      "pageSize must be a positive integer, matching grid's rule.",
+      "selection must be none, single, or multiple."
+    ],
+    "invalidMarkup": "Validate on connection and row/toggle additions/removals. Invalid markup disables structural/operational attribute and state writes, keyboard handling, and public APIs, with one console.warn per connection and no completion warning. Restore enhancement when valid without repeating the warning. Do not throw.",
+    "warning": "The standard enhancement-disabled warning includes a named native table, level/value rules, native button toggles, equal cell counts without spans, positive-integer pageSize, and none/single/multiple selection.",
+    "completion": {
+      "attributes": ["role=\"treegrid\" on the root"],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning",
+      "excluded": "Do not write row/cell roles. Playwright ariaSnapshot measurements in all three engines retain tr=row and td=gridcell beneath table[role=treegrid]. Synchronize aria-level/posinset/setsize from level/structure and aria-expanded from state. Cell tabindex enables controller behavior. None of these produces completion warnings."
+    }
+  },
+  "api": {
+    "values": {
+      "expanded": {
+        "type": "Array",
+        "htmlAttribute": "data-treegrid-expanded-value",
+        "default": [],
+        "description": "Array of initially expanded row data-treegrid-value values. Ignore leaf-row values."
+      },
+      "pageSize": {
+        "type": "Number",
+        "htmlAttribute": "data-treegrid-page-size-value",
+        "default": 10,
+        "description": "Number of rows moved by PageUp/PageDown, matching grid's rule"
+      },
+      "selection": {
+        "type": "String",
+        "htmlAttribute": "data-treegrid-selection-value",
+        "allowed": ["none", "single", "multiple"],
+        "default": "none",
+        "description": "Row-selection mode. none has no selection behavior, aria-selected, or data-selected, avoiding announcements that non-selectable rows are selectable."
+      },
+      "selected": {
+        "type": "Array",
+        "htmlAttribute": "data-treegrid-selected-value",
+        "default": [],
+        "description": "Array of initially selected row values. Ignore unknown values and normalize to DOM order. Ignore in none mode; use only the first in single mode."
+      }
+    },
+    "properties": {
+      "expanded": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Array of expanded row values. Assignment commits expansion without custom events. Ignore leaf-row values."
+      },
+      "selected": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Selected row values in DOM order. Assignment synchronizes selection, aria-selected, and data-selected without events, ignoring unknown values and using only the first in single mode. In none mode, the getter returns [] and the setter does nothing. Hidden rows can be selected."
+      }
+    },
+    "methods": {
+      "expand(value)": {
+        "returns": "void",
+        "description": "Expand a row without events. Do nothing for unknown values, leaves, or already expanded rows."
+      },
+      "collapse(value)": {
+        "returns": "void",
+        "description": "Collapse a row without events. Do nothing for unknown values, leaves, or already collapsed rows."
+      },
+      "toggle(value)": {
+        "returns": "void",
+        "description": "Toggle expansion without events. Do nothing for unknown values or leaves."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "treegrid:beforetoggle": {
+        "when": "Immediately before expansion/collapse from trusted Enter or toggle click",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "Target row data-treegrid-value",
+          "expanded": "The open-and-close state about to be committed",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "If prevented, preserve expansion, aria-expanded, hidden, and data-state, and do not emit treegrid:toggle."
+      },
+      "treegrid:toggle": {
+        "when": "After committing trusted expansion/collapse",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "Target row data-treegrid-value",
+          "expanded": "The committed open-and-close state",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "treegrid:beforechange": {
+        "when": "Immediately before selection changes from trusted Shift+Space or cell click in single/multiple mode",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "selected": "Proposed selection set as row values in DOM order",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "If prevented, preserve selection, aria-selected, data-selected, and the selected value, and do not emit treegrid:change."
+      },
+      "treegrid:change": {
+        "when": "After committing a trusted selection change",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "selected": "Committed selection set as row values in DOM order",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "expanded/selected setters, expand(), collapse(), toggle(), initialization, and reconnection emit no custom events.",
+      "synthetic": "click/keydown with isTrusted=false emit no events.",
+      "nested": "When receiving nested treegrids' events, restrict handling to the root with :self or event.target === event.currentTarget."
+    }
+  },
+  "selection": {
+    "modes": "selection=single enables single selection and multiple enables multiple selection. Both retain role=treegrid and are configurations of one controller. none, the default, has no selection behavior. Expansion/navigation remain unchanged across selection modes.",
+    "keyboard": "Shift+Space selects the focused cell's row, following APG's cell-only row-selection mapping. single replaces selection and emits no event when the same row is already selected; multiple toggles. Prevent default page scrolling.",
+    "pointer": "Trusted cell clicks select rows. Exclude clicks whose path includes a toggle or an interactive button/a/input/select/textarea/label. single replaces selection and emits no event for the same row; multiple toggles.",
+    "hiddenRows": "Preserve selection of rows hidden by collapse. Hidden rows cannot receive focus/clicks, so only the public API can operate on their selection.",
+    "excluded": "Do not adopt Ctrl+Space column selection, Shift+Arrow cell-range extension, or Ctrl+A all-cell selection; these APG keys belong to cell selection. Provide row selection only."
+  },
+  "editing": "Cell editing and value commitment are outside controller scope. Compose editable and consumer controllers for editing lifecycle, key isolation, and focus return rather than duplicating drafts/validation/commitment. Do not propagate editing keydowns to treegrid. Preserve Enter in a parent row's first cell for expansion/collapse. See docs/plans/decision-grid-editing.md for composition and verification.",
+  "keyboard": {
+    "focusModel": "Use cell-only roving tabindex, not row focus. APG permits both models; this is intentional. Arrows do not expand/collapse, allowing grid's two-dimensional navigation.",
+    "movement": "ArrowRight/Left move within a row and ArrowDown/Up within the column among visible rows. Stop at boundaries without wrapping. Home/End move to row start/end; Ctrl+Home/End to first/last visible cells. PageDown/Up move pageSize visible rows. Exclude hidden rows. Reverse horizontal navigation in RTL using grid's rules.",
+    "enter": "When focus is in the first cell of a parent row with aria-expanded, Enter toggles expansion under APG's cell-only model. Do not handle Enter in other cells.",
+    "arrowsDoNotToggle": "Do not expand/collapse with arrows. APG's ArrowRight expansion and ArrowLeft collapse belong to the row-focus model, which this contract does not use."
+  },
+  "managedMarkup": {
+    "addWhenMissing": {
+      "root": ["role=\"treegrid\", with a completion warning when supplied"]
+    },
+    "projection": "Write row aria-level from data-treegrid-level, aria-posinset/setsize from siblings sharing a parent, and aria-expanded from expansion. Flat tables do not let the user agent infer these, so write necessary attributes without warnings. Do not put aria-expanded on leaf rows.",
+    "selectionAria": "Synchronize aria-selected without warnings in syncState, not structural applyStructure. In single mode, write true only on selected rows and omit it elsewhere. In multiple mode, write true/false on every row as specified by APG. Synchronize root aria-multiselectable=\"true\" only for multiple mode, as configuration state without completion warnings, like listbox/combobox. Write none of these attributes in none mode.",
+    "wiring": "Write cell roving tabindex, 0 for current and -1 for others, as operational attributes without warnings.",
+    "hidden": "Set hidden on all descendants of collapsed rows and remove it on expansion. Do not use authored hidden as initial state; expansion is controller-owned.",
+    "preservation": "Preserve authored ids and all attributes except controller-owned aria-level/posinset/setsize/expanded/selected/multiselectable, tabindex, hidden, data-state, and data-selected."
+  },
+  "stateOutputs": {
+    "ownership": "Controller-owned CSS state is parent-row data-state and, when selection is enabled, row data-selected. Do not require ARIA CSS selectors.",
+    "expanded": "data-state=\"expanded\" for expanded rows",
+    "collapsed": "data-state=\"collapsed\" for collapsed rows",
+    "selected": "data-selected=\"true\" for selected rows, absent otherwise, readable with tr[data-selected]. data-state expresses expansion; selection can coexist with expansion and therefore uses a separate attribute.",
+    "leaf": "Do not output data-state on leaves or the root. State belongs to individual rows, and consumers can derive aggregates with CSS :has()."
+  },
+  "lifecycle": [
+    "Enable root click/keydown/focusin listeners and the cell childList/subtree MutationObserver only while connected; remove them in disconnect(). Do not duplicate registration on Turbo reconnection.",
+    "Reconcile row/toggle target connections/disconnections, recalculating hierarchy, ARIA, hidden state, selection, and roving tabindex.",
+    "Leave generated structural attributes and state outputs on disconnect().",
+    "On reconnection, normalize structural attributes and state outputs from current markup and expanded/selected values."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Explicit row hierarchy, aria-multiselectable, and row selection announcements",
+        "status": "unverified",
+        "impact": "Treegrid semantics, cell focus, and explicit aria-level are fixed independently of compatibility wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Support APG Treegrid cell-only focus, intentionally excluding row focus and arrow-based expansion/collapse.",
+    "Measurements in Chromium/Firefox/WebKit retain implicit tr=row and td=gridcell beneath table[role=treegrid], supporting omission of explicit row/cell roles.",
+    "Only trusted Enter/toggle clicks emit one cancelable beforetoggle followed by one toggle, in order; cancellation preserves state.",
+    "Public APIs, initialization, and reconnection synchronize state without custom events.",
+    "Collapse hides descendant rows, and keyboard navigation skips hidden rows.",
+    "Invalid markup disables enhancement with one warning",
+    "selection=none has no selection behavior, aria-selected, or data-selected; expansion/navigation behavior and tests remain unchanged.",
+    "When selection is enabled, aria-selected/multiselectable match the selection set, Shift+Space and cell clicks select rows, and cancellation/programmatic/synthetic event behavior follows the contract. Playwright ariaSnapshot measurements in all three engines expose tr aria-selected as row selected state.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device announcements of explicit row hierarchy and row selection through aria-multiselectable/aria-selected as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "treegrid-structure-projection",
+      "description": "Hierarchy ARIA and expansion synchronization, role=treegrid completion, and no aria-expanded on leaves"
+    },
+    {
+      "testId": "treegrid-completion-warning",
+      "description": "Completion warning for missing attributes, no warning for complete markup, and separation from the invalid-markup warning"
+    },
+    {
+      "testId": "treegrid-keyboard-navigation",
+      "description": "Two-dimensional navigation, Home/End, Ctrl+Home/End, PageUp/Down, RTL, hidden-row exclusion, and boundary stopping"
+    },
+    {
+      "testId": "treegrid-enter-toggle",
+      "description": "Enter toggles only in a parent row's first cell, not other cells or leaf rows"
+    },
+    {
+      "testId": "treegrid-toggle-events",
+      "description": "beforetoggle cancellation/restoration, toggle detail/order/bubbling, and toggle-click reason"
+    },
+    {
+      "testId": "treegrid-hidden-sync",
+      "description": "Descendant hidden synchronization, data-state, and nested collapse"
+    },
+    {
+      "testId": "treegrid-programmatic-silence",
+      "description": "Event suppression and state synchronization for expanded setter and expand/collapse/toggle"
+    },
+    {
+      "testId": "treegrid-semantic-validation",
+      "description": "Warnings and disabled enhancement for invalid roots, level jumps, duplicate/empty values, non-button toggles, and spanning cells"
+    },
+    {
+      "testId": "treegrid-disconnect-cleanup",
+      "description": "Listener cleanup and normalization on disconnect/reconnect"
+    },
+    {
+      "testId": "treegrid-selection-state",
+      "description": "No selection attributes in none mode; selected-row-only aria-selected in single; true/false and aria-multiselectable in multiple; data-selected"
+    },
+    {
+      "testId": "treegrid-selection-keyboard",
+      "description": "Shift+Space replacement in single mode, toggling in multiple, no-op on unchanged selection, and no handling of plain Space or none mode"
+    },
+    {
+      "testId": "treegrid-selection-pointer",
+      "description": "Cell-click selection, toggle/button/link exclusion, and synthetic-click event suppression"
+    },
+    {
+      "testId": "treegrid-selection-api",
+      "description": "DOM-order normalization of selected values, event-suppressed getters/setters, none-mode no-op, and hidden-row selection preservation"
+    },
+    {
+      "testId": "treegrid-selection-events",
+      "description": "beforechange/change order, bubbling, detail, cancellation, keyboard/pointer reasons, and programmatic/synthetic event suppression"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "treegrid-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid markup",
+      "mutation": {
+        "description": "Disable semantic validation and enhance invalid markup.",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-semantic-validation-negative and treegrid-completion-warning fail because both inspect disabled enhancement for invalid markup."
+    },
+    {
+      "testId": "treegrid-structure-projection-negative",
+      "guard": "Hierarchy ARIA synchronization",
+      "plannedMutation": "Remove aria-level/posinset/setsize writes",
+      "mutation": {
+        "description": "Remove hierarchy synchronization and do not write aria-level/posinset/setsize",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tfor (const info of this.rowInfos) {\n\t\t\tinfo.row.setAttribute(\"aria-level\", String(info.level));\n\t\t\tinfo.row.setAttribute(\"aria-posinset\", String(info.position));\n\t\t\tinfo.row.setAttribute(\"aria-setsize\", String(info.setSize));\n\t\t}",
+            "replace": "\t\tfor (const info of this.rowInfos) {\n\t\t\tvoid info;\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-structure-projection-negative fails."
+    },
+    {
+      "testId": "treegrid-enter-toggle-negative",
+      "guard": "Enter toggling from the first cell",
+      "plannedMutation": "Remove Enter handling so expansion does not toggle",
+      "mutation": {
+        "description": "Remove the Enter branch for first-cell expansion/collapse",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.key === \"Enter\") {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-enter-toggle-negative fails."
+    },
+    {
+      "testId": "treegrid-toggle-events-negative",
+      "guard": "beforetoggle cancellation/restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "description": "Remove beforetoggle cancellation and always commit expansion",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!beforeToggle) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-toggle-events-negative fails."
+    },
+    {
+      "testId": "treegrid-hidden-sync-negative",
+      "guard": "Descendant hidden synchronization",
+      "plannedMutation": "Remove hidden writes",
+      "mutation": {
+        "description": "Remove row hidden synchronization, leaving collapsed descendants visible",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tinfo.row.hidden = !this.isRowVisible(info);",
+            "replace": "\t\t\tvoid this.isRowVisible(info);"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-hidden-sync-negative, treegrid-keyboard-navigation, and treegrid-selection-api fail because all inspect hidden synchronization."
+    },
+    {
+      "testId": "treegrid-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit treegrid:toggle from expand() too",
+      "mutation": {
+        "description": "Emit treegrid:toggle from expand(), introducing public API events",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitExpanded([...this.currentExpanded, value]);\n\t};",
+            "replace": "\t\tthis.commitExpanded([...this.currentExpanded, value]);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"treegrid:toggle\", { bubbles: true }));\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "treegrid-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard",
+      "mutation": {
+        "description": "Disable the completion-warning guard so missing attributes produce no warning",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-completion-warning-negative fails."
+    },
+    {
+      "testId": "treegrid-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave listeners active after disconnect.",
+      "mutation": {
+        "description": "Remove disconnect listener/observer cleanup",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n",
+            "replace": ""
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n",
+            "replace": ""
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n",
+            "replace": ""
+          },
+          {
+            "find": "\t\tthis.observer?.disconnect();",
+            "replace": "\t\t// observer は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "treegrid-selection-state-negative",
+      "guard": "Multiple-mode aria-multiselectable synchronization",
+      "plannedMutation": "Remove multiple-mode aria-multiselectable writes",
+      "mutation": {
+        "description": "Do not write root aria-multiselectable in multiple mode",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst multiple = this.selectionValue === \"multiple\";\n\t\tif (multiple) {",
+            "replace": "\t\tconst multiple = this.selectionValue === \"multiple\";\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-selection-state-negative fails."
+    },
+    {
+      "testId": "treegrid-selection-keyboard-negative",
+      "guard": "Shift+Space row selection",
+      "plannedMutation": "Remove the Shift+Space selection branch",
+      "mutation": {
+        "description": "Remove the Shift+Space branch to disable keyboard selection",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.key === \" \" && event.shiftKey && this.selectionEnabled()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-selection-keyboard-negative and treegrid-selection-events-negative fail because both inspect Shift+Space selection."
+    },
+    {
+      "testId": "treegrid-selection-pointer-negative",
+      "guard": "data-selected state output",
+      "plannedMutation": "Remove selected-row data-selected writes",
+      "mutation": {
+        "description": "Do not write data-selected on selected rows",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (selected) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-selection-pointer-negative, treegrid-selection-state-negative, and treegrid-selection-api-negative fail because all inspect data-selected output."
+    },
+    {
+      "testId": "treegrid-selection-api-negative",
+      "guard": "DOM-order normalization and unknown-value removal for selected values",
+      "plannedMutation": "Break selected normalization to retain input order and unknown values",
+      "mutation": {
+        "description": "Leave selected values outside DOM order and retain unknown values",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst normalized = this.rowInfos\n\t\t\t.filter((info) => selectedValues.has(info.value))\n\t\t\t.map((info) => info.value);",
+            "replace": "\t\tconst normalized = [...selectedValues];"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-selection-api-negative, treegrid-selection-state-negative, and treegrid-selection-events-negative fail because all inspect selected normalization."
+    },
+    {
+      "testId": "treegrid-selection-events-negative",
+      "guard": "beforechange cancellation",
+      "plannedMutation": "Ignore treegrid:beforechange cancellation",
+      "mutation": {
+        "description": "Remove treegrid:beforechange cancellation handling and always commit selection",
+        "file": "src/treegrid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "treegrid-selection-events-negative fails."
+    }
+  ]
+}

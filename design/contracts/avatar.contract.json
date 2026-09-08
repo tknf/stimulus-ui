@@ -1,0 +1,541 @@
+{
+  "name": "avatar",
+  "controller": "avatar",
+  "pattern": "A headless avatar that synchronizes native image loading state with fallback display and announcements and root state output",
+  "responsibility": "Determines loading / loaded / error for a native <img> and synchronizes root data-state, image aria-hidden, and fallback hidden. It does not generate image URLs, alternative text, fallback content, or appearance",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/embedded-content.html#the-img-element",
+    "https://html.spec.whatwg.org/multipage/images.html#reacting-to-dom-mutations",
+    "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/complete",
+    "https://developer.mozilla.org/en-US/docs/Web/API/HTMLImageElement/naturalWidth",
+    "https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/load_event",
+    "https://developer.mozilla.org/en-US/docs/Web/API/HTMLElement/error_event",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-hidden",
+    "https://ark-ui.com/docs/components/avatar",
+    "https://www.radix-ui.com/primitives/docs/components/avatar",
+    "https://zagjs.com/components/avatar",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any HTMLElement with data-controller=\"avatar\", containing an image target and a fallback target",
+    "targets": {
+      "image": "Exactly one non-focusable native <img> with data-avatar-target=\"image\". Always author an alt attribute. Keep src / srcset / sizes and the use of <picture> as native markup. When interaction is needed, make the semantic root or an ancestor a button / link rather than the image itself",
+      "fallback": "Exactly one HTMLElement with data-avatar-target=\"fallback\". The user writes the text or element to display when the image has not loaded. The controller synchronizes hidden with the loading state"
+    },
+    "source": "Specify image URLs and responsive-image candidates with native attributes on image / picture. The controller does not duplicate them in data values. A configuration without an image source enters error state and can receive a source later",
+    "alternativeText": "The user writes image alt according to context. alt=\"\" is valid for a decorative image. The user writes fallback text content or an accessible name so the same information is conveyed when the fallback is displayed",
+    "content": "The controller does not generate the image, fallback, alternative text, initials, or icon"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLElement",
+      "The image target must be exactly one non-focusable native <img>. tabIndex must be less than 0",
+      "The fallback target must be exactly one HTMLElement and must be a different element from the image target",
+      "The image target must have an alt attribute. An empty alt=\"\" is valid"
+    ],
+    "invalidMarkup": "Validate on connection, target changes, and alt changes on the current image target. When invalid, remove the image load / error listeners, do not update data-state, image aria-hidden, fallback hidden, or status, and call console.warn once while connected. Keep the attribute observer during connection to detect restoration of alt. Leave output synchronized before invalidation in place and resynchronize from the current image when valid again. Do not throw",
+    "warning": "The disabling warning uses the standard form and includes the expected markup (an HTMLElement root, one non-focusable native <img> image target with an alt attribute, and one HTMLElement fallback target). Enhancement has been disabled.",
+    "completion": [],
+    "completionExempt": "The controller does not supplement static attributes. data-state, image aria-hidden, and fallback hidden are controller-owned states synchronized with loading state and are not completion-warning targets"
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "status": {
+        "type": "AvatarStatus | null",
+        "access": "getter",
+        "description": "The last committed loading / loaded / error state. null until the first valid synchronization. Export AvatarStatus from src/index.ts"
+      }
+    },
+    "methods": {},
+    "events": {
+      "none": "avatar does not dispatch custom events. The image target's native load / error events already report loading success and failure, so the controller does not duplicate them under another event name"
+    }
+  },
+  "consumerIntegration": {
+    "css": "User CSS reads root data-state=loading / loaded / error and decides dimensions, shape, color, transition, and how to display the image during loading / error. The controller does not change image hidden. Removing a loading=lazy image from layout with display:none or hidden during loading prevents the request from starting, so leave the image's layout box in place when loading should continue",
+    "nativeEvents": "To receive loading results in JS, subscribe directly to the image target's native load / error events. They do not bubble, so write the Stimulus action on the image target as well",
+    "responsiveImages": "Delegate candidate selection for srcset / sizes / picture to the browser. The controller does not parse URLs and uses only image complete / naturalWidth and native load / error as state sources",
+    "alternativeText": "image aria-hidden and fallback hidden make image alt available when loaded and fallback content available during loading / error. The user is responsible for providing equivalent information when both represent the same person or account. For a decorative image, use alt=\"\" and also remove the fallback from the accessibility tree",
+    "nested": "Because avatar dispatches no custom events, events do not mix when avatars of the same type are nested"
+  },
+  "behavior": {
+    "statuses": "status has three values: loading / loaded / error. The root takes exactly one of them at a time",
+    "initial": "After registering load / error listeners on the current image target, read complete and naturalWidth and synchronize the initial state without waiting for a cached event",
+    "loading": "loading when complete=false. Check complete first even if naturalWidth retains a value from a previous image. Do not hide the image; leave its layout box available for native lazy loading",
+    "loaded": "During initial synchronization and resynchronization after an attribute change, loaded when complete=true and naturalWidth>0. A trusted native load event commits loaded directly",
+    "error": "During initial synchronization and resynchronization after an attribute change, error when complete=true and naturalWidth=0. A trusted native error event and a missing image source commit error directly",
+    "cached": "For an image whose load / error completed before the controller connected, commit loaded / error from complete and naturalWidth without assuming that the event will be resent",
+    "nativeEventTrust": "A synthetic load / error with isTrusted=false does not change state. Process only trusted events fired by the browser as a source-loading result",
+    "sourceMutation": "While connected, observe src / srcset / sizes attributes on the current image target with a root-subtree MutationObserver and resynchronize loading / loaded / error from complete / naturalWidth after a change. Treat a trusted load / error received afterward as the final result. Treat property assignment reflected to the content attribute the same way",
+    "alternativeTextMutation": "The root-subtree attribute observer also watches alt changes on the current image target. Removing alt disables enhancement; restoring the alt attribute resynchronizes from the current image. Keep the observer while invalid",
+    "responsiveReselection": "Do not guarantee transient loading output for direct changes to picture source elements, image width / crossorigin / referrerpolicy, source insertion / removal / movement, or candidate reselection caused by viewport / DPR. Reflect the final load / error received by the current image target in state",
+    "eventAuthority": "Because load / error are native events that report the loading result itself, the handler commits loaded / error directly without rechecking complete / naturalWidth. In a probe of the current three engines on 2026-09-03, complete=true / naturalWidth=0 held at error for network failure, 404, MIME mismatch, a broken image, and an empty image, with no engine difference observed",
+    "fallbackTiming": "Do not delay fallback display. Set hidden=false when loading starts and do not have a delay value or timer",
+    "lazyLoading": "In measurements on 2026-09-03 with Chromium 151.0.7922.34 / Firefox 153.0 / WebKit 26.5, hiding an offscreen loading=lazy image in the connection microtask prevented the request from starting and left complete=false. Removing hidden and moving it into the viewport caused it to load, so the controller does not change image hidden"
+  },
+  "managedMarkup": {
+    "rootState": "Synchronize root data-state with loading / loaded / error",
+    "visibility": "For loading and error, fallback.hidden=false; for loaded, fallback.hidden=true. fallback hidden is controller-owned, so synchronize a value authored earlier by the user with the current state. Do not change image hidden regardless of loading state",
+    "aria": "For loading and error, set image aria-hidden=\"true\"; for loaded, remove aria-hidden to restore the native image's implicit accessibility. Do not use aria-hidden=\"false\". image aria-hidden is controller-owned. Do not write role, aria-live, aria-busy, aria-label, aria-labelledby, or alt. The user decides the alt content and fallback accessible content",
+    "preservation": "Do not overwrite existing attributes other than root data-state, image aria-hidden, and fallback hidden, or image hidden, src, srcset, sizes, picture sources, alt, and text content"
+  },
+  "stateOutputs": {
+    "ownership": "root data-state, image aria-hidden, and fallback hidden are controller-owned. Root data-state is the only state output for CSS; do not duplicate data-state on image and fallback",
+    "root": "data-state=\"loading\" | \"loaded\" | \"error\"",
+    "rationale": "Emit it on the root because CSS cannot determine loading success, failure, or cached state and the component as a whole has one state",
+    "targets": "Do not emit target data-state because image / fallback loading state can be derived from the root. Synchronize only image aria-hidden and fallback hidden, which limit the accessibility tree to one side, and leave image visual visibility to user CSS"
+  },
+  "keyboard": {
+    "none": "avatar has no interaction and does not add keyboard events or focus movement"
+  },
+  "lifecycle": [
+    "Revalidate changes from image / fallback TargetConnected / TargetDisconnected and alt changes on the current image target in the same microtask",
+    "Register a MutationObserver in connect() for src / srcset / sizes / alt attributes in the root subtree and remove it in disconnect(). Keep the observer while invalid to detect restoration of alt",
+    "Register load / error listeners on a valid image target and remove them from the old image when targets change, markup becomes invalid, or disconnect occurs. A delayed event from the old image does not change current state",
+    "Leave the last synchronized data-state, image aria-hidden, fallback hidden, and status in place on disconnect() and invalidation",
+    "On reconnection, synchronize from the current image target's complete / naturalWidth and do not register duplicate listeners or observers for the same instance",
+    "Track source changes only while connected and do not guarantee the intermediate state of a load that completed after the source changed while disconnected"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Loaded image and loading/error fallback announcements",
+        "status": "unverified",
+        "impact": "State classification and the authored image/fallback semantics are fixed independently of announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The AAA to achieve is 2.1.3 Keyboard (No Exception) (no feature is reachable only by pointer) and 3.2.5 Change on Request (the controller never moves focus and has no timer)",
+    "The behavior and accessibility covered by this component meet WCAG 2.2 Level AA",
+    "Incomplete, cached success, cached failure, and no image source are correctly classified as loading / loaded / error",
+    "status, root data-state, image aria-hidden, and fallback hidden agree for trusted load / error and connected src / srcset / sizes changes",
+    "Trusted load / error handlers commit the loaded / error indicated by the event and fallback display directly without rechecking complete / naturalWidth",
+    "For loading / error, image has aria-hidden=true and fallback is not hidden; for loaded, image has no aria-hidden and fallback is hidden. The controller does not change image hidden",
+    "Missing alt disables enhancement with one warning, and alt=\"\" is valid",
+    "The only ARIA written by the controller is image state-synchronized aria-hidden; it does not write alt, image URLs, or fallback content and does not dispatch custom events",
+    "An offscreen loading=lazy image remains unhidden after controller connection and loads and transitions to loaded when moved into the viewport",
+    "Synthetic load / error does not change state",
+    "Dynamic removal of alt disables enhancement, and restoration resynchronizes the current image",
+    "Target changes and disconnect / reconnect do not duplicate listeners or observers, and events from old targets have no effect",
+    "Automated tests pass in Chromium, Firefox, and WebKit",
+    "Report screen-reader announcements for the image when loaded and fallback when loading / error on a real device as unverified. Controller state classification does not depend on this result"
+  ],
+  "testMatrix": [
+    {
+      "testId": "avatar-initial-status",
+      "description": "Initial synchronization of incomplete images and no-source loading / error, the status getter, and root data-state"
+    },
+    {
+      "testId": "avatar-cache-status",
+      "description": "Classifying successfully completed and broken images from before controller connection as loaded / error using complete / naturalWidth without assuming completed events are resent"
+    },
+    {
+      "testId": "avatar-native-transitions",
+      "description": "Direct commitment of loaded / error from trusted load / error and the path that does not re-evaluate an event result even when stale image properties are reproduced before the trusted event in Chromium"
+    },
+    {
+      "testId": "avatar-visibility",
+      "description": "For loading / error, image aria-hidden=true and fallback hidden=false; for loaded, image has no aria-hidden and fallback hidden=true; image hidden is preserved and data-state is emitted only on the root"
+    },
+    {
+      "testId": "avatar-lazy-loading",
+      "description": "The controller does not hide an offscreen loading=lazy image, which transitions to loaded on a native load after it is moved into the viewport"
+    },
+    {
+      "testId": "avatar-source-change",
+      "description": "The observer re-evaluates connected src / srcset / sizes changes and advances from loading to the final state from trusted load / error"
+    },
+    {
+      "testId": "avatar-event-silence",
+      "description": "The controller dispatches no custom events and synthetic load / error does not change state"
+    },
+    {
+      "testId": "avatar-semantic-validation",
+      "description": "One warning and disabling for an invalid root type, missing / multiple / wrong-type image or fallback targets, or missing image alt; permission for alt=\"\"; and removal and restoration of alt after connection"
+    },
+    {
+      "testId": "avatar-dynamic-targets",
+      "description": "Image / fallback target replacement, ignoring delayed events from the old image, and synchronizing current state to the new target"
+    },
+    {
+      "testId": "avatar-disconnect-cleanup",
+      "description": "Listener and observer cleanup across disconnect / reconnect, retaining output, and synchronizing current state on reconnection"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "avatar-semantic-validation-negative",
+      "guard": "Semantic validation of root type, image / fallback counts and types, and the alt attribute",
+      "plannedMutation": "Disable validation and allow enhancement for invalid markup",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove reconcile()'s semantic validation guard and continue enhancement for invalid markup",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-semantic-validation-negative fails"
+    },
+    {
+      "testId": "avatar-root-type-negative",
+      "guard": "Root HTMLElement check",
+      "plannedMutation": "Remove the check that the root is an HTMLElement",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the root HTMLElement check",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.element instanceof HTMLElement &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-root-type-negative fails"
+    },
+    {
+      "testId": "avatar-image-count-negative",
+      "guard": "Requirement for exactly one image target",
+      "plannedMutation": "Use the first image target even when there are multiple image targets",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Use the first image target even when there are multiple image targets",
+        "replacements": [
+          {
+            "find": "\t\tconst imageCountValid = this.imageTargets.length === 1;",
+            "replace": "\t\tconst imageCountValid = this.imageTargets.length >= 1;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-image-count-negative fails"
+    },
+    {
+      "testId": "avatar-image-type-negative",
+      "guard": "HTMLImageElement check for the image target",
+      "plannedMutation": "Remove the element-type check for the image target",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the image target HTMLImageElement check",
+        "replacements": [
+          {
+            "find": "\t\tconst imageTypeValid = image instanceof HTMLImageElement;",
+            "replace": "\t\tconst imageTypeValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-image-type-negative fails"
+    },
+    {
+      "testId": "avatar-image-focusable-negative",
+      "guard": "Check limiting the image target to non-focusable elements",
+      "plannedMutation": "Remove the image target tabIndex check",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the image target tabIndex check",
+        "replacements": [
+          {
+            "find": "\t\tconst imageFocusableValid = imageTypeValid && image.tabIndex < 0;",
+            "replace": "\t\tconst imageFocusableValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-image-focusable-negative fails"
+    },
+    {
+      "testId": "avatar-fallback-count-negative",
+      "guard": "Requirement for exactly one fallback target",
+      "plannedMutation": "Use the first fallback target even when there are multiple fallback targets",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Use the first fallback target even when there are multiple fallback targets",
+        "replacements": [
+          {
+            "find": "\t\tconst fallbackCountValid = this.fallbackTargets.length === 1;",
+            "replace": "\t\tconst fallbackCountValid = this.fallbackTargets.length >= 1;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-fallback-count-negative fails"
+    },
+    {
+      "testId": "avatar-fallback-type-negative",
+      "guard": "HTMLElement check for the fallback target",
+      "plannedMutation": "Remove the element-type check for the fallback target",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the fallback target HTMLElement check",
+        "replacements": [
+          {
+            "find": "\t\tconst fallbackTypeValid = fallback instanceof HTMLElement;",
+            "replace": "\t\tconst fallbackTypeValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-fallback-type-negative fails"
+    },
+    {
+      "testId": "avatar-target-distinct-negative",
+      "guard": "Check that image and fallback targets are different elements",
+      "plannedMutation": "Allow the same element to serve as both image and fallback targets",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Allow the same element as both image and fallback targets",
+        "replacements": [
+          {
+            "find": "\t\tconst targetDistinct = image !== undefined && image !== fallback;",
+            "replace": "\t\tconst targetDistinct = true;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-target-distinct-negative fails"
+    },
+    {
+      "testId": "avatar-alt-required-negative",
+      "guard": "Requirement for an alt attribute on the image target",
+      "plannedMutation": "Remove the check for the alt attribute",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the check for the image target alt attribute",
+        "replacements": [
+          {
+            "find": "\t\tconst altValid = imageTypeValid && image.hasAttribute(\"alt\");",
+            "replace": "\t\tconst altValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-alt-required-negative fails"
+    },
+    {
+      "testId": "avatar-complete-guard-negative",
+      "guard": "Initial classification of complete=false as loading",
+      "plannedMutation": "Remove the complete guard and classify an incomplete image with naturalWidth=0 as error",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the complete guard and classify an incomplete image as error",
+        "replacements": [
+          {
+            "find": "\t\tif (!image.complete) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-complete-guard-negative fails"
+    },
+    {
+      "testId": "avatar-natural-width-guard-negative",
+      "guard": "Initial classification separating complete=true success and failure by naturalWidth",
+      "plannedMutation": "Treat complete=true as loaded regardless of naturalWidth",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove naturalWidth success/failure classification and always use loaded",
+        "replacements": [
+          {
+            "find": "\t\treturn image.naturalWidth > 0 ? \"loaded\" : \"error\";",
+            "replace": "\t\treturn \"loaded\";"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-natural-width-guard-negative fails"
+    },
+    {
+      "testId": "avatar-native-error-negative",
+      "guard": "Directly committing error from a native error event",
+      "plannedMutation": "Recheck complete / naturalWidth in the error handler and misclassify stale dimensions from the old image as loaded",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Recheck complete / naturalWidth in the error handler",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitStatus(\"error\");",
+            "replace": "\t\tthis.commitStatus(this.statusFromImage(this.boundImage ?? document.createElement(\"img\")));"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-native-error-negative fails in Chromium. The test reproduces stale naturalWidth before the trusted error"
+    },
+    {
+      "testId": "avatar-native-load-negative",
+      "guard": "Directly committing loaded from a native load event",
+      "plannedMutation": "Recheck complete / naturalWidth in the load handler and misclassify stale image properties as loading or error",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Recheck complete / naturalWidth in the load handler",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitStatus(\"loaded\");",
+            "replace": "\t\tthis.commitStatus(this.statusFromImage(this.boundImage ?? document.createElement(\"img\")));"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-native-load-negative fails in Chromium. The test reproduces stale complete / naturalWidth before the trusted load"
+    },
+    {
+      "testId": "avatar-status-property-negative",
+      "guard": "Synchronization of committed status and the read-only status getter",
+      "plannedMutation": "Remove the internal status update when committing state",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the internal status update when committing state",
+        "replacements": [
+          {
+            "find": "\t\tthis.currentStatus = status;",
+            "replace": "\t\tvoid status;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-status-property-negative fails"
+    },
+    {
+      "testId": "avatar-root-state-negative",
+      "guard": "Synchronization of status and root data-state",
+      "plannedMutation": "Remove root data-state updates",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove root data-state updates",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = status;",
+            "replace": "\t\tvoid status;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-root-state-negative fails"
+    },
+    {
+      "testId": "avatar-image-aria-hidden-negative",
+      "guard": "Synchronization of status and image aria-hidden",
+      "plannedMutation": "Remove image aria-hidden updates",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove image aria-hidden updates",
+        "replacements": [
+          {
+            "find": "\t\t\timage.setAttribute(\"aria-hidden\", \"true\");",
+            "replace": "\t\t\timage.removeAttribute(\"aria-hidden\");"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-image-aria-hidden-negative fails"
+    },
+    {
+      "testId": "avatar-fallback-hidden-negative",
+      "guard": "Synchronization of status and fallback hidden",
+      "plannedMutation": "Remove fallback hidden updates",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove fallback hidden updates",
+        "replacements": [
+          {
+            "find": "\t\tfallback.hidden = status === \"loaded\";",
+            "replace": "\t\tfallback.hidden = false;"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-fallback-hidden-negative fails"
+    },
+    {
+      "testId": "avatar-lazy-loading-negative",
+      "guard": "Constraint not to change image hidden during loading / error",
+      "plannedMutation": "Set image.hidden=true during loading / error and stop offscreen native lazy loading",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Set image.hidden=true during loading / error",
+        "replacements": [
+          {
+            "find": "\t\t\timage.setAttribute(\"aria-hidden\", \"true\");\n\t\t}",
+            "replace": "\t\t\timage.setAttribute(\"aria-hidden\", \"true\");\n\t\t\timage.hidden = true;\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-lazy-loading-negative fails in Chromium. The ordinary avatar-lazy-loading test checks the same constraint on all three engines"
+    },
+    {
+      "testId": "avatar-source-observer-negative",
+      "guard": "State reevaluation after src / srcset / sizes changes",
+      "plannedMutation": "Remove source-attribute observation from MutationObserver",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove source-attribute observation from MutationObserver",
+        "replacements": [
+          {
+            "find": "\t\t\tattributeFilter: [\"src\", \"srcset\", \"sizes\", \"alt\"],",
+            "replace": "\t\t\tattributeFilter: [\"alt\"],"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-source-observer-negative fails"
+    },
+    {
+      "testId": "avatar-alt-observer-negative",
+      "guard": "Attribute observation that applies post-connection alt removal and restoration to semantic validation",
+      "plannedMutation": "Remove alt from the MutationObserver targets",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove alt from the MutationObserver targets",
+        "replacements": [
+          {
+            "find": "\t\t\tattributeFilter: [\"src\", \"srcset\", \"sizes\", \"alt\"],",
+            "replace": "\t\t\tattributeFilter: [\"src\", \"srcset\", \"sizes\"],"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-alt-observer-negative fails"
+    },
+    {
+      "testId": "avatar-synthetic-event-negative",
+      "guard": "isTrusted guard for synthetic load / error",
+      "plannedMutation": "Remove the isTrusted guard and change state from a synthetic event",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove the isTrusted guard for native events",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.isTrusted",
+            "replace": "\t\t\ttrue"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-synthetic-event-negative fails"
+    },
+    {
+      "testId": "avatar-target-rebind-negative",
+      "guard": "Removing old image listeners when targets change",
+      "plannedMutation": "Keep the old image listener and allow state changes after replacement",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove old image-listener removal when targets change",
+        "replacements": [
+          {
+            "find": "\t\tthis.boundImage.removeEventListener(\"load\", this.handleLoad);",
+            "replace": "\t\t// load listener は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-target-rebind-negative fails"
+    },
+    {
+      "testId": "avatar-disconnect-cleanup-negative",
+      "guard": "Removing load / error listeners and the observer in disconnect",
+      "plannedMutation": "Keep listeners and the observer after disconnect",
+      "mutation": {
+        "file": "src/avatar_controller.ts",
+        "description": "Remove image-listener and observer removal from disconnect cleanup",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.disableEnhancement();\n\t\tthis.observer?.disconnect();",
+            "replace": "\t\tthis.connected = false;\n\t\t// image listener と observer は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "avatar-disconnect-cleanup-negative fails"
+    }
+  ]
+}

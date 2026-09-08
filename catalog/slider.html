@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>slider | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="min max between empty full partial"
+      data-catalog-properties="--slider-value --slider-range-start --slider-range-span"
+      data-catalog-events="slider:beforechange slider:change"
+    >
+      <h1>slider</h1>
+      <section>
+        <h2>Input root</h2>
+        <label for="slider-input-root">Volume</label>
+        <input
+          id="slider-input-root"
+          class="catalog-component"
+          type="range"
+          name="volume"
+          min="0"
+          max="100"
+          step="1"
+          value="40"
+          data-controller="slider"
+        />
+        <span class="catalog-state" aria-hidden="true"></span>
+      </section>
+      <section>
+        <h2>Wrapper and one input</h2>
+        <div class="catalog-component" data-controller="slider">
+          <label for="slider-wrapper-input">Brightness</label>
+          <input
+            id="slider-wrapper-input"
+            type="range"
+            name="brightness"
+            min="0"
+            max="100"
+            step="1"
+            value="60"
+            data-slider-target="input"
+          />
+          <span class="catalog-state" aria-hidden="true"></span>
+          <span class="catalog-slider-value" aria-hidden="true"></span>
+        </div>
+      </section>
+      <section>
+        <h2>Wrapper and two inputs</h2>
+        <div class="catalog-component" data-controller="slider">
+          <label for="slider-range-start">Minimum</label>
+          <label for="slider-range-end">Maximum</label>
+          <div class="catalog-slider-range">
+            <input
+              id="slider-range-start"
+              type="range"
+              name="range-start"
+              min="0"
+              max="100"
+              step="1"
+              value="20"
+              data-slider-target="input"
+            />
+            <span class="catalog-state" aria-hidden="true"></span>
+            <input
+              id="slider-range-end"
+              type="range"
+              name="range-end"
+              min="0"
+              max="100"
+              step="1"
+              value="80"
+              data-slider-target="input"
+            />
+            <span class="catalog-state" aria-hidden="true"></span>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>rtl</h2>
+        <div dir="rtl">
+          <label for="slider-rtl-input">Volume</label>
+          <input
+            id="slider-rtl-input"
+            class="catalog-component"
+            type="range"
+            name="rtl-volume"
+            min="0"
+            max="100"
+            step="1"
+            value="40"
+            data-controller="slider"
+          />
+          <span class="catalog-state" aria-hidden="true"></span>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

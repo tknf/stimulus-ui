@@ -1,0 +1,276 @@
+{
+  "name": "clipboard",
+  "controller": "clipboard",
+  "pattern": "A headless copy trigger writing through the Async Clipboard API",
+  "responsibility": "Extracts text from the consumer-selected source and passes it to navigator.clipboard.writeText() from trusted user activation. Reports success/failure through events; generates no notification UI or content.",
+  "references": [
+    "https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Selection",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"clipboard\"",
+    "trigger": "A native <button type=\"button\"> with data-clipboard-target=\"trigger\"; the consumer supplies its label",
+    "source": "An element with data-clipboard-target=\"source\", required only when the source value is \"target\"",
+    "content": "The controller generates neither elements/content nor success/failure notifications."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Exactly one trigger target is required.",
+      "Each trigger must be an HTMLButtonElement with type=\"button\"",
+      "source must be target, text, or selection.",
+      "Exactly one source target is required when source=target.",
+      "text must be nonempty when source=text."
+    ],
+    "invalidMarkup": "Validate markup and values on connection. Invalid configuration prevents listeners and copying and warns once per connection. Do not throw.",
+    "warning": "Warnings identify clipboard controller and the invalid element type or value name."
+  },
+  "api": {
+    "values": {
+      "source": {
+        "type": "String",
+        "htmlAttribute": "data-clipboard-source-value",
+        "default": "target",
+        "allowed": ["target", "text", "selection"],
+        "description": "Source kind: target reads the source target, text reads the text value, and selection reads the selection within the root."
+      },
+      "text": {
+        "type": "String",
+        "htmlAttribute": "data-clipboard-text-value",
+        "default": "",
+        "description": "Fixed text copied when source=text"
+      }
+    },
+    "properties": {},
+    "methods": {
+      "copy(event)": {
+        "returns": "Promise<void>",
+        "description": "Requires a trusted user-activation event and is intended for Stimulus actions. Calls without an event or with isTrusted=false resolve without writing or emitting custom events. Firefox and WebKit require transient activation, so the controller does not attempt a write without it."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "clipboard:beforecopy": {
+        "when": "After resolving source text from trusted trigger activation, before writing",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "text": "The text proposed for writing",
+          "source": "target | text | selection",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "preventDefault() suppresses both the write and clipboard:copy."
+      },
+      "clipboard:copy": {
+        "when": "After a trusted-activation write attempt resolves or rejects. No event is emitted when no write is attempted, including missing activation, empty source, or selection outside the root.",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "text": "The text that was attempted",
+          "source": "target | text | selection",
+          "reason": "pointer | keyboard",
+          "ok": "Whether the write succeeded",
+          "error": "The DOMException on failure, or null on success"
+        }
+      },
+      "notification": "No notification UI is supplied. Consumers handle clipboard:copy and pass the result to a toast or another UI.",
+      "synthetic": "Do not write or emit custom events for clicks with isTrusted=false because clipboard access requires transient activation.",
+      "programmatic": "copy() requires a trusted event, so it has no programmatic origin. Calls without events do nothing, and reason has no programmatic value.",
+      "emptySource": "Do not write or emit beforecopy/copy for empty sources: empty source targets, empty text, empty selection, or selection outside the root. Writing an empty string could unintentionally erase the user's clipboard."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for clipboard:copy and clipboard:beforecopy on the root or an ancestor. The controller does not stop propagation.",
+    "cancelableHook": "Cancel writing with event.preventDefault() in a clipboard:beforecopy listener.",
+    "programmatic": "Calling copy() from another controller without activation does nothing and emits no clipboard:copy because no write is attempted. This component does not support automatic copying without user interaction.",
+    "nested": "Use :self or event.target === event.currentTarget to restrict events to the root when listening outside nested clipboard controllers."
+  },
+  "behavior": {
+    "sourceTarget": "Read value from input/textarea source targets and textContent from other elements.",
+    "sourceSelection": "Copy only selections within the root. Do not write for empty selections or selections outside it.",
+    "multipleRange": "In engines supporting multiple selection ranges, use Selection.toString() unchanged, leaving concatenation order and separators to the engine.",
+    "richText": "Use writeText() only; ClipboardItem formats such as text/html are outside scope.",
+    "fallback": "Do not fall back to document.execCommand(\"copy\"). Unsupported environments report clipboard:copy with detail.ok=false.",
+    "activation": "Firefox/WebKit require transient user activation; Chromium may also allow clipboard-write permission. Do not normalize these permission differences; report writeText() failures from each engine."
+  },
+  "managedMarkup": {
+    "aria": "Consumers supply trigger labels and result notifications. The controller adds no ARIA.",
+    "stateOnly": "No state outputs: copying is transient and has no persistent component state.",
+    "preservation": "Preserve authored id, type, ARIA, and other attributes."
+  },
+  "stateOutputs": {
+    "ownership": "No state outputs; report success/failure through event detail."
+  },
+  "lifecycle": [
+    "Register trigger click in connect(); remove it in disconnect().",
+    "Do not emit custom events for write promises settling after disconnect().",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Chromium, Firefox, and WebKit multi-range selections",
+        "item": "Selection.toString() concatenation across multiple ranges",
+        "status": "unverified",
+        "impact": "Selection serialization is delegated to the platform; no alternative serialization or public API is selected from these observations."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Only trusted trigger activation emits one cancelable beforecopy followed by one copy result, in that order.",
+    "Canceling beforecopy prevents both the write and the copy event.",
+    "All four source forms reach writeText(): source-target value, source-target textContent, text value, and root-contained selection.",
+    "Report detail.ok=false and detail.error only for attempted writes that fail. No attempt means no event.",
+    "The controller generates no notification UI or elements.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Verify transient activation through Stimulus actions in each engine and record differences in docs/notes/browser-engine-differences.md.",
+    "Report engine differences in multi-range Selection.toString() concatenation as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "clipboard-source-target",
+      "description": "Passing input value and element textContent to writeText"
+    },
+    {
+      "testId": "clipboard-source-text",
+      "description": "Passing fixed text value to writeText"
+    },
+    {
+      "testId": "clipboard-source-selection",
+      "description": "Passing root-contained selection to writeText and excluding outside selection"
+    },
+    {
+      "testId": "clipboard-beforecopy-cancel",
+      "description": "beforecopy cancellation preventing write and copy events"
+    },
+    {
+      "testId": "clipboard-failure-detail",
+      "description": "Write rejection reported through detail.ok=false and detail.error"
+    },
+    {
+      "testId": "clipboard-synthetic-guard",
+      "description": "No write or events from clicks with isTrusted=false"
+    },
+    {
+      "testId": "clipboard-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and no events from promises settling after disconnection"
+    },
+    {
+      "testId": "clipboard-semantic-validation",
+      "description": "Invalid-markup/configuration warnings and disabled enhancement"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Transient activation results per engine"
+  ],
+  "negativeControls": [
+    {
+      "testId": "clipboard-semantic-validation-negative",
+      "guard": "Semantic markup and value validation",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Disable isValidMarkup() and continue enhancement with a non-button trigger.",
+        "replacements": [
+          {
+            "find": "if (!this.isValidMarkup()) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-semantic-validation-negative fails."
+    },
+    {
+      "testId": "clipboard-synthetic-guard-negative",
+      "guard": "Rejecting synthetic clicks through isTrusted",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Remove copy()'s isTrusted guard.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.connected || !event || !event.isTrusted) {",
+            "replace": "\t\tif (!this.connected || !event) {"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-synthetic-guard-negative fails."
+    },
+    {
+      "testId": "clipboard-beforecopy-cancel-negative",
+      "guard": "beforecopy cancellation",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Ignore beforecopy dispatchEvent's return value and always write.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeCopy)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeCopy);"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-beforecopy-cancel-negative fails."
+    },
+    {
+      "testId": "clipboard-empty-source-negative",
+      "guard": "Doing nothing for empty sources",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Remove the empty-string check and call writeText.",
+        "replacements": [
+          {
+            "find": "\t\tif (text === null || text === \"\") {",
+            "replace": "\t\tif (text === null) {"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-empty-source-negative fails."
+    },
+    {
+      "testId": "clipboard-selection-scope-negative",
+      "guard": "Excluding selections outside the root",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Remove the check that selection is within the root.",
+        "replacements": [
+          {
+            "find": "private isRangeWithinRoot = (range: Range) =>\n\t\tthis.element.contains(range.startContainer) && this.element.contains(range.endContainer);",
+            "replace": "private isRangeWithinRoot = (_range: Range) => true;"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-selection-scope-negative fails."
+    },
+    {
+      "testId": "clipboard-failure-detail-negative",
+      "guard": "Reporting write failure",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Ignore promise rejection and report ok=true.",
+        "replacements": [
+          {
+            "find": "error = this.toDomException(caught);",
+            "replace": "error = null;\n\t\t\tok = true;"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-failure-detail-negative fails."
+    },
+    {
+      "testId": "clipboard-disconnect-cleanup-negative",
+      "guard": "Listener cleanup and suppressing promises settling after disconnection",
+      "mutation": {
+        "file": "src/clipboard_controller.ts",
+        "description": "Remove both the disconnected-state check and listener cleanup from disconnect(), breaking the independent guards together.",
+        "replacements": [
+          {
+            "find": "this.connected = false;\n\t\tthis.connectionVersion += 1;\n\t\tthis.unbindTrigger();",
+            "replace": "this.connectionVersion += 1;"
+          }
+        ]
+      },
+      "expectedFailure": "clipboard-disconnect-cleanup-negative fails."
+    }
+  ]
+}

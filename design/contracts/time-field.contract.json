@@ -1,0 +1,253 @@
+{
+  "name": "time-field",
+  "controller": "time-field",
+  "pattern": "A headless time field adding cancelable change events and state outputs to native input[type=time]",
+  "responsibility": "Preserves native time value, min, max, step, segment editing, picker UI, and form semantics. Adds user-originated change events, data-state, and semantic markup validation that native input lacks. Does not generate appearance or content.",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/input.html#time-state-(type=time)",
+    "https://www.w3.org/TR/html-aam-1.0/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <input type=\"time\"> with data-controller=\"time-field\"",
+    "label": "The consumer provides an accessible name through <label>, aria-label, or aria-labelledby.",
+    "range": "The consumer supplies min, max, step, and value as native attributes.",
+    "form": "The consumer supplies name and uses native time-input form submission.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": ["The root must be an HTMLInputElement with type=time."],
+    "invalidMarkup": "Validate the root on connection. Invalid markup prevents listener registration, state output, and value operations and issues console.warn once per connection. Do not throw.",
+    "warning": "Use the standard English disabling warning, including the required native input[type=time] root."
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "Current native input.value. All three engines preserve the assigned form, which may be HH:MM, HH:MM:SS, or HH:MM:SS.sss. Missing or invalid input is an empty string. Assignment changes value and data-state without custom events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "time-field:beforechange": {
+        "when": "Before a value change from trusted pointer or keyboard interaction (native change from segment editing or picker UI)",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "The proposed value (an HH:MM-family string or an empty string)",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), restore the previous native value and data-state and suppress time-field:change."
+      },
+      "time-field:change": {
+        "when": "After a trusted value change is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The committed value",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "The value setter, initialization, form reset, and reconnection do not emit custom events.",
+      "sameValue": "Do not emit beforechange/change for unchanged values. Compare value strings exactly: different forms of the same time are distinct values because the native input preserves their form.",
+      "synthetic": "input/change with isTrusted=false only synchronize native value and state outputs; they do not emit custom events. The controller does not dispatch synthetic native input/change events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for time-field:change and time-field:beforechange on the root or an ancestor. The controller does not stop propagation.",
+    "cancelableHook": "Cancel a change by calling event.preventDefault() in a time-field:beforechange listener.",
+    "programmatic": "Other controllers may read/write value through a Stimulus controller reference or outlets. Programmatic API changes emit no events.",
+    "nested": "Use :self or event.target === event.currentTarget to restrict events to the root when listening outside nested time-field controllers."
+  },
+  "behavior": {
+    "scope": "Use one native input[type=time] as the root; there are no targets.",
+    "initial": "Use the native value attribute as the initial value. The controller has no separate initial value.",
+    "native": "Delegate segment navigation, increment/decrement, digit entry, deletion, picker UI, and form semantics to the browser. The controller neither validates nor corrects values.",
+    "disabled": "Do not add data-* attributes for disabled state. Public API changes are allowed regardless of disabled state."
+  },
+  "keyboard": {
+    "native": "Do not implement keyboard handling. Native segment editing exists in all three engines. Measurements show the hour segment initially active in each engine and ArrowUp advancing through a 24-hour cycle.",
+    "pageKeys": "Do not implement PageUp/PageDown. Firefox handles them per segment (hours advance by three and wrap at 12; minutes advance by ten), while Chromium and WebKit do not respond. See docs/notes/browser-engine-differences.md. Whole-value navigation would duplicate Firefox segment handling and produce inconsistent results. The controller cannot determine segment focus and does not normalize these engine differences."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Use native input[type=time] value, min, max, step, keyboard handling, and form semantics. There is no implicit role, and accessibility-tree exposure is engine-dependent.",
+    "aria": "Do not write role or aria-* attributes. Do not overwrite or remove authored ARIA.",
+    "stateOnly": "Only root data-state is a controller-managed state output. Do not output CSS custom properties.",
+    "preservation": "Preserve authored id, name, value, min, max, step, disabled, ARIA, and other attributes."
+  },
+  "stateOutputs": {
+    "ownership": "Only root data-state is controller-owned; do not use ARIA as a visual state output.",
+    "comparison": "Compare min/max using valueAsNumber (milliseconds since midnight), not strings. A time value may use HH:MM, HH:MM:SS, or HH:MM:SS.sss while bounds retain their authored strings. min=\"10:30\" and value=\"10:30:00\" represent the same time but differ as strings, incorrectly producing between instead of min; this was measured in all three engines (docs/notes/browser-engine-differences.md). Date-field can compare fixed-width YYYY-MM-DD strings; that reasoning does not apply to time.",
+    "boundResolution": "Parse min/max by assigning each string to a detached <input type=\"time\"> created in the root ownerDocument and reading valueAsNumber. Delegate interpretation to the engine rather than parsing HH:MM:SS.sss with custom regular expressions. Empty or invalid strings yield NaN and are excluded as bounds using Number.isNaN.",
+    "min": "data-state=\"min\" when valueAsNumber equals min in milliseconds. Missing or invalid min cannot produce this state.",
+    "max": "data-state=\"max\" when valueAsNumber equals max in milliseconds. Missing or invalid max cannot produce this state.",
+    "between": "data-state=\"between\" otherwise, including empty values whose valueAsNumber is NaN."
+  },
+  "lifecycle": [
+    "Register root keydown, pointerdown, input, and change listeners and the associated-form reset listener in connect(); remove them in disconnect().",
+    "The controller instance retains the detached input used to parse min/max; never insert it into the document.",
+    "Leave generated data-state on disconnect().",
+    "Synchronize state output from the current native value on reconnection.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Native browser pickers and screen readers on real devices",
+        "item": "Picker opening/closing, accessibility-tree exposure, and announcements",
+        "status": "unverified",
+        "impact": "The controller retains native time input semantics and does not implement the picker or an alternative AT mapping."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Conforming input[type=time] preserves native value, min, max, step, segment editing, and form semantics. The controller never intercepts keyboard operations.",
+    "Determine data-state through valueAsNumber so different forms of the same time, such as min=\"10:30\" and value=\"10:30:00\", produce min.",
+    "Only trusted value changes emit one cancelable beforechange followed by one committed change, in that order. Cancellation preserves value and state.",
+    "Public API calls, initialization, form reset, and reconnection synchronize state outputs without custom events.",
+    "The controller adds neither role nor aria-* attributes and preserves authored attributes.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit. Tests must not depend on WebKit delaying change until blur; see docs/notes/browser-engine-differences.md.",
+    "Arrow-key tests use min/max allowing the hour segment to move. Fixing the hour through bounds makes only Chromium leave both value and events unchanged, for the same reason as date-field's widenRange.",
+    "Report picker opening/closing, accessibility-tree exposure, and real-device screen reader announcements as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "time-field-state-sync",
+      "description": "data-state min/max/between, missing min/max, empty values, and authored-attribute preservation"
+    },
+    {
+      "testId": "time-field-bound-resolution",
+      "description": "Equivalent times with different forms, such as min=\"10:30\" and value=\"10:30:00\"; invalid bounds treated as absent; and second-bearing values with step=\"1\""
+    },
+    {
+      "testId": "time-field-beforechange-cancel",
+      "description": "beforechange cancellation and restoration; change detail, order, and bubbling"
+    },
+    {
+      "testId": "time-field-native-change",
+      "description": "Wrapping trusted native change from segment editing and determining its reason"
+    },
+    {
+      "testId": "time-field-programmatic-silence",
+      "description": "No events from value assignment or synthetic input/change, with state synchronization"
+    },
+    {
+      "testId": "time-field-semantic-validation",
+      "description": "One warning and disabled enhancement for invalid roots"
+    },
+    {
+      "testId": "time-field-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and state"
+    },
+    "No controller handling of PageUp/PageDown (covered by time-field-native-change)",
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "time-field-semantic-validation-negative",
+      "guard": "Semantic root validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid roots.",
+      "mutation": {
+        "description": "Remove reconcile()'s semantic validation guard and continue enhancement for invalid markup",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "time-field-semantic-validation-negative fails."
+    },
+    {
+      "testId": "time-field-bound-resolution-negative",
+      "guard": "Resolving bounds through valueAsNumber",
+      "plannedMutation": "Use string comparison for bounds so equivalent times with different forms fail to produce min/max.",
+      "mutation": {
+        "description": "Compare value strings instead of resolving bounds through valueAsNumber.",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst value = input.valueAsNumber;\n\t\tconst min = this.nativeBound(input.min);\n\t\tconst max = this.nativeBound(input.max);",
+            "replace": "\t\tconst value = input.value;\n\t\tconst min = input.min === \"\" ? null : input.min;\n\t\tconst max = input.max === \"\" ? null : input.max;"
+          }
+        ]
+      },
+      "expectedFailure": "Only time-field-bound-resolution-negative fails. String comparison is incorrect only for differing forms; other tests use matching forms."
+    },
+    {
+      "testId": "time-field-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and value restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "description": "Ignore beforechange cancellation and always commit.",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "time-field-beforechange-cancel-negative and time-field-native-change fail because native change commitment shares the beforechange cancellation invariant."
+    },
+    {
+      "testId": "time-field-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit time-field:change from the value setter.",
+      "mutation": {
+        "description": "Emit time-field:change from the value setter.",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.value = value;\n\t\tthis.syncState(input);",
+            "replace": "\t\tinput.value = value;\n\t\tthis.syncState(input);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"time-field:change\", { bubbles: true }));"
+          }
+        ]
+      },
+      "expectedFailure": "time-field-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "time-field-state-sync-negative",
+      "guard": "data-state synchronization",
+      "plannedMutation": "Remove data-state writes.",
+      "mutation": {
+        "description": "Remove data-state writes so state outputs are not synchronized.",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;",
+            "replace": "\t\tvoid state;"
+          }
+        ]
+      },
+      "expectedFailure": "time-field-state-sync-negative, time-field-bound-resolution, time-field-beforechange-cancel, time-field-programmatic-silence, and time-field-disconnect-cleanup fail. Bounds resolution, cancellation restoration, public API calls, and reconnection share data-state output."
+    },
+    {
+      "testId": "time-field-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave connected state and listeners active after disconnect.",
+      "mutation": {
+        "description": "Leave connected state and listeners active after disconnect.",
+        "file": "src/time_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "time-field-disconnect-cleanup-negative fails."
+    }
+  ]
+}

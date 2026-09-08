@@ -1,0 +1,29 @@
+<div
+  data-controller="dialog tour-demo"
+  data-step="0"
+  data-action="dialog:beforeopen->tour-demo#reset dialog:open->tour-demo#focusStep"
+>
+  <div class="tour-demo-page">
+    <button type="button" id="tour-demo-search">検索</button>
+    <button type="button" id="tour-demo-settings">設定</button>
+  </div>
+  <button type="button" data-dialog-target="trigger" aria-controls="tour-demo-dialog">
+    画面の案内を開始
+  </button>
+  <dialog id="tour-demo-dialog" data-dialog-target="dialog" aria-labelledby="tour-demo-title">
+    <h2 id="tour-demo-title">画面の案内</h2>
+    <section data-tour-demo-target="step">
+      <h3 data-tour-demo-target="heading" tabindex="-1" autofocus>検索から項目を探す</h3>
+      <p>画面上の検索ボタンから、項目を絞り込めます。</p>
+    </section>
+    <section data-tour-demo-target="step" hidden>
+      <h3 data-tour-demo-target="heading" tabindex="-1">設定を変更する</h3>
+      <p>画面上の設定ボタンから、表示設定を変更できます。</p>
+    </section>
+    <button type="button" data-tour-demo-target="previous" data-action="tour-demo#previous">
+      前へ
+    </button>
+    <button type="button" data-tour-demo-target="next" data-action="tour-demo#next">次へ</button>
+    <button type="button" data-dialog-target="close">案内を終了</button>
+  </dialog>
+</div>

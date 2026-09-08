@@ -1,0 +1,463 @@
+{
+  "name": "tree",
+  "controller": "tree",
+  "pattern": "A hierarchical list following the APG Tree View Pattern, with virtual focus through aria-activedescendant",
+  "responsibility": "Enhance authored nested lists with tree/treeitem roles, expanded and selected states, data-state, and cancelable change/toggle events. Generate no appearance or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/treeview/",
+    "https://www.w3.org/TR/wai-aria-1.2/#tree",
+    "https://www.w3.org/TR/wai-aria-1.2/#treeitem",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <ul> or <ol> with data-controller=\"tree\"",
+    "item": "A <li> with data-tree-target=\"item\". Parent items contain a nested <ul>/<ol> whose <li> children are their child items.",
+    "value": "Give each item a unique string data-tree-value.",
+    "toggle": "A native <button type=\"button\"> with data-tree-target=\"toggle\" inside a parent item toggles expansion on click. Without a toggle, ArrowRight/ArrowLeft control expansion.",
+    "label": "Consumers name the root with aria-label or aria-labelledby. Item content text supplies item labels.",
+    "indent": "Consumer CSS renders hierarchy from nested structure. The controller does not output depth attributes.",
+    "content": "The controller generates no elements/content; consumers also author expansion indicators."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLUListElement or HTMLOListElement.",
+      "At least one item target is required.",
+      "Items are <li> descendants of the root.",
+      "Parent items place child items within their own nested <ul>/<ol>.",
+      "An item's parent must be the root or a <ul>/<ol> inside another item.",
+      "data-tree-value must be nonempty.",
+      "data-tree-value must be unique within the tree.",
+      "Toggle targets must be HTMLButtonElements with type=\"button\".",
+      "Toggle targets must descend from an item that has children.",
+      "Each item has at most one toggle target.",
+      "The root must have an accessible name."
+    ],
+    "invalidMarkup": "Validate markup on connection. Invalid markup disables role/ARIA writes, listeners, observers, and state outputs, with one console.warn per connection. Do not throw.",
+    "warning": "The warning identifies tree controller, expected <ul>/<ol> root and <li> items, and the violated condition.",
+    "completion": {
+      "attributes": [
+        "role=\"tree\" on the root",
+        "role=\"treeitem\" on items",
+        "role=\"group\" on child lists"
+      ],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning",
+      "excluded": "Root tabindex is required for controller behavior and does not produce a completion warning."
+    }
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "String",
+        "htmlAttribute": "data-tree-value-value",
+        "default": "",
+        "description": "data-tree-value of the initially selected item. Empty or unknown values produce no selection."
+      },
+      "expanded": {
+        "type": "Array",
+        "htmlAttribute": "data-tree-expanded-value",
+        "default": [],
+        "description": "data-tree-value values of initially expanded items, used only where markup lacks aria-expanded."
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "Selected item's data-tree-value. Assignment changes selection/state outputs without custom events."
+      },
+      "expanded": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Array of expanded items' data-tree-value values. Assignment changes expansion/state outputs without custom events."
+      }
+    },
+    "methods": {
+      "select(value)": {
+        "returns": "void",
+        "description": "Select the item with the given value without custom events."
+      },
+      "expand(value)": {
+        "returns": "void",
+        "description": "Expand the item with the given value without custom events. Do nothing for leaf items."
+      },
+      "collapse(value)": {
+        "returns": "void",
+        "description": "Collapse the item with the given value without custom events."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "tree:beforechange": {
+        "when": "Immediately before selection from a trusted pointer or keyboard operation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "Proposed value",
+          "previousValue": "Previous value",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "If prevented, preserve selection, ARIA, and state outputs, and do not emit tree:change."
+      },
+      "tree:change": {
+        "when": "After committing selection from a trusted pointer or keyboard operation",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "Committed value",
+          "previousValue": "Previous value",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "tree:beforetoggle": {
+        "when": "Immediately before expansion/collapse from trusted toggle click or ArrowRight/ArrowLeft",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "Target item value",
+          "expanded": "Proposed expanded state",
+          "previousExpanded": "Previous expanded state",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "If prevented, preserve expansion, ARIA, and state outputs, and do not emit tree:toggle."
+      },
+      "tree:toggle": {
+        "when": "After committing expansion/collapse from trusted toggle click or ArrowRight/ArrowLeft",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "Target item value",
+          "expanded": "Committed expanded state",
+          "previousExpanded": "Previous expanded state",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "The value/expanded setters, select(), expand(), collapse(), initialization, and reconnection emit no custom events.",
+      "sameState": "Operations that leave selection/expansion unchanged emit neither before nor committed events.",
+      "synthetic": "click/keydown with isTrusted=false only synchronize state outputs without custom events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Receive tree:change, tree:beforechange, tree:toggle, and tree:beforetoggle on the root or ancestors. The controller does not stop propagation.",
+    "cancelableHook": "Prevent selection through tree:beforechange or expansion through tree:beforetoggle by calling event.preventDefault().",
+    "programmatic": "Other controllers can use value, expanded, select(), expand(), and collapse() through Stimulus references or outlets. Programmatic APIs emit no events.",
+    "nested": "When receiving nested trees' events, restrict handling to the root with :self or event.target === event.currentTarget."
+  },
+  "behavior": {
+    "scope": "Support trees whose nodes are all present in the DOM. Lazy-loaded children and aria-busy/setsize management are out of scope.",
+    "focusModel": "Keep DOM focus on the root and point aria-activedescendant at the active item. Do not move DOM focus to items.",
+    "pointerSelection": "Clicking an item activates and selects it without changing expansion, following the contract's APG treeitem activation model.",
+    "pointerToggle": "Clicking a toggle changes the corresponding item's expansion without selecting it. Do not also treat a toggle click as an item click.",
+    "selection": "Provide only single selection, not multiple selection.",
+    "keyboard": "ArrowDown/Up move to the next/previous visible item. ArrowRight expands a collapsed item or moves to its first child when expanded. ArrowLeft collapses an expanded item or moves to its parent when collapsed. Home moves to the first item and End to the last visible item. Enter selects the active item.",
+    "typeahead": "Append an unmodified printable character to the typeahead buffer and activate the next visible item whose label starts with it. Share src/internal/typeahead.ts and listbox rules for searching after current with wrapping, 500ms expiry, repeated-character cycling, lowercase prefix matching, Space exclusion, and IME guards (event.isComposing or keyCode 229). Use only item-level label text, excluding nested <ul>/<ol> and toggle-button text rather than full descendant textContent. The expiry timer changes no focus, aria-activedescendant, or data-state. Japanese-label typeahead does not work on macOS; see the IME section of docs/notes/browser-engine-differences.md.",
+    "expandAll": "Sibling expansion with asterisk is out of scope.",
+    "disabled": "Exclude aria-disabled=\"true\" items from navigation and selection. Add no disabled data-* output. Public APIs can change values regardless of disabled state."
+  },
+  "managedMarkup": {
+    "root": "Supply missing role=\"tree\" and tabindex=\"0\". Synchronize aria-activedescendant with the active item's id.",
+    "group": "Supply missing role=\"group\" on nested <ul>/<ol> elements inside items.",
+    "item": "Supply missing role=\"treeitem\" and generated ids. Synchronize aria-selected with selection and aria-expanded for parent items with expansion. Set tabindex=\"-1\".",
+    "level": "Do not add aria-level, aria-setsize, or aria-posinset. All nodes exist in the DOM, allowing the user agent to calculate them from nesting.",
+    "stateOnly": "Managed state outputs are limited to item data-state.",
+    "preservation": "Preserve authored id, role, and other attributes. Supply root tabindex only when absent. Item tabindex is controller-owned and fixed at -1 because tabbing to items would break the root-focused aria-activedescendant model. Synchronize aria-selected, aria-expanded, and root aria-activedescendant."
+  },
+  "stateOutputs": {
+    "ownership": "Only item data-state is controller-owned CSS state output; do not express CSS state through ARIA attributes.",
+    "item": {
+      "disabled": "data-state=\"disabled\"",
+      "active": "data-state=\"active\"",
+      "selected": "data-state=\"selected\"",
+      "inactive": "data-state=\"inactive\""
+    },
+    "priority": "disabled > active > selected > inactive"
+  },
+  "lifecycle": [
+    "Register root click/keydown listeners in connect() and remove them in disconnect().",
+    "Observe item additions/removals and attribute changes with MutationObserver, removing it in disconnect(). Do not observe attributes the observer itself writes.",
+    "Track item-target additions/removals through Stimulus TargetConnected/TargetDisconnected callbacks.",
+    "Clear references to active items removed from the DOM.",
+    "Leave generated roles, ARIA, ids, and data-state on disconnect().",
+    "On reconnection, synchronize ARIA/state outputs with current markup without reapplying initial value/expanded settings.",
+    "Reconnecting the same instance must not duplicate listeners, observers, or custom events."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Browser engines, screen readers on real devices, and Windows IME",
+        "item": "Implicit aria-level/aria-posinset calculation, hierarchy and expansion announcements, and Windows IME typeahead",
+        "status": "unverified",
+        "impact": "Tree semantics and markup hierarchy are fixed. Recorded macOS IME results remain verified; Windows behavior is not inferred and explicit hierarchy metadata is not chosen from announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The root has role=\"tree\", an accessible name, and participation in the tab sequence.",
+    "Items have role=\"treeitem\" and nested <ul>/<ol> elements have role=\"group\".",
+    "Only parent items have aria-expanded, synchronized with their expansion.",
+    "aria-activedescendant identifies the active item while focus stays on the root.",
+    "Four arrows, Home, End, Enter, and typeahead match the APG Tree View Pattern.",
+    "Only trusted operations emit one cancelable before event followed by one committed event, in order.",
+    "Public API calls, initialization, and reconnection synchronize state outputs without custom events.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report agreement across the three engines and AT of implicitly calculated aria-level/aria-posinset as unverified.",
+    "Report real-device announcements of hierarchy and expansion as unverified.",
+    "Actual typeahead IME behavior is measured on macOS Chrome/Firefox/Safari; see the IME section of docs/notes/browser-engine-differences.md. Report Windows IME such as MS-IME/ATOK as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "tree-state-sync",
+      "description": "Roles, aria-selected, aria-expanded, generated ids, tabindex, data-state, and authored attribute preservation"
+    },
+    {
+      "testId": "tree-navigation",
+      "description": "ArrowDown/Up movement, ArrowRight expansion/child navigation, ArrowLeft collapse/parent navigation, and Home/End"
+    },
+    {
+      "testId": "tree-activedescendant",
+      "description": "aria-activedescendant synchronization, root focus retention, and cleanup of removed active items"
+    },
+    {
+      "testId": "tree-selection",
+      "description": "Enter/click selection, beforechange cancellation, and change detail"
+    },
+    {
+      "testId": "tree-toggle",
+      "description": "Toggle click and ArrowRight/Left expansion, beforetoggle cancellation, toggle detail, and no expansion from item click"
+    },
+    {
+      "testId": "tree-disabled-guard",
+      "description": "Exclude aria-disabled items from navigation and selection"
+    },
+    {
+      "testId": "tree-programmatic-silence",
+      "description": "Event suppression for value/expanded setters and select/expand/collapse"
+    },
+    {
+      "testId": "tree-dynamic-targets",
+      "description": "Track item additions/removals"
+    },
+    {
+      "testId": "tree-id-uniqueness",
+      "description": "Document-wide id collision avoidance with multiple trees and preservation of authored ids"
+    },
+    {
+      "testId": "tree-disconnect-cleanup",
+      "description": "Listener/observer cleanup on disconnect/reconnect"
+    },
+    {
+      "testId": "tree-semantic-validation",
+      "description": "Warnings and disabled enhancement for non-list roots, missing items, duplicate/empty values, invalid nesting, or toggle targets outside items"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    {
+      "testId": "tree-completion-warning",
+      "description": "Completion warning for missing attributes, no warning for complete markup, and separation from the invalid-markup warning"
+    },
+    {
+      "testId": "tree-typeahead",
+      "description": "Prefix navigation among visible items and exclusion of nested-list/toggle text from labels. Shared utility tests in listbox-typeahead cover search, buffers, and IME guards."
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "tree-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable isValidMarkup() guards to keep enhancement active with non-list roots, missing items, or duplicate/empty values",
+      "expectedFailure": "tree-semantic-validation-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Ignore markup validation results and continue enhancement",
+        "replacements": [
+          {
+            "find": "const items = this.validateMarkup();",
+            "replace": "const items = this.itemTargets as HTMLLIElement[];"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-value-uniqueness-negative",
+      "guard": "Unique/nonempty value validation",
+      "plannedMutation": "Simultaneously remove duplicate and empty-value checks. The independent guards can each detect violations, so break both together.",
+      "expectedFailure": "tree-value-uniqueness-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Simultaneously disable empty and duplicate-value checks",
+        "replacements": [
+          {
+            "find": "\t\tif (values.some((value) => value.trim() === \"\")) {",
+            "replace": "\t\tif (false) {"
+          },
+          {
+            "find": "\t\tif (new Set(values).size !== values.length) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-activedescendant-negative",
+      "guard": "aria-activedescendant synchronization and cleanup of removed active items",
+      "plannedMutation": "Remove invalidation when the active item leaves the DOM",
+      "expectedFailure": "tree-activedescendant-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Do not invalidate references to active items removed from the DOM",
+        "replacements": [
+          {
+            "find": "if (this.activeItem !== undefined && !this.validItems.includes(this.activeItem)) {",
+            "replace": "if (false) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-expanded-navigation-negative",
+      "guard": "Exclusion of descendants of collapsed items from navigation",
+      "plannedMutation": "Ignore expansion state and navigate through all items",
+      "expectedFailure": "tree-expanded-navigation-negative and tree-navigation fail. Visible-item enumeration is shared across multiple checks, so failure is not limited to one test.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Treat descendants of collapsed ancestors as visible",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!this.isExpanded(this.itemValue(parent))) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-disabled-guard-negative",
+      "guard": "Exclusion of aria-disabled items",
+      "plannedMutation": "Remove aria-disabled detection",
+      "expectedFailure": "tree-disabled-guard-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Do not detect aria-disabled items as disabled",
+        "replacements": [
+          {
+            "find": "private isDisabled = (item: HTMLLIElement) => item.getAttribute(\"aria-disabled\") === \"true\";",
+            "replace": "private isDisabled = (_item: HTMLLIElement) => false;"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-beforetoggle-cancel-negative",
+      "guard": "beforetoggle cancellation",
+      "plannedMutation": "Ignore dispatchEvent's return value and always commit expansion",
+      "expectedFailure": "tree-beforetoggle-cancel-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Ignore beforetoggle dispatchEvent's return value",
+        "replacements": [
+          {
+            "find": "\t\tif (!beforeToggle) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit events from the value setter and select/expand/collapse too",
+      "expectedFailure": "tree-programmatic-silence-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Emit change and toggle events from programmatic commits",
+        "replacements": [
+          {
+            "find": "private commitValue = (value: string) => {\n\t\tthis.currentValue = this.normalizeValue(value);",
+            "replace": "private commitValue = (value: string) => {\n\t\tthis.element.dispatchEvent(new Event(\"tree:change\"));\n\t\tthis.currentValue = this.normalizeValue(value);"
+          },
+          {
+            "find": "private commitExpanded = (values: string[]) => {\n\t\tthis.currentExpanded = this.normalizeExpanded(values);",
+            "replace": "private commitExpanded = (values: string[]) => {\n\t\tthis.element.dispatchEvent(new Event(\"tree:toggle\"));\n\t\tthis.currentExpanded = this.normalizeExpanded(values);"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-preservation-negative",
+      "guard": "Preservation of authored ids and roles",
+      "plannedMutation": "Remove hasAttribute checks and write ids/roles unconditionally",
+      "expectedFailure": "tree-preservation-negative and tree-id-uniqueness fail. Id allocation is shared by multiple checks, so failure is not limited to one test.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Overwrite root/item roles and item ids regardless of authored attributes",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"role\")) {\n\t\t\tthis.element.setAttribute(\"role\", \"tree\");\n\t\t}",
+            "replace": "\t\tthis.element.setAttribute(\"role\", \"tree\");"
+          },
+          {
+            "find": "\t\t\tif (!item.hasAttribute(\"role\")) {\n\t\t\t\titem.setAttribute(\"role\", \"treeitem\");\n\t\t\t}",
+            "replace": "\t\t\titem.setAttribute(\"role\", \"treeitem\");"
+          },
+          {
+            "find": "\t\t\tif (item.id === \"\") {\n\t\t\t\tensureElementId(item, \"tree-item\");\n\t\t\t}",
+            "replace": "\t\t\titem.id = \"tree-item-mutated\";"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-disconnect-cleanup-negative",
+      "guard": "Listener and observer cleanup on disconnect",
+      "plannedMutation": "Simultaneously remove disconnect() removeEventListener and observer.disconnect()",
+      "expectedFailure": "tree-disconnect-cleanup-negative fails.",
+      "mutation": {
+        "file": "src/tree_controller.ts",
+        "description": "Simultaneously break disconnect's enhanced guard and listener/observer cleanup",
+        "replacements": [
+          {
+            "find": "this.observer = undefined;\n\t\tthis.enhanced = false;\n\t\tthis.keyboardToggleTarget = undefined;",
+            "replace": "this.observer = undefined;\n\t\tthis.enhanced = true;\n\t\tthis.keyboardToggleTarget = undefined;"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.observer?.disconnect();",
+            "replace": ""
+          }
+        ]
+      }
+    },
+    {
+      "testId": "tree-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/tree_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "tree-completion-warning-negative fails."
+    },
+    {
+      "testId": "tree-typeahead-label-negative",
+      "guard": "Tree item typeahead label extraction",
+      "mutation": {
+        "description": "Use full item textContent without excluding nested lists and toggle buttons",
+        "file": "src/tree_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn parts.join(\"\").trim();",
+            "replace": "\t\treturn item.textContent ?? \"\";"
+          }
+        ]
+      },
+      "expectedFailure": "tree-typeahead-label-negative fails."
+    }
+  ]
+}

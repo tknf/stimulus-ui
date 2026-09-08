@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>timer | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="idle running paused finished"
+      data-catalog-properties="--timer-value --timer-duration"
+      data-catalog-events="timer:milestone timer:finish"
+    >
+      <h1>timer</h1>
+      <section>
+        <h2>Countdown</h2>
+        <div
+          class="catalog-component catalog-timer"
+          data-controller="timer"
+          data-timer-duration-value="1500"
+          data-timer-milestones-value="[1000,500,0]"
+        >
+          <span data-timer-target="display" role="timer" aria-label="Remaining time (milliseconds)"
+            ><span class="catalog-timer-value"></span><span class="catalog-timer-duration"></span
+          ></span>
+          <button type="button" data-action="timer#start">Start or resume</button>
+          <button type="button" data-action="timer#pause">Pause</button>
+          <button type="button" data-action="timer#reset">Reset</button>
+        </div>
+      </section>
+      <section>
+        <h2>Bounded countup</h2>
+        <div
+          class="catalog-component catalog-timer"
+          data-controller="timer"
+          data-timer-direction-value="up"
+          data-timer-duration-value="1500"
+          data-timer-milestones-value="[500,1000,1500]"
+        >
+          <span data-timer-target="display" role="timer" aria-label="Elapsed time (milliseconds)"
+            ><span class="catalog-timer-value"></span><span class="catalog-timer-duration"></span
+          ></span>
+          <button type="button" data-action="timer#start">Start or resume</button>
+          <button type="button" data-action="timer#pause">Pause</button>
+          <button type="button" data-action="timer#reset">Reset</button>
+        </div>
+      </section>
+      <section>
+        <h2>Unbounded countup</h2>
+        <div
+          class="catalog-component catalog-timer"
+          data-controller="timer"
+          data-timer-direction-value="up"
+          data-timer-milestones-value="[500,1000]"
+        >
+          <span data-timer-target="display" role="timer" aria-label="Elapsed time (milliseconds)"
+            ><span class="catalog-timer-value"></span
+          ></span>
+          <button type="button" data-action="timer#start">Start or resume</button>
+          <button type="button" data-action="timer#pause">Pause</button>
+          <button type="button" data-action="timer#reset">Reset</button>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

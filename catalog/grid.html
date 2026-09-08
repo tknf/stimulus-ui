@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>grid | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main data-catalog-states="" data-catalog-properties="" data-catalog-events="">
+      <h1>grid</h1>
+      <section>
+        <h2>grid</h2>
+        <table class="catalog-component" data-controller="grid" role="grid">
+          <caption>
+            Sales
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Month</th>
+              <th scope="col">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">August</th>
+              <td>100</td>
+            </tr>
+            <tr>
+              <th scope="row">September</th>
+              <td>120</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+      <section>
+        <h2>rtl</h2>
+        <div dir="rtl">
+          <table class="catalog-component" data-controller="grid" role="grid">
+            <caption>
+              Sales
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">Month</th>
+                <th scope="col">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">August</th>
+                <td>100</td>
+              </tr>
+              <tr>
+                <th scope="row">September</th>
+                <td>120</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

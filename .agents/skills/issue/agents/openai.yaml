@@ -1,0 +1,6 @@
+interface:
+  display_name: "Run issue"
+  short_description: "Astra handles everything from investigation to verification"
+  default_prompt: "Please investigate the target issue using $issue, and proceed through the necessary implementation and verification."
+policy:
+  allow_implicit_invocation: false

@@ -1,0 +1,351 @@
+{
+  "name": "disclosure",
+  "controller": "disclosure",
+  "pattern": "A disclosure using native details/summary, with accordion grouping through the name attribute",
+  "responsibility": "Detects native details opening/closing and provides user events, state outputs, and semantic HTML validation only. Does not generate appearance or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <details> with data-controller=\"disclosure\"",
+    "targets": {
+      "trigger": "Exactly one native <summary> with data-disclosure-target=\"trigger\" inside the root",
+      "panel": "Exactly one non-summary content container with data-disclosure-target=\"panel\" inside the root"
+    },
+    "label": "Use native summary text content or a consumer-supplied accessible name.",
+    "validity": "Valid markup uses a native details root, a direct-child native summary trigger, and a non-summary descendant panel.",
+    "accordion": "Native details elements sharing a name form an accordion group through browser exclusivity. The controller neither changes name nor implements exclusivity. Report grouping guarantees as unverified in engines without name support.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLDetailsElement.",
+      "The trigger must be a native summary directly beneath the root.",
+      "The panel must be a root descendant distinct from the trigger."
+    ],
+    "invalidMarkup": "Validate semanticElements on connection and target replacement. Invalid markup prevents listeners, ARIA, and open/state operations and warns once per root per connection. Do not throw.",
+    "warning": "Warnings identify the controller and element types violating the contract. Revalidate when corrected markup reconnects."
+  },
+  "api": {
+    "values": {
+      "open": {
+        "type": "Boolean",
+        "htmlAttribute": "data-disclosure-open-value",
+        "default": false,
+        "description": "Initial open state. Prefer the native open attribute; use the value only when that attribute is absent."
+      }
+    },
+    "properties": {
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current native details.open. Assignment changes native open without events or focus movement."
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Open through native details.open=true without custom events or focus movement."
+      },
+      "hide()": {
+        "returns": "void",
+        "description": "Close through native details.open=false without custom events or focus movement."
+      },
+      "toggle()": {
+        "returns": "void",
+        "description": "Toggle native details.open without custom events or focus movement."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "disclosure:beforetoggle": {
+        "when": "Before opening/closing through trusted trigger activation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "open": "The open-and-close state about to be committed",
+          "previousOpen": "The open-and-close state before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), leave the panel, ARIA, and state outputs unchanged."
+      },
+      "disclosure:toggle": {
+        "when": "After opening/closing through trusted trigger activation is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "open": "The committed open-and-close state",
+          "previousOpen": "The open-and-close state before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "open assignment, show(), hide(), toggle(), initialization, reconnection, and dynamic-target synchronization emit no events.",
+      "sameState": "Do not emit beforetoggle/toggle for requests leaving the current open/closed state unchanged.",
+      "synthetic": "Treat clicks with isTrusted=false as programmatic operations: toggle state without events.",
+      "nativeGap": "Measured native details behavior in Chromium 151, Firefox 153, and WebKit 26.5 emits no beforetoggle and a noncancelable toggle. Popover beforetoggle is cancelable in all three engines in the same measurements, serving as a detector control. Only this controller supplies a cancelable event before changing disclosure state."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Consumers may use data-action=\"disclosure:toggle->controller#method\" on the root or an ancestor, and ordinary summary click actions. The controller does not stop propagation.",
+    "cancelableHook": "Cancel opening/closing with event.preventDefault() in data-action=\"disclosure:beforetoggle->controller#method\".",
+    "programmatic": "Other controllers may call open/show/hide/toggle through a Stimulus controller reference or outlets. Programmatic API calls emit no events.",
+    "nested": "Use the data-action :self modifier or event.target === event.currentTarget to restrict events to the owning root when listening outside nested disclosures."
+  },
+  "behavior": {
+    "initial": "Prefer native details.open when authored; otherwise initialize native open from the open value. Leave panel visibility and summary keyboard behavior to the browser and synchronize data-state only.",
+    "pointer": "A trusted click on an enabled summary dispatches beforetoggle with reason=\"pointer\" before toggling native open.",
+    "keyboard": "Native summary Enter/Space activation toggles through browser-generated trusted click/toggle. Do not add custom keydown activation.",
+    "disabled": "Summary has no native disabled state. Treat authored disabled or aria-disabled=\"true\" as an activation no-op. Public API changes remain allowed regardless of disabled state.",
+    "focus": "Preserve native summary focus after opening/closing; do not move focus into the panel."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Use native details/summary implicit roles, open state, and keyboard behavior. Do not add role, aria-expanded, aria-controls, or hidden.",
+    "stateOnly": "Manage only root/trigger/panel data-state. Preserve authored IDs, ARIA, open, and name attributes.",
+    "preservation": "Preserve authored id, open, name, role, ARIA, and other attributes. Synchronize native semantics and data-state.",
+    "disabled": "Read summary aria-disabled=\"true\" or disabled as activation guards. Do not add disabled data-* attributes."
+  },
+  "stateOutputs": {
+    "ownership": "Only root/trigger/panel data-state is controller-owned. HTMLDetailsElement owns native open and visibility.",
+    "cssAlternative": "CSS can read the root through details[open] and the trigger through details[open] > summary. Panel data-state cannot be replaced precisely by a descendant selector: with nested details, details[open] also matches panels in closed inner details.",
+    "open": {
+      "root": "data-state=\"open\"",
+      "trigger": "data-state=\"open\"",
+      "panel": "data-state=\"open\""
+    },
+    "closed": {
+      "root": "data-state=\"closed\"",
+      "trigger": "data-state=\"closed\"",
+      "panel": "data-state=\"closed\""
+    }
+  },
+  "lifecycle": [
+    "Register trigger click and root toggle in connect(); remove them in disconnect(). Do not duplicate listeners on reconnection.",
+    "Leave generated attributes and state outputs in place on disconnect().",
+    "Synchronize state outputs with current markup and open value on reconnection.",
+    "Track trigger/panel additions and removals through Stimulus TargetConnected/TargetDisconnected.",
+    "Do not throw when a target is temporarily absent."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver and browsers with differing details/summary support",
+        "item": "Open/closed announcements, summary descendant role mapping, and named details grouping support",
+        "status": "unverified",
+        "impact": "Native disclosure and name-based grouping remain browser-owned; these observations do not introduce custom exclusivity or role overrides."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Conforming native details/summary and content panels must provide role, name, open state, keyboard behavior, and visibility consistent with WCAG 2.2 Level AA and the APG Disclosure Pattern.",
+    "Only trusted activation emits one cancelable beforetoggle followed by one committed toggle, in that order.",
+    "Canceling beforetoggle leaves open state, ARIA, and state outputs unchanged.",
+    "Public API calls, initialization, reconnection, and dynamic targets synchronize native open/data-state without events.",
+    "Preserve authored id, ARIA, open, and name, without adding role, aria-expanded, aria-controls, or hidden that duplicate native semantics.",
+    "Enter and Space operate the trigger; focus remains there after opening/closing.",
+    "Do not implement accordion exclusivity or keyboard movement between headings; keep responsibility limited to one disclosure.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report macOS Safari and VoiceOver real-device results as unverified when not performed.",
+    "The engine exhibiting summary's implicit button role while suppressing descendant roles has not been identified; report that behavior as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "disclosure-state-sync",
+      "description": "Valid native markup, target counts, native semantics, accessible names, authored attributes, data-state, and visibility"
+    },
+    {
+      "testId": "disclosure-initial-open",
+      "description": "Initial open state preferring the open attribute over the open value"
+    },
+    {
+      "testId": "disclosure-programmatic-silence",
+      "description": "show/hide/toggle and open assignment, with no programmatic events"
+    },
+    {
+      "testId": "disclosure-synthetic-silence",
+      "description": "Synthetic-click state changes without custom events"
+    },
+    {
+      "testId": "disclosure-disabled-guard",
+      "description": "No-op activation for disabled or aria-disabled triggers"
+    },
+    {
+      "testId": "disclosure-beforetoggle-cancel",
+      "description": "Trusted pointer beforetoggle cancellation, toggle detail, bubbling, and order"
+    },
+    {
+      "testId": "disclosure-keyboard-reason",
+      "description": "Native Enter/Space keyboard reason and trigger focus"
+    },
+    {
+      "testId": "disclosure-visibility-state",
+      "description": "Panel visibility and data-state synchronized with native open"
+    },
+    {
+      "testId": "disclosure-dynamic-targets",
+      "description": "Dynamic target replacement and state synchronization"
+    },
+    {
+      "testId": "disclosure-disconnect-cleanup",
+      "description": "Disconnect/reconnect and listener cleanup"
+    },
+    {
+      "testId": "disclosure-semantic-validation",
+      "description": "Semantic-target validation, warnings, and disabled enhancement"
+    },
+    {
+      "testId": "disclosure-name-preservation",
+      "description": "Preservation of authored name, role, ARIA, IDs, and other attributes"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device macOS Safari and VoiceOver results"
+  ],
+  "negativeControls": [
+    {
+      "testId": "disclosure-semantic-validation-negative",
+      "guard": "semantic target validation",
+      "mutation": {
+        "description": "Disable semantic validation and enhance invalid roots.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-semantic-validation-negative and disclosure-dynamic-targets fail on the shared disabled-enhancement invariant."
+    },
+    {
+      "testId": "disclosure-root-state-negative",
+      "guard": "root state output",
+      "mutation": {
+        "description": "Remove root data-state synchronization.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [{ "find": "\t\tthis.element.dataset.state = state;\n", "replace": "" }]
+      },
+      "expectedFailure": "disclosure-root-state-negative, disclosure-beforetoggle-cancel, disclosure-programmatic-silence, disclosure-dynamic-targets, and disclosure-disconnect-cleanup fail on shared root state output."
+    },
+    {
+      "testId": "disclosure-trigger-state-negative",
+      "guard": "trigger state output",
+      "mutation": {
+        "description": "Remove summary-trigger data-state synchronization.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (trigger !== undefined) {\n\t\t\ttrigger.dataset.state = state;\n\t\t}\n\t\tif (panel !== undefined) {",
+            "replace": "\t\tif (panel !== undefined) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-trigger-state-negative fails."
+    },
+    {
+      "testId": "disclosure-panel-state-negative",
+      "guard": "panel state output",
+      "mutation": {
+        "description": "Remove panel data-state synchronization.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (panel !== undefined) {\n\t\t\tpanel.dataset.state = state;\n\t\t}\n\t};",
+            "replace": "\t};"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-panel-state-negative and disclosure-dynamic-targets fail on shared panel state output."
+    },
+    {
+      "testId": "disclosure-open-attribute-guard-negative",
+      "guard": "authored open attribute precedence",
+      "mutation": {
+        "description": "Remove the guard preferring authored open attributes.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!details.hasAttribute(\"open\")) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-open-attribute-guard-negative fails."
+    },
+    {
+      "testId": "disclosure-pending-toggle-guard-negative",
+      "guard": "native toggle pending guard",
+      "mutation": {
+        "description": "Emit custom events from native toggle without a pending user toggle.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (pending === null || pending.open !== details.open) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-pending-toggle-guard-negative, disclosure-synthetic-silence, disclosure-disabled-guard, and disclosure-click-trusted-negative fail on the shared pending-toggle event invariant."
+    },
+    {
+      "testId": "disclosure-click-trusted-negative",
+      "guard": "click isTrusted",
+      "mutation": {
+        "description": "Remove the guard preventing synthetic clicks from being treated as user activation.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [{ "find": "\t\tif (!event.isTrusted) {", "replace": "\t\tif (false) {" }]
+      },
+      "expectedFailure": "disclosure-click-trusted-negative fails."
+    },
+    {
+      "testId": "disclosure-keydown-trusted-negative",
+      "guard": "keydown isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from keydown.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted) {",
+            "replace": "\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-keydown-trusted-negative fails."
+    },
+    {
+      "testId": "disclosure-key-filter-negative",
+      "guard": "keydown key allowlist",
+      "mutation": {
+        "description": "Remove the allowed-key filter for summary keyboard activation.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.key !== \"Enter\" && event.key !== \" \") {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-key-filter-negative fails."
+    },
+    {
+      "testId": "disclosure-disconnect-listener-negative",
+      "guard": "disconnect listener cleanup",
+      "mutation": {
+        "description": "Remove both disconnected inactive state and root-listener cleanup.",
+        "file": "src/disclosure_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = true;"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "disclosure-disconnect-listener-negative fails."
+    }
+  ]
+}

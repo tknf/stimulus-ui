@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>editable | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="viewing editing"
+      data-catalog-properties=""
+      data-catalog-events="editable:beforeedit editable:edit editable:beforecommit editable:commit editable:beforecancel editable:cancel"
+    >
+      <h1>editable</h1>
+      <section>
+        <h2>Single line</h2>
+        <div class="catalog-component catalog-editable" data-controller="editable">
+          <div data-editable-target="preview">
+            <p>Taro Yamada</p>
+            <button type="button" data-editable-target="edit" aria-controls="editable-name-editor">
+              Edit display name
+            </button>
+          </div>
+          <div data-editable-target="editor" id="editable-name-editor" hidden>
+            <label for="editable-name">Display name</label>
+            <input
+              id="editable-name"
+              data-editable-target="input"
+              type="text"
+              value="Taro Yamada"
+              required
+            />
+            <button type="button" data-editable-target="save">Save</button>
+            <button type="button" data-editable-target="cancel">Cancel</button>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Multiple lines</h2>
+        <div class="catalog-component catalog-editable" data-controller="editable">
+          <div data-editable-target="preview">
+            <p>Daily notes</p>
+            <button type="button" data-editable-target="edit" aria-controls="editable-note-editor">
+              Edit notes
+            </button>
+          </div>
+          <div data-editable-target="editor" id="editable-note-editor" hidden>
+            <label for="editable-note">Notes</label>
+            <textarea id="editable-note" data-editable-target="input">Daily notes</textarea>
+            <button type="button" data-editable-target="save">Save</button>
+            <button type="button" data-editable-target="cancel">Cancel</button>
+          </div>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>table-of-contents | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main data-catalog-states="current inactive" data-catalog-properties="" data-catalog-events="">
+      <h1>table-of-contents</h1>
+      <section>
+        <h2>Fixed table of contents and offset</h2>
+        <div
+          class="catalog-component catalog-toc"
+          data-controller="table-of-contents"
+          data-table-of-contents-offset-value="48"
+        >
+          <nav aria-label="Verification page contents" data-table-of-contents-target="nav">
+            <a href="#toc-overview" aria-label="Overview" data-table-of-contents-target="link"
+              >Overview</a
+            >
+            <a href="#toc-usage" aria-label="Usage" data-table-of-contents-target="link">Usage</a>
+            <a href="#toc-end" aria-label="Final section" data-table-of-contents-target="link"
+              >Final section</a
+            >
+          </nav>
+          <section class="catalog-toc-section">
+            <h3 id="toc-overview" data-table-of-contents-target="heading">Overview</h3>
+          </section>
+          <section class="catalog-toc-section">
+            <h3 id="toc-usage" data-table-of-contents-target="heading">Usage</h3>
+          </section>
+          <section>
+            <h3 id="toc-end" data-table-of-contents-target="heading">Final section</h3>
+          </section>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

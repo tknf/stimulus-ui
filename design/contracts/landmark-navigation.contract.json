@@ -1,0 +1,578 @@
+{
+  "name": "landmark-navigation",
+  "controller": "landmark-navigation",
+  "pattern": "A subset of WAI-ARIA Landmarks Pattern and React Aria useLandmark navigation using F6 / Shift+F6",
+  "responsibility": "Cycle through consumer-registered semantic landmarks in DOM order and move focus with F6 / Shift+F6 or public methods. Restore the last focused descendant. Do not generate landmark roles, accessible names, appearance, or content.",
+  "references": [
+    "https://react-aria.adobe.com/useLandmark",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/landmarks/",
+    "https://www.w3.org/WAI/ARIA/apg/practices/landmark-regions/",
+    "https://www.w3.org/TR/wai-aria-1.2/#landmark_roles",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://github.com/adobe/react-spectrum/discussions/6686"
+  ],
+  "authorMarkup": {
+    "root": "Place exactly one data-controller=\"landmark-navigation\" on the owner document's <body>.",
+    "targets": {
+      "landmark": "Add data-landmark-navigation-target=\"landmark\" to at least two body-descendant HTMLElements with native or explicit ARIA landmark semantics."
+    },
+    "semantics": "Landmark roles are banner, complementary, contentinfo, form, main, navigation, region, and search. Consumers satisfy the HTML and ARIA in HTML conditions under which native <header>, <aside>, <footer>, <form>, <main>, <nav>, <search>, and named <section> elements are landmarks.",
+    "labels": "Consumers supply accessible names required for region, form, and repeated landmark roles using aria-label, aria-labelledby, or native naming rules. Labels must distinguish landmarks sharing a role.",
+    "nested": "Nested landmark targets are allowed. Nested controller roots and multiple controller instances in one document are out of scope.",
+    "content": "The controller generates no elements, roles, accessible names, headings, or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be the HTMLBodyElement identical to ownerDocument.body.",
+      "At least two landmark targets are required, all HTMLElements descending from the root."
+    ],
+    "authorAssertion": "data-landmark-navigation-target=\"landmark\" declares that the consumer supplied semantic landmark markup and any required accessible name. Implicit roles and computed accessible names have no shared DOM API across the three engines, so the controller does not validate their correctness at runtime.",
+    "invalidMarkup": "Validate on connection and target additions/removals. Invalid markup disables window keydown and root focusin/focusout listeners, temporary tabindex, focus movement, and public methods, with one console.warn per connection. Do not validate intermediate target replacement states within one microtask. Restore enhancement when valid without repeating the warning. Do not throw.",
+    "warning": "The standard enhancement-disabled warning states that landmark-navigation requires one controller on the owner document's <body> and at least two semantic landmark HTMLElement targets.",
+    "completionExempt": "Roles and accessible names belong to authored static markup and are not completed. Temporary tabindex=\"-1\" enables controller focus behavior and does not produce a completion warning."
+  },
+  "api": {
+    "values": {},
+    "properties": {},
+    "methods": {
+      "focusNext()": {
+        "returns": "void",
+        "description": "Move from document.activeElement to the next available landmark, or the first landmark when outside all landmarks. Do nothing without a destination. Emit no custom events."
+      },
+      "focusPrevious()": {
+        "returns": "void",
+        "description": "Move from document.activeElement to the previous available landmark, or the last landmark when outside all landmarks. Do nothing without a destination. Emit no custom events."
+      }
+    },
+    "events": {
+      "none": "Emit no custom events. Observe movement through native focus/focusin events; preventDefault() on handled keydown events cancels keyboard defaults."
+    }
+  },
+  "consumerIntegration": {
+    "programmatic": "Other controllers can call focusNext() and focusPrevious() through Stimulus controller references or outlets.",
+    "focusObservation": "Observe destinations through native focusin and document.activeElement; do not add a dedicated event.",
+    "hotkeyBoundary": "Do not provide arbitrary shortcut assignments. F6 / Shift+F6 form the keyboard API for moving through the landmark sequence.",
+    "multipleInstances": "Do not place multiple instances in the same owner document. Multiple independent document-wide sequences are out of scope."
+  },
+  "behavior": {
+    "scope": "Only registered landmark targets descending from the owner document's body participate. Exclude iframes, cross-origin documents, Shadow DOM, and browser chrome.",
+    "order": "Use landmarkTargets in DOM order for forward navigation and reverse DOM order for backward navigation, wrapping at both ends.",
+    "current": "The current landmark is the innermost target containing document.activeElement. If no target contains it, there is no current landmark.",
+    "availability": "Skip targets that are hidden, inert, aria-hidden=\"true\", or inside such a subtree. Also skip a candidate if focusing it fails, trying the next candidate in the same traversal.",
+    "destination": "Restore a previously focused descendant when it is still connected within the destination target and focusable. Otherwise focus the landmark target itself.",
+    "temporaryTabindex": "When focusing a landmark target without authored tabindex, temporarily add tabindex=\"-1\" and remove it when focus leaves. Preserve authored tabindex regardless of its value.",
+    "lastFocused": "On root focusin, record the last focused descendant for the innermost landmark target containing the active element. Do not record focus on the target itself as a descendant destination.",
+    "noDestination": "If no available target differs from the current one, or no entry destination exists from outside landmarks, do not move focus or prevent the keyboard default action.",
+    "focusFailure": "If neither the candidate nor its recorded descendant can receive focus, try the next candidate. Leave focus unchanged if all candidates fail."
+  },
+  "keyboard": {
+    "listener": "Subscribe to ownerDocument.defaultView keydown in the capture phase.",
+    "F6": "F6 without Ctrl, Alt, Meta, or Shift moves to the next landmark.",
+    "Shift+F6": "Shift+F6 without Ctrl, Alt, or Meta moves to the previous landmark.",
+    "otherModifiers": "Ignore Ctrl+F6, Alt+F6, Meta+F6, and combinations also including Shift. React Aria's Alt+F6 navigation to main is out of scope.",
+    "handled": "Call preventDefault() on a cancelable keydown only after focus actually moves. This suppresses Firefox's default address-bar focus movement. Do not call stopPropagation() or stopImmediatePropagation().",
+    "alreadyCanceled": "Respect consumer handling by ignoring events already defaultPrevented when the handler runs.",
+    "repeat": "Process each repeat=true F6 keydown once, moving next or previous on each repeated keydown.",
+    "synthetic": "There is no isTrusted guard. This controller has no custom events or selection state; synthetic keydown focus movement is equivalent to consumer JS calling focusNext() / focusPrevious()."
+  },
+  "managedMarkup": {
+    "root": "Do not write root role, ARIA, tabindex, or data-state.",
+    "landmark": "Do not write role, aria-label, aria-labelledby, or aria-keyshortcuts. Write temporary tabindex=\"-1\" only when needed.",
+    "preservation": "Preserve authored id, role, ARIA, tabindex, and other attributes.",
+    "cleanup": "Remove controller-added temporary tabindex on focusout, landmarkTargetDisconnected, and disconnect."
+  },
+  "stateOutputs": {
+    "ownership": "There are no state outputs. DOM focus is the current position, expressible with consumer CSS :focus-visible or :focus-within. Do not output data-state on the root or landmarks, or CSS custom properties."
+  },
+  "lifecycle": [
+    "Register ownerDocument.defaultView keydown capture and root focusin/focusout listeners only while connected and enhanced. Remove them on disconnect or invalidation.",
+    "Track dynamic targets with landmarkTargetConnected / landmarkTargetDisconnected, finalizing validation and enhancement after target replacement within the same microtask.",
+    "When target removal makes markup invalid, remove controller-added temporary tabindex and discard recorded last focused descendants.",
+    "disconnect() cleans up listeners, temporary tabindex, pending reconciliation, and last focused descendants.",
+    "Reconnecting the same instance must not duplicate listeners or focus movement."
+  ],
+  "manualVerification": {
+    "blocking": [
+      {
+        "environment": "macOS Chrome",
+        "item": "App-level F6 and Shift+F6 delivery and browser default actions",
+        "status": "verified",
+        "impact": "The public keyboard shortcut requires native key delivery and handling of conflicting browser actions.",
+        "evidence": "F6 and Shift+F6 reached the page capture listener with distinct shiftKey values, without an observable browser default action. See the F6 section in docs/notes/browser-engine-differences.md."
+      },
+      {
+        "environment": "macOS Firefox",
+        "item": "App-level F6 and Shift+F6 delivery and browser default actions",
+        "status": "verified",
+        "impact": "The public keyboard shortcut requires native key delivery and handling of conflicting browser actions.",
+        "evidence": "Both keys reached the page. Unhandled F6 moved focus to the address bar; preventDefault() set defaultPrevented=true and retained page focus. See the F6 section in docs/notes/browser-engine-differences.md."
+      },
+      {
+        "environment": "macOS Safari",
+        "item": "App-level F6 and Shift+F6 delivery and browser default actions",
+        "status": "verified",
+        "impact": "The public keyboard shortcut requires native key delivery and handling of conflicting browser actions.",
+        "evidence": "F6 and Shift+F6 reached the page capture listener with distinct shiftKey values, without observable movement to the address bar during the check. See the F6 section in docs/notes/browser-engine-differences.md."
+      }
+    ],
+    "observations": [
+      {
+        "environment": "macOS + Safari + VoiceOver",
+        "item": "Announcements when focusing a landmark target itself and restoring its previously focused descendant",
+        "status": "unverified",
+        "impact": "Public keyboard API, ARIA, markup, and acceptance criteria do not depend on these observations. The controller does not change roles, accessible names, or focus destinations based on announcement results."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria are 2.1.3 Keyboard (No Exception): landmark navigation is available through F6 / Shift+F6 and public methods, with no pointer-only features; and 3.2.5 Change on Request: focus moves only through keyboard operations or consumer JS method calls, never timers.",
+    "Controller focus and keyboard behavior for conforming landmark markup must meet WCAG 2.2 Level AA. Consumers determine landmark semantics, accessible names, content, and focus indicators.",
+    "F6 moves next and Shift+F6 previous through available landmarks in DOM order, wrapping at both ends.",
+    "Entry from outside landmarks, innermost-current detection in nested landmarks, and restoration of the last focused descendant are consistent.",
+    "Skip hidden, inert, aria-hidden=\"true\", and unfocusable targets; preserve browser defaults when no destination is available.",
+    "Prevent defaults for handled F6 / Shift+F6, suppressing Firefox's address-bar focus movement. Ignore other modifier combinations and already canceled events.",
+    "Preserve authored tabindex and remove controller-added temporary tabindex=\"-1\" on focusout, target removal, and controller disconnect.",
+    "focusNext() and focusPrevious() use the same sequence, wrapping, restoration, and skipping rules as keyboard navigation, without custom events.",
+    "Do not add state outputs, classes, CSS custom properties, roles, or accessible names to the root or landmarks.",
+    "Invalid markup disables enhancement with one warning; becoming valid re-enables it.",
+    "Dynamic targets and disconnect/reconnect do not duplicate listeners or focus movement.",
+    "Pass automated tests and catalog scenarios in Chromium, Firefox, and WebKit.",
+    "Preserve recorded blocking app-level F6 / Shift+F6 results from macOS Chrome, Firefox, and Safari.",
+    "Report unverified macOS Safari + VoiceOver announcements as observations."
+  ],
+  "testMatrix": [
+    {
+      "testId": "landmark-navigation-forward-backward",
+      "description": "F6 forward and Shift+F6 backward navigation, DOM order, and wrapping at both ends"
+    },
+    {
+      "testId": "landmark-navigation-outside-start",
+      "description": "F6 enters the first landmark and Shift+F6 the last when outside all landmarks"
+    },
+    {
+      "testId": "landmark-navigation-focus-restore",
+      "description": "Restore the last focused connected descendant; fall back to the target itself for invalid records"
+    },
+    {
+      "testId": "landmark-navigation-nested",
+      "description": "Use the innermost nested target containing the active element as current and navigate in DOM order"
+    },
+    {
+      "testId": "landmark-navigation-unavailable-skip",
+      "description": "Skip hidden, inert, aria-hidden, and unfocusable targets; do nothing without a destination"
+    },
+    {
+      "testId": "landmark-navigation-unavailable-current",
+      "description": "Anchor navigation at an unavailable current target's position among all targets when finding the next/previous target"
+    },
+    {
+      "testId": "landmark-navigation-unavailable-ancestor",
+      "description": "Skip targets beneath hidden, inert, or aria-hidden ancestors"
+    },
+    {
+      "testId": "landmark-navigation-keyboard-guard",
+      "description": "Prevent defaults only when handled; ignore canceled events and Ctrl/Alt/Meta F6 combinations including Shift, preserving propagation"
+    },
+    {
+      "testId": "landmark-navigation-keyboard-repeat",
+      "description": "Handle each repeated F6 / Shift+F6 keydown"
+    },
+    {
+      "testId": "landmark-navigation-tabindex",
+      "description": "Add temporary tabindex=-1, clean up on focusout, and preserve authored tabindex"
+    },
+    {
+      "testId": "landmark-navigation-focus-api",
+      "description": "Public focusNext()/focusPrevious() match keyboard navigation and emit no custom events"
+    },
+    {
+      "testId": "landmark-navigation-dynamic-targets",
+      "description": "Target addition/removal/replacement within one microtask and recovery from invalid markup"
+    },
+    {
+      "testId": "landmark-navigation-disconnect-cleanup",
+      "description": "Disconnect/reconnect cleanup of window/root listeners, temporary tabindex, last focused records, and pending reconciliation"
+    },
+    {
+      "testId": "landmark-navigation-target-cleanup",
+      "description": "Clean up temporary tabindex and last focused records on target disconnection and invalidation"
+    },
+    {
+      "testId": "landmark-navigation-invalid-cleanup",
+      "description": "Clean up temporary tabindex and last focused records on invalidation"
+    },
+    {
+      "testId": "landmark-navigation-semantic-validation",
+      "description": "One warning and disabled enhancement for non-body roots, zero/one target, or non-HTMLElement targets"
+    },
+    {
+      "testId": "landmark-navigation-state-event-silence",
+      "description": "Do not add data-state, CSS custom properties, classes, custom events, roles, or ARIA"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "App-level F6 / Shift+F6 results from macOS Chrome, Firefox, and Safari",
+    "macOS Safari + VoiceOver announcements, reported as observations when unverified"
+  ],
+  "negativeControls": [
+    {
+      "testId": "landmark-navigation-semantic-validation-negative",
+      "guard": "Semantic validation of the body root and target count/types",
+      "plannedMutation": "Disable isValidMarkup() guards to keep enhancement active on non-body roots or fewer than two targets",
+      "expectedFailure": "landmark-navigation-semantic-validation-negative fails.",
+      "mutation": {
+        "description": "Disable isValidMarkup() guards for the body root, target count, and target type",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.element instanceof HTMLBodyElement &&",
+            "replace": "true ||"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-direction-negative",
+      "guard": "Backward navigation with Shift",
+      "plannedMutation": "Force Shift+F6 to navigate forward",
+      "expectedFailure": "landmark-navigation-direction-negative fails.",
+      "mutation": {
+        "description": "Force Shift+F6 direction to forward",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "const moved = this.focusInDirection(event.shiftKey ? -1 : 1);",
+            "replace": "const moved = this.focusInDirection(1);"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-wrap-negative",
+      "guard": "Wrapping at both sequence ends",
+      "plannedMutation": "Stop movement at the first or last item",
+      "expectedFailure": "landmark-navigation-wrap-negative fails.",
+      "mutation": {
+        "description": "Stop movement instead of wrapping the index at sequence ends",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "const index = (startIndex + direction * offset + targets.length) % targets.length;",
+            "replace": "const index = startIndex + direction * offset;"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-focus-restore-negative",
+      "guard": "Restoration of the last focused descendant",
+      "plannedMutation": "Always focus the landmark target instead of its recorded descendant",
+      "expectedFailure": "landmark-navigation-focus-restore-negative fails.",
+      "mutation": {
+        "description": "Focus the target instead of the recorded descendant",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "const descendant = this.lastFocused.get(target);",
+            "replace": "const descendant = undefined;"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-unavailable-skip-negative",
+      "guard": "Exclusion of unavailable targets",
+      "plannedMutation": "Include aria-hidden=\"true\" targets in the sequence",
+      "expectedFailure": "landmark-navigation-unavailable-skip-negative fails.",
+      "mutation": {
+        "description": "Include targets without filtering availability",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (target === undefined || target === current || !this.isAvailable(target)) {",
+            "replace": "\t\t\tif (target === undefined || target === current) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-current-anchor-negative",
+      "guard": "Current-anchor detection using DOM positions among all targets",
+      "plannedMutation": "Determine current only from available targets",
+      "expectedFailure": "landmark-navigation-current-anchor-negative fails.",
+      "mutation": {
+        "description": "Determine the current landmark only from available targets",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.innermostTargetContaining(activeElement, targets)",
+            "replace": "this.innermostTargetContaining(activeElement, targets.filter((target) => this.isAvailable(target)))"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-unavailable-ancestor-negative",
+      "guard": "Traversal of hidden, inert, and aria-hidden ancestors",
+      "plannedMutation": "Check only the target's unavailable state, overlooking ancestor attributes",
+      "expectedFailure": "landmark-navigation-unavailable-ancestor-negative fails.",
+      "mutation": {
+        "description": "Check only the target instead of traversing unavailable ancestors",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "current = current.parentElement;",
+            "replace": "current = null;"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-keyboard-prevent-default-negative",
+      "guard": "Suppression of browser defaults for handled F6 / Shift+F6",
+      "plannedMutation": "Remove preventDefault() after focus movement",
+      "expectedFailure": "landmark-navigation-keyboard-prevent-default-negative fails.",
+      "mutation": {
+        "description": "Remove preventDefault() for handled keydown events",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.preventDefault();",
+            "replace": "\t\t\treturn;"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-modifier-guard-negative",
+      "guard": "Exclusion of Ctrl/Alt/Meta F6 combinations",
+      "plannedMutation": "Remove modifier guards so Alt+F6 also navigates landmarks",
+      "expectedFailure": "landmark-navigation-modifier-guard-negative fails.",
+      "mutation": {
+        "description": "Remove Ctrl, Alt, and Meta modifier guards",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.ctrlKey || event.altKey || event.metaKey) {",
+            "replace": "\t\tif (event.ctrlKey && event.altKey && event.metaKey) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-keyboard-repeat-negative",
+      "guard": "Handling repeated F6 / Shift+F6 keydowns",
+      "plannedMutation": "Ignore repeat=true keydown events",
+      "expectedFailure": "landmark-navigation-keyboard-repeat-negative fails.",
+      "mutation": {
+        "description": "Add a guard that ignores repeat=true keydown events",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.ctrlKey || event.altKey || event.metaKey) {",
+            "replace": "\t\tif (event.ctrlKey || event.altKey || event.metaKey || event.repeat) {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-tabindex-preservation-negative",
+      "guard": "Preservation of authored tabindex",
+      "plannedMutation": "Always overwrite landmark targets' authored tabindex with -1",
+      "expectedFailure": "landmark-navigation-tabindex-preservation-negative fails.",
+      "mutation": {
+        "description": "Set tabindex=-1 even on targets with authored tabindex",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (target.hasAttribute(\"tabindex\")) {\n\t\t\treturn this.focusElement(target);\n\t\t}",
+            "replace": "\t\ttarget.setAttribute(\"tabindex\", \"-1\");"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-tabindex-cleanup-negative",
+      "guard": "Cleanup of controller-owned temporary tabindex",
+      "plannedMutation": "Remove temporary tabindex cleanup on focusout and disconnect",
+      "expectedFailure": "landmark-navigation-tabindex-cleanup-negative fails.",
+      "mutation": {
+        "description": "Remove deletion of controller-owned temporary tabindex attributes",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (target.getAttribute(\"tabindex\") === \"-1\") {",
+            "replace": "\t\tif (target.getAttribute(\"tabindex\") === \"__never__\") {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-disconnect-listener-negative",
+      "guard": "Window keydown listener and enhancement-state cleanup on disconnect",
+      "plannedMutation": "Remove window keydown listener cleanup and the enhancement guard from disconnect cleanup",
+      "expectedFailure": "landmark-navigation-disconnect-listener-negative fails.",
+      "mutation": {
+        "description": "Simultaneously remove window keydown listener cleanup and enhancement disabling on disconnect",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.boundWindow.removeEventListener(\"keydown\", this.handleKeydown, true);",
+            "replace": "this.boundWindow.addEventListener(\"keydown\", this.handleKeydown, true);"
+          },
+          {
+            "find": "this.enhanced = false;\n\t\tthis.cleanupAllTemporaryTabindex();",
+            "replace": "this.enhanced = true;\n\t\tthis.cleanupAllTemporaryTabindex();"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-disconnect-root-listener-negative",
+      "guard": "Root focusin/focusout listener cleanup on disconnect",
+      "plannedMutation": "Remove root focusin/focusout listener cleanup",
+      "expectedFailure": "landmark-navigation-disconnect-root-listener-negative fails.",
+      "mutation": {
+        "description": "Remove root focusin/focusout listener cleanup on disconnect",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.element.removeEventListener(\"focusin\", this.handleFocusin);",
+            "replace": "this.element.addEventListener(\"focusin\", this.handleFocusin);"
+          },
+          {
+            "find": "this.element.removeEventListener(\"focusout\", this.handleFocusout);",
+            "replace": "this.element.addEventListener(\"focusout\", this.handleFocusout);"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-disconnect-last-focused-negative",
+      "guard": "Discarding lastFocused on disconnect",
+      "plannedMutation": "Remove lastFocused.clear() on disconnect",
+      "expectedFailure": "landmark-navigation-disconnect-last-focused-negative fails.",
+      "mutation": {
+        "description": "Remove lastFocused.clear() on disconnect",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.lastFocused.clear();",
+            "replace": "if (false) this.lastFocused.clear();"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-dynamic-reconcile-negative",
+      "guard": "Reconciliation validates the final state of target replacements within one microtask",
+      "plannedMutation": "Run reconciliation synchronously instead of scheduling its microtask",
+      "expectedFailure": "landmark-navigation-dynamic-reconcile-negative fails.",
+      "mutation": {
+        "description": "Run reconciliation synchronously in scheduleReconcile",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.reconcileQueued = true;\n\t\tqueueMicrotask(() => {",
+            "replace": "this.reconcileQueued = true;\n\t\tthis.reconcile();\n\t\tqueueMicrotask(() => {"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-disconnect-reconcile-negative",
+      "guard": "Disabling pending reconciliation after disconnect",
+      "plannedMutation": "Remove the connected guard from pending reconciliation",
+      "expectedFailure": "landmark-navigation-disconnect-reconcile-negative fails.",
+      "mutation": {
+        "description": "Run pending reconciliation even after disconnect",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (this.connected) {\n\t\t\t\tthis.reconcile();\n\t\t\t}",
+            "replace": "\t\t\tthis.reconcile();"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-semantic-elements-negative",
+      "guard": "HTMLElement type validation for landmark targets",
+      "plannedMutation": "Remove the HTMLElement guard to accept SVG targets",
+      "expectedFailure": "landmark-navigation-semantic-elements-negative fails.",
+      "mutation": {
+        "description": "Remove the HTMLElement type guard for semantic landmark targets",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "target instanceof HTMLElement && target !== this.element && this.element.contains(target)",
+            "replace": "true && target !== this.element && this.element.contains(target)"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-target-cleanup-negative",
+      "guard": "Temporary tabindex and lastFocused cleanup in landmarkTargetDisconnected",
+      "plannedMutation": "Remove cleanupTarget on target disconnection",
+      "expectedFailure": "landmark-navigation-target-cleanup-negative fails.",
+      "mutation": {
+        "description": "Remove the cleanupTarget call in landmarkTargetDisconnected",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.cleanupTarget(target);",
+            "replace": "if (false) this.cleanupTarget(target);"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-invalid-cleanup-negative",
+      "guard": "Temporary tabindex cleanup on invalidation",
+      "plannedMutation": "Remove cleanup of all temporary tabindex in disableEnhancement",
+      "expectedFailure": "landmark-navigation-invalid-cleanup-negative fails.",
+      "mutation": {
+        "description": "Remove cleanup of all temporary tabindex in disableEnhancement",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.cleanupAllTemporaryTabindex();",
+            "replace": "if (false) this.cleanupAllTemporaryTabindex();"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-invalid-last-focused-negative",
+      "guard": "lastFocused cleanup on invalidation",
+      "plannedMutation": "Remove lastFocused.clear() in disableEnhancement",
+      "expectedFailure": "landmark-navigation-invalid-last-focused-negative fails.",
+      "mutation": {
+        "description": "Remove lastFocused.clear() in disableEnhancement",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "this.lastFocused.clear();",
+            "replace": "if (false) this.lastFocused.clear();"
+          }
+        ]
+      }
+    },
+    {
+      "testId": "landmark-navigation-state-event-silence-negative",
+      "guard": "Absence of state outputs and custom events",
+      "plannedMutation": "Add data-state or a landmark-navigation:focus event on focus movement",
+      "expectedFailure": "landmark-navigation-state-event-silence-negative fails.",
+      "mutation": {
+        "description": "Add data-state on focus movement",
+        "file": "src/landmark_navigation_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (this.focusTarget(target)) {\n\t\t\t\treturn true;",
+            "replace": "\t\t\tif (this.focusTarget(target)) {\n\t\t\t\ttarget.dataset.state = \"focused\";\n\t\t\t\treturn true;"
+          }
+        ]
+      }
+    }
+  ]
+}

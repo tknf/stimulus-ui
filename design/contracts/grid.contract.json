@@ -1,0 +1,273 @@
+{
+  "name": "grid",
+  "controller": "grid",
+  "pattern": "Two-dimensional keyboard interaction for native tables following the APG Grid Pattern",
+  "responsibility": "Adds a grid role and two-dimensional roving tabindex to consumer-authored native tables. No custom events or state outputs. Table-sort handles sorting. Does not change or generate row order, appearance, or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/grid/",
+    "https://www.w3.org/TR/wai-aria-1.2/#grid",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <table> with data-controller=\"grid\"",
+    "label": "The consumer names the table through caption, aria-label, or aria-labelledby.",
+    "rows": "The consumer writes thead/tbody structure, tr, th, and td elements.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be an HTMLTableElement.",
+      "At least one row and one cell are required.",
+      "The root must have an accessible name.",
+      "Cells must not have rowspan or colspan.",
+      "Every row must have the same number of cells.",
+      "pageSize must be an integer of at least one."
+    ],
+    "spanRationale": "Merged cells make row/column correspondence nonrectangular and the definition of adjacent cells implementation-dependent; APG does not define merged-cell navigation. Restricting grids to rectangles makes navigation expressible by row and column indexes.",
+    "invalidMarkup": "Validate markup on connection. Invalid markup prevents role writes, listeners, and tabindex operations and warns once per connection. Do not throw.",
+    "warning": "Warnings identify grid controller, the required native table root, and violated conditions.",
+    "completion": {
+      "attributes": ["role=\"grid\" on the root"],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning"
+    }
+  },
+  "api": {
+    "values": {
+      "pageSize": {
+        "type": "Number",
+        "htmlAttribute": "data-grid-page-size-value",
+        "default": 10,
+        "description": "Rows moved by PageUp/PageDown. APG leaves this distance to authors, so accept a value. Stop at the boundary when fewer rows remain."
+      }
+    },
+    "properties": {
+      "activeCell": {
+        "type": "HTMLTableCellElement | undefined",
+        "access": "getter",
+        "description": "The cell currently holding tabindex=\"0\""
+      }
+    },
+    "methods": {
+      "focusCell(row, column)": {
+        "returns": "void",
+        "description": "Move focus to the specified row and column without custom events."
+      }
+    },
+    "events": {
+      "none": "Grid emits no custom events. DOM focus represents cell navigation and can be observed through focusin. Table-sort owns sort-request events."
+    }
+  },
+  "consumerIntegration": {
+    "programmatic": "Other controllers may use activeCell and focusCell() through a Stimulus controller reference or outlets.",
+    "sorting": "Use table-sort on the same table when sorting is needed. The controllers are independent and do not reference each other."
+  },
+  "behavior": {
+    "scope": "Always operate on rows/cells currently in the DOM. Rebuild roving tabindex when Turbo rendering or consumer sorting changes rows. Ctrl+End refers to the last DOM cell, not the end of unloaded data. Continuously growing grids such as infinite scrolling are outside the guarantee because users can observe that distinction.",
+    "focusModel": "Use roving tabindex with DOM focus on cells. Do not redirect focus to focusable descendants. APG permits focusing a sole widget within a cell, but detecting a single widget and whether it consumes arrows is implementation-dependent. Consistently focusing cells keeps one navigation model; Tab enters widgets inside cells.",
+    "editing": "Do not own cell edit mode or value commitment. Consumers can compose editable with a controller that starts editing and restores cell focus afterward, so grid does not duplicate draft/validation/commit state. Descendant keydown also reaches grid navigation; consumers must stop editing keys from propagating. See docs/plans/decision-grid-editing.md for composition and verification scope.",
+    "keyboard": "ArrowLeft/ArrowRight move within a row; ArrowUp/ArrowDown move within a column. Stop at boundaries without wrapping. Home/End go to the first/last cell in the row; Ctrl+Home/Ctrl+End go to the first/last grid cell. PageUp/PageDown move pageSize rows and stop at boundaries.",
+    "direction": "Reverse horizontal arrows in dir=\"rtl\"."
+  },
+  "managedMarkup": {
+    "root": "Supply role=\"grid\" only when absent.",
+    "cells": "Leave tr/th/td roles to the user agent's native mapping; do not write them.",
+    "tabindex": "Synchronize cell tabindex through roving; exactly one cell participates in the tab sequence.",
+    "preservation": "Preserve authored id, role, and other attributes. The controller synchronizes the tabindex values needed for roving focus."
+  },
+  "stateOutputs": {
+    "ownership": "No state outputs. DOM focus identifies the current cell and CSS can use :focus-visible. Do not output data-state on roots or items."
+  },
+  "lifecycle": [
+    "Register root keydown/focusin in connect(); remove them in disconnect().",
+    "Observe row/cell changes with MutationObserver and disconnect it during cleanup. Do not observe controller-written attributes.",
+    "Leave generated role and tabindex on disconnect().",
+    "Resynchronize role and roving tabindex with current markup on reconnection.",
+    "Do not duplicate listeners or observers when reconnecting the same instance."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Chromium, Firefox, WebKit, and screen readers on real devices",
+        "item": "Native cell/header mapping beneath table role=grid",
+        "status": "unverified",
+        "impact": "The contract fixes role=grid on the table and retains native cell markup. It does not choose td/th role overrides from these observations."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The root has role=\"grid\" and an accessible name; the controller does not write tr/th/td roles.",
+    "Two-dimensional arrows, Home, End, Ctrl+Home, Ctrl+End, PageUp, and PageDown match the APG Grid Pattern.",
+    "Exactly one cell participates in the tab sequence.",
+    "The controller emits no custom events.",
+    "The controller does not change DOM structure beneath the root.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report agreement of native mapping for <table role=\"grid\"> across the three engines and AT as unverified.",
+    "Conditions under which ARIA in HTML permits td/th role overrides have not been verified against primary specifications. The controller does not write those roles, so this does not affect current behavior. Verify before changing that design."
+  ],
+  "testMatrix": [
+    {
+      "testId": "grid-state-sync",
+      "description": "Role, roving tabindex, no cell roles added, and authored-attribute preservation"
+    },
+    {
+      "testId": "grid-navigation",
+      "description": "Two-dimensional arrows, boundary stops, and RTL reversal"
+    },
+    {
+      "testId": "grid-navigation-jump",
+      "description": "Home/End, Ctrl+Home/Ctrl+End, pageSize-based PageUp/PageDown, and boundary stops"
+    },
+    {
+      "testId": "grid-roving-tabindex",
+      "description": "Exactly one cell in the tab sequence"
+    },
+    {
+      "testId": "grid-event-silence",
+      "description": "No custom events from focusCell(), trusted cell navigation, initialization, or reconnection"
+    },
+    {
+      "testId": "grid-dynamic-rows",
+      "description": "Tracking row/cell additions and removals"
+    },
+    {
+      "testId": "grid-disconnect-cleanup",
+      "description": "Listener and observer cleanup on disconnect/reconnect"
+    },
+    {
+      "testId": "grid-semantic-validation",
+      "description": "Warnings and disabled enhancement for non-table roots, missing rows/cells, rowspan/colspan, unequal row lengths, or invalid pageSize"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    {
+      "testId": "grid-completion-warning",
+      "description": "Completion warnings for missing attributes, none for complete markup, and separation from invalid-markup warnings"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "grid-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable isValidMarkup() and continue enhancement with non-table roots or merged cells.",
+      "mutation": {
+        "description": "Disable semantic validation and enhance invalid markup.",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "grid-semantic-validation-negative fails."
+    },
+    {
+      "testId": "grid-navigation-bounds-negative",
+      "guard": "Stopping at boundaries",
+      "plannedMutation": "Remove index clamping and wrap instead.",
+      "mutation": {
+        "description": "Replace ArrowLeft clamping with wrapping to the opposite boundary.",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t} else if (event.key === \"ArrowLeft\") {\n\t\t\tconst delta = getComputedStyle(this.element).direction === \"rtl\" ? 1 : -1;\n\t\t\tnextColumn = Math.max(0, Math.min(lastColumnIndex, columnIndex + delta));",
+            "replace": "\t\t} else if (event.key === \"ArrowLeft\") {\n\t\t\tconst delta = getComputedStyle(this.element).direction === \"rtl\" ? 1 : -1;\n\t\t\tnextColumn = (columnIndex + delta + lastColumn) % lastColumn;"
+          }
+        ]
+      },
+      "expectedFailure": "grid-navigation-bounds-negative and grid-navigation fail because both check boundary stopping."
+    },
+    {
+      "testId": "grid-roving-tabindex-negative",
+      "guard": "Exactly one cell in the tab sequence",
+      "plannedMutation": "Remove resetting inactive cells to tabindex=\"-1\".",
+      "mutation": {
+        "description": "Remove tabindex=\"-1\" synchronization for inactive cells.",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tfor (const cell of cells) {\n\t\t\tcell.setAttribute(\"tabindex\", cell === this.currentCell ? \"0\" : \"-1\");\n\t\t}",
+            "replace": "\t\tfor (const cell of cells) {\n\t\t\tif (cell === this.currentCell) cell.setAttribute(\"tabindex\", \"0\");\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "grid-roving-tabindex-negative fails."
+    },
+    {
+      "testId": "grid-cell-role-negative",
+      "guard": "The controller does not write cell roles.",
+      "plannedMutation": "Write role=\"gridcell\" on cells.",
+      "mutation": {
+        "description": "Replace native cell-role preservation with role=\"gridcell\" assignment.",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tcell.setAttribute(\"tabindex\", cell === this.currentCell ? \"0\" : \"-1\");",
+            "replace": "\t\t\tcell.setAttribute(\"role\", \"gridcell\");\n\t\t\tcell.setAttribute(\"tabindex\", cell === this.currentCell ? \"0\" : \"-1\");"
+          }
+        ]
+      },
+      "expectedFailure": "grid-cell-role-negative fails."
+    },
+    {
+      "testId": "grid-event-silence-negative",
+      "guard": "No custom events",
+      "plannedMutation": "Emit a custom event from focusCell().",
+      "mutation": {
+        "description": "Emit a custom event from focusCell().",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.focusTarget(target);\n\t};",
+            "replace": "\t\tthis.focusTarget(target);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"grid:focus\"));\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "grid-event-silence-negative fails."
+    },
+    {
+      "testId": "grid-disconnect-cleanup-negative",
+      "guard": "Listener and observer cleanup on disconnect",
+      "plannedMutation": "Remove both removeEventListener and observer.disconnect() from disconnect(). They are independent guards; removing only one leaves the other guarding and is not detected.",
+      "mutation": {
+        "description": "Remove both listener and observer cleanup on disconnect.",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n",
+            "replace": ""
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n",
+            "replace": ""
+          },
+          {
+            "find": "\t\tthis.observer?.disconnect();",
+            "replace": "\t\t// observer は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "grid-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "grid-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/grid_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "grid-completion-warning-negative fails."
+    }
+  ]
+}

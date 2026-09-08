@@ -1,0 +1,378 @@
+{
+  "name": "hover-card",
+  "controller": "hover-card",
+  "pattern": "An operable non-modal preview opened by hover / focus on a native link or button",
+  "responsibility": "Provides hover intent, opening and closing, focus preservation, and pointer movement between trigger and content. The user and native HTML own markup, position, dimensions, appearance, and navigation to the link target",
+  "references": [
+    "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+    "https://html.spec.whatwg.org/multipage/popover.html",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Popover_API/Using",
+    "https://floating-ui.com/docs/usehover",
+    "https://www.radix-ui.com/primitives/docs/components/hover-card",
+    "https://base-ui.com/react/components/preview-card",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "implementationBasis": "The native manual popover provides display and top layer; the controller provides hover intent and the pointer movement corridor. Radix Hover Card and Base UI Preview Card are not adopted as the public model for an operable preview because they do not provide internal keyboard / screen-reader operation. Measurements of native focus and Tab remain in test/native_hover_preview.test.ts and docs/notes/browser-engine-differences.md",
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"hover-card\"",
+    "trigger": "One named a[href] or button[type=button] trigger target. Preserve the link href and native navigation",
+    "preview": "For a link trigger, place one named button[type=button] preview target that can open the preview on touch. Omit it for a button trigger",
+    "content": "One HTMLElement content target with popover=\"manual\". Place trigger, preview (link configuration only), and content as consecutive siblings of the same parent in this order to preserve native Tab order",
+    "close": "One named button[type=button] close target inside content",
+    "semantics": "Use ordinary HTML semantics for content; the controller does not add tooltip / dialog / menu roles. Links, buttons, and form controls may be inside. The user supplies the trigger accessible name and the meaning, headings, and labels inside",
+    "restrictions": "Do not place autofocus on content or descendants, and do not hide content or operable targets with hidden, aria-hidden=true, or inert. Positive tabindex reordering and CSS placement that overlays content on the trigger and blocks operation are outside the scope",
+    "style": "The user CSS determines position, gap, dimensions, z-index, transition, and RTL placement. The controller does not write layout properties or classes"
+  },
+  "contractValidation": {
+    "targets": [
+      "There is exactly one trigger / content / close, all inside the root",
+      "A link trigger has exactly one preview; a button trigger has no preview",
+      "trigger / preview / close have accessible names and buttons are type=button",
+      "trigger / preview / content follow the defined sibling order and close is inside content",
+      "content has no autofocus, popover is omitted or manual, and the Popover API is available",
+      "openDelay and closeDelay are finite numbers at least 0"
+    ],
+    "completion": {
+      "attributes": ["content popover=\"manual\"", "trigger and preview aria-controls"],
+      "warning": "Supplement missing static attributes and issue one standard English completion warning while connected. Preserve authored attribute values"
+    },
+    "completionExempt": [
+      "Assigning content id",
+      "Supplementing link-trigger tabindex=0",
+      "Synchronizing trigger and preview aria-expanded with state"
+    ],
+    "invalidMarkup": "Issue one warning while connected, disable enhancement, and remove listeners and timers. When markup becomes invalid while displayed or targets are replaced, close the previous content and synchronize state. Do not infer or supplement names or meanings",
+    "warning": "Manage enhancement-disabled and completion warnings with separate flags"
+  },
+  "api": {
+    "values": {
+      "openDelay": {
+        "type": "Number",
+        "htmlAttribute": "data-hover-card-open-delay-value",
+        "default": 300,
+        "description": "Milliseconds from pointer hover to open. Focus and button click are immediate. Apply value changes to the next timer started"
+      },
+      "closeDelay": {
+        "type": "Number",
+        "htmlAttribute": "data-hover-card-close-delay-value",
+        "default": 150,
+        "description": "Milliseconds from pointer leaving trigger / content / movement corridor to close. Focus exit, Escape, and close button are immediate. Apply value changes to the next timer started"
+      }
+    },
+    "properties": {
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current native popover state. The setter clears timers and commits state without dispatching a custom event"
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Show without moving focus or dispatching a custom event"
+      },
+      "hide()": { "returns": "void", "description": "Hide without dispatching a custom event" }
+    },
+    "events": {
+      "hover-card:beforetoggle": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": { "open": "boolean", "previousOpen": "boolean", "reason": "pointer | keyboard" }
+      },
+      "hover-card:toggle": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": { "open": "boolean", "previousOpen": "boolean", "reason": "pointer | keyboard" }
+      },
+      "programmatic": "Export HoverCardToggleDetail. The API, initialization, target/value changes, disconnect, and external showPopover / hidePopover do not dispatch custom events. Exclude synthetic events by isTrusted. Preserve pointer reason as the origin of hover delays"
+    }
+  },
+  "managedMarkup": {
+    "relationships": "When content has no id, assign one without collision in ownerDocument and supplement trigger and preview aria-controls only when absent. Follow controller-completed values through content replacement and id changes. Preserve authored values and values changed after completion. Supplement link-trigger tabindex with 0 only when absent",
+    "expanded": "Synchronize trigger and preview aria-expanded with native popover visibility",
+    "popover": "Supplement missing popover=manual. Do not commit open state or notification when native beforetoggle cancels display or the Popover API fails",
+    "state": "Output data-state=open | closed on root, trigger, preview (when present), and content"
+  },
+  "behavior": {
+    "link": "Open preview when the link is hovered or focused. Do not prevent default click / Enter or modified clicks. The preview button opens the same content on click / tap",
+    "focus": "Do not close on pointer exit or timer while focus is on trigger, preview, or inside content. Show immediately from a focus origin and allow the next Tab to enter content. The controller does not move focus when showing. Preserve reason=pointer for focus-driven open/close associated with trusted pointer operations",
+    "hover": "Do not treat touch pointerenter / pointerleave as hover. Mouse and pen use open/close delays. Treat trigger and preview as the same origin region",
+    "safePolygon": "When moving from trigger / preview to content or content back to the origin, retain the pointer inside a convex corridor built from the actual exit and destination rectangles. Do not close while inside; close after closeDelay once outside. Use the same geometry for all directions and RTL without blocking other elements' pointer events",
+    "dismiss": "Close with Escape and the close button. Return focus to the trigger for a user close only when focus is inside content. Do not move focus when closing is canceled. Do not reopen immediately from lingering hover / focus after closing; wait for new interaction after leaving the region or explicit open",
+    "cancel": "When beforetoggle is canceled, do not change state or toggle notification. Do not later commit the original request if a listener calls the API, disconnects, or replaces targets",
+    "external": "Read external showPopover / hidePopover toggles from current native state. Do not roll state back from an old toggle newState. Initial state follows native visibility"
+  },
+  "keyboard": {
+    "Tab": "Move in native order through trigger, preview (link configuration), content controls, and outside. The controller does not prevent default Tab behavior",
+    "Shift+Tab": "Move in reverse native order. Supplement link tabindex with 0 when absent",
+    "Enter": "Use native navigation for links; for buttons, open or close preview as a click",
+    "Space": "Use native button click. Do not duplicate it with custom keydown",
+    "Escape": "Close even when opened by hover. Return focus to trigger only when closing from inside content. Do not process Escape when another widget called preventDefault"
+  },
+  "lifecycle": [
+    "Register listeners and the markup observer in connect, and remove timers, movement corridor, observer, and listeners in disconnect",
+    "Revalidate target/value changes. Preserve hover and started timers for valid content updates with the same targets. When targets are replaced, close previous content and do not apply old timers to new targets",
+    "After disconnect with DOM retained, API and events do not enhance; do not duplicate listeners on reconnection"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices; exact previously tested versions not recorded",
+        "item": "Announcement order, wording, and suitability of announcements for individual interactions",
+        "status": "unverified",
+        "impact": "The recorded user acceptance of catalog readability is limited, not complete speech verification. Public preview behavior and native control semantics are fixed; cross-reader phrasing remains observational."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Meet WCAG 2.2 AA, especially 1.4.13 dismissible / hoverable / persistent and 2.1.1",
+    "Meet AAA 2.1.3 Keyboard (No Exception) with a keyboard equivalent for every pointer operation inside the preview",
+    "Meet AAA 3.2.5 Change on Request. Timers do not move focus, and showing does not steal focus",
+    "Verify both button and link configurations, native navigation, the touch button, Tab movement, and safe polygon in Chromium / Firefox / WebKit",
+    "Real-device verification and acceptance (2026-09-07): a user confirmed that the catalog can be read with VoiceOver and accepted the automatically verified behavior. aria-expanded / data-state synchronization, internal Tab operation, and post-close focus return were verified by browser tests in all three engines. Individual announcement wording on the device was not evaluated and this is not complete speech verification",
+    "Observation and unverified: differences in announcement order and wording between screen readers and suitability of announcements for each operation. The real-device OS / browser / VoiceOver versions were not recorded. Retain this as a compatibility observation independent of the public specification"
+  ],
+  "testMatrix": [
+    {
+      "testId": "hover-card-structure",
+      "description": "State, relationships, completion, and authored-attribute preservation for both configurations"
+    },
+    {
+      "testId": "hover-card-keyboard",
+      "description": "Focus, Tab, Escape, and preservation and return of internal focus"
+    },
+    {
+      "testId": "hover-card-link",
+      "description": "Independence of native navigation and the preview button"
+    },
+    {
+      "testId": "hover-card-pointer",
+      "description": "Delays, movement corridor, pointer exit, and RTL"
+    },
+    {
+      "testId": "hover-card-events",
+      "description": "Cancellation, reentrancy, programmatic silence, and event properties"
+    },
+    {
+      "testId": "hover-card-lifecycle",
+      "description": "Target replacement, disconnect, reconnection, and value changes"
+    },
+    {
+      "testId": "hover-card-validation",
+      "description": "Invalid markup, autofocus, accessible names, and warning separation"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "hover-card-structure-preservation-negative",
+      "guard": "Preserve authored aria-controls",
+      "mutation": {
+        "description": "Remove the guard for authored aria-controls",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (current === null || this.completedControls.get(control) === current) {",
+            "replace": "\t\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "The tests for authored-attribute preservation in hover-card-structure and after content replacement fail"
+    },
+    {
+      "testId": "hover-card-keyboard-focus-return-negative",
+      "guard": "Focus return on a user close operation",
+      "mutation": {
+        "description": "Do not return focus to trigger when closing from inside content",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\telements.trigger.focus();",
+            "replace": "\t\t\t\tvoid elements.trigger;"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-keyboard-focus-return-negative and the catalog/hover-card.html behavior check for post-close focus return fail"
+    },
+    {
+      "testId": "hover-card-pointer-corridor-negative",
+      "guard": "Movement corridor between trigger and content",
+      "mutation": {
+        "description": "Always classify the pointer as outside the geometric corridor",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn corridor.destinations.some((destination) => {",
+            "replace": "\t\treturn false && corridor.destinations.some((destination) => {"
+          }
+        ]
+      },
+      "expectedFailure": "The hover-card-pointer tests for forward, reverse, and RTL movement corridors fail"
+    },
+    {
+      "testId": "hover-card-events-trusted-negative",
+      "guard": "Exclude synthetic events",
+      "mutation": {
+        "description": "Remove the isTrusted check",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate accepts = (event: Event) => event.isTrusted && this.connected && this.enhanced;",
+            "replace": "\tprivate accepts = (_event: Event) => this.connected && this.enhanced;"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-events-trusted-negative fails."
+    },
+    {
+      "testId": "hover-card-events-reentry-negative",
+      "guard": "API reentrancy inside beforetoggle",
+      "mutation": {
+        "description": "Continue the original request even after the API commits state",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\trevision !== this.revision ||",
+            "replace": "\t\t\tfalse ||"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-events-reentry-negative fails."
+    },
+    {
+      "testId": "hover-card-lifecycle-disconnect-negative",
+      "guard": "Unsubscribe on disconnect",
+      "mutation": {
+        "description": "Omit unbind on disconnect while retaining the DOM",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.observer = undefined;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.observer = undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-lifecycle-disconnect-negative fails."
+    },
+    {
+      "testId": "hover-card-validation-autofocus-negative",
+      "guard": "Disable content containing autofocus",
+      "mutation": {
+        "description": "Remove autofocus validation",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t!this.hasAutofocus(content) &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-validation-autofocus-negative and hover-card-lifecycle-invalid-negative, which also disables adding autofocus while displayed, fail"
+    },
+    {
+      "testId": "hover-card-pointer-exit-negative",
+      "guard": "Classify a stationary pointer after exit",
+      "mutation": {
+        "description": "Use the destination coordinates as the movement-corridor origin",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\torigin: this.lastPointer ?? { x: event.clientX, y: event.clientY },",
+            "replace": "\t\t\t\torigin: { x: event.clientX, y: event.clientY },"
+          }
+        ]
+      },
+      "expectedFailure": "The hover-card-pointer test for closing after leaving the corridor fails. hover-card-lifecycle-invalid-negative, hover-card-lifecycle-reconcile-negative, and hover-card-events-pointer-reason-negative also use the same post-exit close and fail"
+    },
+    {
+      "testId": "hover-card-events-disabled-negative",
+      "guard": "Exclude trusted clicks on disabled buttons",
+      "mutation": {
+        "description": "Allow a click on a button disabled during capture",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.currentTarget.disabled\n",
+            "replace": "\t\t\tfalse\n"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-events-disabled-negative fails."
+    },
+    {
+      "testId": "hover-card-pointer-reopen-negative",
+      "guard": "Reopen after an ordinary exit",
+      "mutation": {
+        "description": "Treat an ordinary close as an explicit dismiss and suppress reopening",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.dismissed = restoreFocus;",
+            "replace": "\t\t\tthis.dismissed = true;"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-pointer-reopen-negative fails."
+    },
+    {
+      "testId": "hover-card-lifecycle-invalid-negative",
+      "guard": "Close on invalidation",
+      "mutation": {
+        "description": "Leave the content displayed when the same content becomes invalid",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t(!valid || previousContent !== next?.content) &&",
+            "replace": "\t\t\tpreviousContent !== next?.content &&"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-lifecycle-invalid-negative fails."
+    },
+    {
+      "testId": "hover-card-lifecycle-reconcile-negative",
+      "guard": "Preserve interaction state for the same targets",
+      "mutation": {
+        "description": "Clear timers and hover even for a valid content update",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!valid || !sameTargets) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-lifecycle-reconcile-negative and hover-card-lifecycle-invalid-negative fail because they preserve hover and timers after updating the same targets"
+    },
+    {
+      "testId": "hover-card-structure-references-negative",
+      "guard": "Follow completed relationships",
+      "mutation": {
+        "description": "Do not follow controller-completed aria-controls to new content",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (current === null || this.completedControls.get(control) === current) {",
+            "replace": "\t\t\tif (current === null) {"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-structure-references-negative fails."
+    },
+    {
+      "testId": "hover-card-events-pointer-reason-negative",
+      "guard": "Focus reason associated with pointer",
+      "mutation": {
+        "description": "Do not remember the origin of trusted pointerdown",
+        "file": "src/hover_card_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.pointerActive = event.type === \"pointerdown\";",
+            "replace": "\t\t\tthis.pointerActive = false;"
+          }
+        ]
+      },
+      "expectedFailure": "hover-card-events-pointer-reason-negative fails."
+    }
+  ]
+}

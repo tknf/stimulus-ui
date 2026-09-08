@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>carousel | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="playing paused active inactive"
+      data-catalog-properties=""
+      data-catalog-events="carousel:beforechange carousel:change"
+    >
+      <h1>carousel</h1>
+      <section>
+        <h2>interval 0</h2>
+        <div
+          class="catalog-component"
+          data-controller="carousel"
+          role="group"
+          aria-label="Product overview"
+          aria-roledescription="carousel"
+        >
+          <div
+            data-carousel-target="slide"
+            role="group"
+            aria-label="1 / 2"
+            aria-roledescription="slide"
+          >
+            Slide 1
+          </div>
+          <div
+            data-carousel-target="slide"
+            role="group"
+            aria-label="2 / 2"
+            aria-roledescription="slide"
+          >
+            Slide 2
+          </div>
+          <button type="button" data-carousel-target="previous">Previous</button>
+          <button type="button" data-carousel-target="next">Next</button>
+        </div>
+      </section>
+      <section>
+        <h2>Positive interval and play target</h2>
+        <div
+          class="catalog-component"
+          data-controller="carousel"
+          data-carousel-interval-value="5000"
+          role="group"
+          aria-label="Case studies"
+          aria-roledescription="carousel"
+        >
+          <div
+            data-carousel-target="slide"
+            role="group"
+            aria-label="1 / 2"
+            aria-roledescription="slide"
+          >
+            Slide 1
+          </div>
+          <div
+            data-carousel-target="slide"
+            role="group"
+            aria-label="2 / 2"
+            aria-roledescription="slide"
+          >
+            Slide 2
+          </div>
+          <button type="button" data-carousel-target="previous">Previous</button>
+          <button type="button" data-carousel-target="next">Next</button>
+          <button type="button" data-carousel-target="play">Play or pause</button>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

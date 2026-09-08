@@ -1,0 +1,331 @@
+{
+  "name": "accordion",
+  "controller": "accordion",
+  "pattern": "An open-and-close component for headings, buttons, and panels following the APG Accordion Pattern",
+  "responsibility": "Opens and closes panels with buttons inside user-authored headings and provides aria-expanded, aria-controls, data-state, and cancelable toggle events. It does not generate appearance or content",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/accordion/",
+    "https://www.w3.org/TR/wai-aria-1.2/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"accordion\"",
+    "trigger": "A native <button type=\"button\"> with data-accordion-target=\"trigger\". The APG Accordion Pattern requires the button to be inside a heading element, but heading levels are determined by the page's document structure and cannot be decided by the library, so this contract neither requires nor validates a heading. The user writes the heading",
+    "panel": "An element with data-accordion-target=\"panel\". Place them in the same order as the triggers",
+    "label": "The user writes the trigger label",
+    "content": "The controller does not generate elements or content",
+    "nativeAlternative": "Use the disclosure controller when a single <details> is sufficient or when multiple <details> elements with the same name provide the required exclusive control. Use this component for DOM structures where a panel cannot be a sibling of its trigger"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "There must be at least one trigger target",
+      "Each trigger must be an HTMLButtonElement with type=\"button\"",
+      "The number of panel targets must equal the number of trigger targets",
+      "Triggers and panels must be descendants of the root"
+    ],
+    "invalidMarkup": "Validate the markup on connection. If it violates the contract, the controller does not apply ARIA, listeners, state output, or open-and-close behavior, and calls console.warn once while connected. It does not throw",
+    "warning": "The warning includes the accordion controller, the expected native <button type=\"button\"> triggers, and the same number of panels. Enhancement has been disabled.",
+    "notGuaranteed": "The APG Accordion Pattern requirements that a trigger be inside a heading element and that the heading level be valid are not validated. These are document-structure concerns for the page and cannot be determined by the controller",
+    "completion": {
+      "attributes": ["trigger aria-controls"],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning"
+    }
+  },
+  "api": {
+    "values": {
+      "multiple": {
+        "type": "Boolean",
+        "htmlAttribute": "data-accordion-multiple-value",
+        "default": false,
+        "description": "Whether multiple panels can be open at the same time. When false, opening one panel closes the others"
+      },
+      "open": {
+        "type": "Array",
+        "htmlAttribute": "data-accordion-open-value",
+        "default": [],
+        "description": "Indexes of panels open initially. Used only when the markup has no open-and-close state"
+      }
+    },
+    "properties": {
+      "open": {
+        "type": "number[]",
+        "access": "getter/setter",
+        "description": "An array of indexes for open panels. The setter changes open-and-close state and state output without dispatching a custom event"
+      }
+    },
+    "methods": {
+      "show(index)": {
+        "returns": "void",
+        "description": "Opens the panel at the specified index. Does not dispatch a custom event"
+      },
+      "hide(index)": {
+        "returns": "void",
+        "description": "Closes the panel at the specified index. Does not dispatch a custom event"
+      },
+      "toggle(index)": {
+        "returns": "void",
+        "description": "Toggles the panel at the specified index. Does not dispatch a custom event"
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "accordion:beforetoggle": {
+        "when": "Immediately before opening or closing from a trusted trigger activation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "index": "The target panel index",
+          "open": "The open-and-close state about to be committed",
+          "previousOpen": "The open-and-close state before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "When preventDefault() is called, do not change open-and-close state, ARIA, state output, or accordion:toggle"
+      },
+      "accordion:toggle": {
+        "when": "After opening or closing from a trusted trigger activation is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "index": "The target panel index",
+          "open": "The committed open-and-close state",
+          "previousOpen": "The open-and-close state before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "exclusive": "When multiple is false, closing other panels for exclusivity does not dispatch an event. Events are dispatched only for the panel targeted by the user's operation",
+      "programmatic": "The open setter, show(), hide(), toggle(), initialization, and reconnection do not dispatch custom events",
+      "synthetic": "A click with isTrusted=false does not dispatch a custom event and only synchronizes open-and-close state and state output"
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "accordion:toggle and accordion:beforetoggle can be received on the root or an ancestor. The controller does not stop event propagation",
+    "cancelableHook": "To stop opening or closing, call event.preventDefault() in an accordion:beforetoggle listener",
+    "programmatic": "Another controller can read and write open through a Stimulus controller reference or outlets. The programmatic API does not dispatch events",
+    "nested": "When receiving events from a nested accordion on the outside, limit the target to the root with :self or event.target === event.currentTarget"
+  },
+  "behavior": {
+    "initial": "Prioritize the panel's hidden attribute and apply the open value only when the markup has no open-and-close state",
+    "pointer": "A trusted click on a valid trigger commits opening or closing through beforetoggle with reason=\"pointer\"",
+    "keyboard": "Use activation by Enter and Space on the native button. The APG Accordion Pattern does not require arrow keys between headings, so the controller does not implement arrow keys, Home, End, or Ctrl+Page Up/Down",
+    "exclusive": "When multiple is false, opening one panel closes the other panels. All panels may be closed; there is no requirement that one always remain open",
+    "disabled": "A trigger with native button.disabled true or aria-disabled=\"true\" does not activate. The APG Accordion Pattern recommends aria-disabled for a header that cannot be collapsed. Native disabled also prevents focus, which would make the existence of an unopenable panel unreachable to keyboard users, so both are checked. Do not add data-* for disabled. The public API can change state regardless of disabled status"
+  },
+  "managedMarkup": {
+    "trigger": "Synchronize aria-expanded with open-and-close state. Point to the corresponding panel ID only when aria-controls is not specified",
+    "panel": "Generate an ID only when one is not specified. Synchronize hidden with open-and-close state",
+    "role": "Do not add role=\"region\" to panels. It can create too many landmarks in an accordion with many simultaneously open panels, so the user may write it when needed",
+    "stateOnly": "The controller-managed state output consists only of root, trigger, and panel data-state",
+    "preservation": "Do not overwrite id, role, aria-controls, or other attributes authored earlier by the user. The controller synchronizes aria-expanded and hidden"
+  },
+  "stateOutputs": {
+    "ownership": "Only trigger and panel data-state are controller-owned; do not express state with ARIA attributes",
+    "root": "Do not emit data-state. Opening and closing are per-item states and are not aggregated on the root. The user derives \"whether one or more are open\" with CSS :has([data-state=\"open\"])",
+    "trigger": "data-state=\"open\" | \"closed\"",
+    "panel": "data-state=\"open\" | \"closed\""
+  },
+  "lifecycle": [
+    "Register click and keydown listeners on triggers only while the markup is valid, and remove them when the markup becomes invalid and in disconnect(). Because listeners are not registered for invalid markup, register them in reconcile() rather than connect()",
+    "Track added and removed trigger and panel targets with Stimulus TargetConnected/TargetDisconnected",
+    "Leave generated ARIA, IDs, data-state, and hidden in place in disconnect()",
+    "On reconnection, synchronize ARIA and state output with the current markup without reapplying the initial open value",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Open and closed state announcements",
+        "status": "unverified",
+        "impact": "The contract fixes native trigger activation, aria-expanded, and panel visibility; compatibility wording does not choose these semantics."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "The AAA to achieve is 2.1.3 Keyboard (No Exception) (no feature is reachable only by pointer) and 3.2.5 Change on Request (the controller moves focus only through user operation or a call from the user's JS, and never through a timer)",
+    "Only trusted trigger activation dispatches one cancelable beforetoggle and one toggle after commitment, in that order",
+    "Canceling beforetoggle does not change open-and-close state, ARIA, state output, or the toggle event",
+    "aria-expanded and aria-controls express the trigger-to-panel relationship, and IDs do not collide within the page",
+    "The controller does not implement arrow keys, and Tab order remains native",
+    "The public API, initialization, and reconnection synchronize open-and-close state and state output without dispatching custom events",
+    "Invalid markup disables enhancement with one warning",
+    "Automated tests pass in Chromium, Firefox, and WebKit",
+    "Report the open-and-close state announcements from a screen reader on a real device as unverified"
+  ],
+  "testMatrix": [
+    {
+      "testId": "accordion-state-sync",
+      "description": "aria-expanded, aria-controls, ID generation, data-state, and preservation of existing attributes"
+    },
+    {
+      "testId": "accordion-initial-open",
+      "description": "Prioritizing the hidden attribute and initializing the open value"
+    },
+    {
+      "testId": "accordion-beforetoggle-cancel",
+      "description": "beforetoggle cancellation, toggle detail, ordering, and bubbles"
+    },
+    {
+      "testId": "accordion-exclusive",
+      "description": "Exclusivity with multiple=false and no event when other panels close"
+    },
+    {
+      "testId": "accordion-keyboard-reason",
+      "description": "Keyboard reason for Enter and Space, and no effect from arrow keys"
+    },
+    {
+      "testId": "accordion-programmatic-silence",
+      "description": "No events from the open setter, show, hide, or toggle"
+    },
+    {
+      "testId": "accordion-disabled-guard",
+      "description": "Activation guard and API operation for disabled triggers"
+    },
+    {
+      "testId": "accordion-dynamic-targets",
+      "description": "Tracking added and removed triggers and panels"
+    },
+    {
+      "testId": "accordion-id-uniqueness",
+      "description": "Avoiding ID collisions and preserving existing IDs with multiple accordions in one document"
+    },
+    {
+      "testId": "accordion-disconnect-cleanup",
+      "description": "Listener cleanup and state across disconnect/reconnect"
+    },
+    {
+      "testId": "accordion-semantic-validation",
+      "description": "Warning and enhancement disabling for invalid markup"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    {
+      "testId": "accordion-completion-warning",
+      "description": "Completion warning for missing attributes, no warning for complete markup, and separation from the invalid-markup warning"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "accordion-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "mutation": {
+        "description": "Disable the trigger-type guard in isValidMarkup() and continue enhancement for a non-button target",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "trigger instanceof HTMLButtonElement &&\n\t\t\t\t\ttrigger.type === \"button\" &&\n\t\t\t\t\tthis.element.contains(trigger)",
+            "replace": "this.element.contains(trigger)"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-semantic-validation-negative fails"
+    },
+    {
+      "testId": "accordion-beforetoggle-cancel-negative",
+      "guard": "beforetoggle cancellation",
+      "mutation": {
+        "description": "Ignore the return value of beforetoggle dispatchEvent and commit opening or closing",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeToggle)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-beforetoggle-cancel-negative fails"
+    },
+    {
+      "testId": "accordion-exclusive-negative",
+      "guard": "Exclusivity with multiple=false",
+      "mutation": {
+        "description": "Remove the branch that closes indexes other than the clicked index when multiple=false",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t? this.multipleValue\n\t\t\t\t? [...this.openIndexes(), index]\n\t\t\t\t: [index]",
+            "replace": "\t\t\t? [...this.openIndexes(), index]"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-exclusive-negative fails"
+    },
+    {
+      "testId": "accordion-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "mutation": {
+        "description": "Dispatch a programmatic toggle event from the open setter",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitOpenIndexes(value);",
+            "replace": "\t\tthis.commitOpenIndexes(value);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"accordion:toggle\"));"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-programmatic-silence-negative fails"
+    },
+    {
+      "testId": "accordion-disabled-guard-negative",
+      "guard": "Activation suppression for disabled triggers",
+      "mutation": {
+        "description": "Remove the disabled-trigger guard for trusted/synthetic clicks",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst trigger = this.triggerFromEvent(event);\n\t\tif (trigger === undefined || this.isDisabled(trigger)) {",
+            "replace": "\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst trigger = this.triggerFromEvent(event);\n\t\tif (trigger === undefined) {"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-disabled-guard-negative fails"
+    },
+    {
+      "testId": "accordion-preservation-negative",
+      "guard": "Preservation of existing id and aria-controls",
+      "mutation": {
+        "description": "Remove the aria-controls hasAttribute guard and overwrite the existing value",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!trigger.hasAttribute(\"aria-controls\")) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-preservation-negative fails"
+    },
+    {
+      "testId": "accordion-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "mutation": {
+        "description": "Remove click-listener removal from disconnect cleanup",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);",
+            "replace": "\t\t// click listener は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-disconnect-cleanup-negative fails"
+    },
+    {
+      "testId": "accordion-completion-warning-negative",
+      "guard": "Completion warning for missing attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/accordion_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "accordion-completion-warning-negative fails"
+    }
+  ]
+}

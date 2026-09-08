@@ -1,0 +1,247 @@
+{
+  "name": "checkbox-group",
+  "controller": "checkbox-group",
+  "pattern": "A headless group adding tri-state master synchronization (checked/indeterminate/unchecked) and cancelable changes to native checkboxes in any list",
+  "responsibility": "Provides master checked/indeterminate synchronization, selection-set events treating a change as one operation, the selected public API, and semantic markup validation. Native checkboxes retain their state, focus, and form submission semantics. No state outputs or ARIA are added, and no appearance or content is generated.",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox)",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"checkbox-group\". Use table-select, not checkbox-group, for table-row selection.",
+    "targets": {
+      "item": "One or more native <input type=\"checkbox\"> elements with data-checkbox-group-target=\"item\" and unique nonempty data-checkbox-group-value values",
+      "all": "Required: exactly one native <input type=\"checkbox\"> with data-checkbox-group-target=\"all\", on an element distinct from every item target",
+      "allRequired": "Markup without an all target is invalid. Tri-state master synchronization is the reason for this component; without a master, native checkboxes already provide the needed behavior."
+    },
+    "label": "The consumer supplies each checkbox accessible name through label, aria-label, or aria-labelledby, and grouping through <fieldset>/<legend> or a named role=\"group\".",
+    "initial": "Specify initial selection with the native checked attribute.",
+    "content": "The controller generates no elements or content. Consumers style selected items with input:checked, partially selected masters with :indeterminate, and root aggregates with :has()."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "At least one item target is required, and every item must be a native <input type=\"checkbox\">.",
+      "data-checkbox-group-value must be nonempty and unique among items.",
+      "Exactly one native <input type=\"checkbox\"> all target is required, distinct from item targets."
+    ],
+    "invalidMarkup": "Validate on connection and target changes. Invalid markup prevents listener registration, master synchronization, and public API operations and warns once per connection. Reapply enhancement when valid without warning again. Do not throw.",
+    "warning": "Use the standard English disabling warning describing native checkbox items with unique values and exactly one separate master."
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "selected": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Checked item data-checkbox-group-value values in DOM order. Assignment ignores unknown values and synchronizes items and master without custom events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "checkbox-group:beforechange": {
+        "when": "Before a trusted operation (individual toggle or master bulk toggle) changes the selection set",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "selected": "The proposed selection set, as values in DOM order",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), restore every affected checkbox, including those toggled by pre-click activation, and do not emit checkbox-group:change."
+      },
+      "checkbox-group:change": {
+        "when": "After a trusted selection-set change is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "selected": "The committed selection set",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "gesture": "Emit one event pair per operation, not per checkbox, including master bulk operations.",
+      "reason": "Native checkbox Space activation arrives as click detail=0. Use keyboard for detail=0 and pointer otherwise.",
+      "programmatic": "selected assignment, initialization, and reconnection emit no custom events.",
+      "synthetic": "Clicks/changes with isTrusted=false only synchronize the master and emit no custom events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for checkbox-group:change and checkbox-group:beforechange on the root or ancestors. The controller does not stop propagation.",
+    "cancelableHook": "Cancel changes with event.preventDefault() in a checkbox-group:beforechange listener.",
+    "directMutation": "Do not track consumer JS assignments to checkbox.checked, which emit no native events. As with input.value, the caller knows the result. The next trusted operation or selected assignment resynchronizes the master.",
+    "nested": "Use :self or event.target === event.currentTarget when listening outside nested checkbox-group roots."
+  },
+  "behavior": {
+    "scope": "Handle only tri-state master/item synchronization. Table-select handles table-row selection, including Shift ranges; checkbox-group has no range selection. Consumers and other components handle sorting, filtering, and actions on selected items.",
+    "master": "On trusted master click, set every enabled item to the master's new checked value. After item changes, synchronize master to checked for all, indeterminate for some, or unchecked for none. The controller sets indeterminate because it is only a JS property. Count enabled items only, matching bulk operations excluding disabled items.",
+    "label": "Treat trusted clicks on item/master labels as one operation on the corresponding checkbox with the same event rules. Do not depend on label activation forwarding a click to the checkbox.",
+    "disabled": "Exclude disabled items from master bulk operations, matching native suppression of individual clicks. Do not add disabled data-* attributes.",
+    "form": "Delegate checkbox name, value, form submission, and reset to native semantics. Resynchronize the master after form reset."
+  },
+  "managedMarkup": {
+    "aria": "Do not write or complete ARIA. AT reads native checkbox checked/indeterminate state. Consumers supply static grouping semantics through <fieldset>/<legend> or a named role=\"group\". A group role needs an accessible name, which the library cannot infer, so do not supply the role alone.",
+    "stateOutputs": "Do not output state attributes. CSS derives item selection through input:checked, partial master selection through :indeterminate, and root aggregates through :has(). Do not output states CSS can derive.",
+    "indeterminate": "Set the master indeterminate JS property, not an attribute; CSS can read it through :indeterminate.",
+    "preservation": "Preserve authored attributes. Change checkbox checked only through selection operations and the selected setter."
+  },
+  "stateOutputs": {
+    "ownership": "No state outputs; see managedMarkup.stateOutputs."
+  },
+  "lifecycle": [
+    "Register root click/change listeners and item-form reset listeners in connect(); remove them in disconnect().",
+    "Track item/all target changes through targetConnected/targetDisconnected and resynchronize the master.",
+    "Do not change checkbox state on disconnect().",
+    "Synchronize the master from current checkbox state on reconnection.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Master checkbox mixed-state announcements",
+        "status": "unverified",
+        "impact": "Native checkboxes and indeterminate state are fixed; wording differences do not choose the selection model."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), because native Space activation performs item toggles and master bulk operations without pointer-only features; and 3.2.5 Change on Request, limiting controller focus movement to user operations (including label-click focus) or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Master checked/indeterminate/unchecked must match all/some/none of enabled items selected.",
+    "One trusted operation emits one cancelable beforechange and one committed change; cancellation restores every affected checkbox.",
+    "selected assignment and synthetic operations do not emit custom events.",
+    "Disabled items are excluded from master bulk operations and the tri-state denominator.",
+    "Do not write ARIA or state outputs; preserve authored attributes.",
+    "Invalid markup warns once and disables enhancement; valid markup reapplies enhancement.",
+    "Pass automated tests in Chromium, Firefox, and WebKit, including label clicks.",
+    "Report real-device screen reader announcements of master mixed state as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "checkbox-group-master-sync",
+      "description": "Master all/some/none synchronization, disabled-item exclusion from the denominator, and resynchronization after item changes and form reset"
+    },
+    {
+      "testId": "checkbox-group-master-toggle",
+      "description": "Master select-all/clear-all, disabled-item exclusion, and equivalent label-click results"
+    },
+    {
+      "testId": "checkbox-group-beforechange-cancel",
+      "description": "Restoring checkboxes on cancellation for individual/master operations; committed detail, order, bubbling, and reason"
+    },
+    {
+      "testId": "checkbox-group-programmatic-silence",
+      "description": "No events from selected assignment or synthetic click/change, with master synchronization"
+    },
+    {
+      "testId": "checkbox-group-semantic-validation",
+      "description": "One warning and disabled enhancement for missing/multiple all targets, all also used as item, non-checkbox items, duplicate/empty values, or no items; reapply when valid"
+    },
+    {
+      "testId": "checkbox-group-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and no checkbox-state changes on disconnect"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "checkbox-group-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid markup",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Disable semantic validation and enhance invalid markup.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-semantic-validation-negative fails."
+    },
+    {
+      "testId": "checkbox-group-master-sync-negative",
+      "guard": "Tri-state master synchronization",
+      "plannedMutation": "Remove indeterminate assignment.",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Remove master indeterminate synchronization.",
+        "replacements": [
+          {
+            "find": "\t\tmaster.indeterminate = selectedCount > 0 && selectedCount < items.length;",
+            "replace": "\t\tmaster.indeterminate = false;"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-master-sync-negative fails."
+    },
+    {
+      "testId": "checkbox-group-master-toggle-negative",
+      "guard": "Applying master bulk operations to items",
+      "plannedMutation": "Remove bulk item updates on master click, leaving only the master's own toggle.",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Remove bulk item updates on master click.",
+        "replacements": [
+          {
+            "find": "\t\t\tfor (const item of items) {\n\t\t\t\tif (!item.disabled) {\n\t\t\t\t\tnextStates.set(item, nextChecked);\n\t\t\t\t}\n\t\t\t}",
+            "replace": "\t\t\t// item の状態は変更しない"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-master-toggle-negative fails."
+    },
+    {
+      "testId": "checkbox-group-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Disable beforechange cancellation and always commit selection.",
+        "replacements": [
+          {
+            "find": "\t\tif (!accepted) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-beforechange-cancel-negative fails."
+    },
+    {
+      "testId": "checkbox-group-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit checkbox-group:change from the selected setter.",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Emit checkbox-group:change from the selected setter.",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitSelected(values);",
+            "replace": "\t\tthis.commitSelected(values);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"checkbox-group:change\"));"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "checkbox-group-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave the click listener active after disconnect.",
+      "mutation": {
+        "file": "src/checkbox_group_controller.ts",
+        "description": "Remove click-listener cleanup from disconnect.",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.element.removeEventListener(\"click\", this.handleClick);",
+            "replace": "\t\t\t// click listener は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "checkbox-group-disconnect-cleanup-negative fails."
+    }
+  ]
+}

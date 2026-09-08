@@ -1,0 +1,584 @@
+{
+  "name": "tabs",
+  "controller": "tabs",
+
+  "pattern": "Single-select tabs following the WAI-ARIA APG Tabs Pattern",
+  "responsibility": "Provides behavior, ARIA, keyboard interaction, and state outputs only; generates neither appearance nor content.",
+  "references": ["https://www.w3.org/WAI/ARIA/apg/patterns/tabs/", "https://www.w3.org/TR/WCAG22/"],
+  "authorMarkup": {
+    "root": "data-controller=\"tabs\"",
+    "targets": {
+      "tablist": "Exactly one data-tabs-target=\"tablist\" inside the root",
+      "tab": "A native <button type=\"button\"> with data-tabs-target=\"tab\"",
+      "tabpanel": "data-tabs-target=\"tabpanel\""
+    },
+    "pairing": "A valid pair consists of exactly one tab and one tabpanel inside the root sharing the same nonempty data-tabs-value, with the tab inside the sole tablist target. Duplicate values, a missing counterpart, zero or multiple tablists, and tabs outside the tablist invalidate the entire controller (contractValidation.invalidMarkup). Do not continue by excluding only invalid pairs.",
+    "label": "The consumer supplies the tablist aria-label, or may reference a label with an authored aria-labelledby.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Exactly one tablist target is required.",
+      "At least one tab target is required, and every tab must be a native <button type=\"button\">. Validate type because an omitted type submits a form.",
+      "Every tab target must be a descendant of the tablist target.",
+      "Every tab and tabpanel needs a nonempty data-tabs-value, unique on each side and paired one-to-one. A missing counterpart is invalid.",
+      "orientation must be horizontal or vertical; activation must be automatic or manual. Typos are invalid rather than silently changing the interaction mode by falling back to a default.",
+      "Not validated: tabpanel position, mismatch between data-tabs-value-value and pairs (runtime state, handled by fallback), or the tablist accessible name."
+    ],
+    "invalidMarkup": "Validate on connection, target changes, and observed attribute changes. Invalid markup prevents structural, operational, and state-output writes, makes selection and public API operations (value setter and select) no-ops, and issues console.warn once per connection. Do not issue completion warnings. Ignore intermediate target-replacement states within one microtask. Reapply enhancement when markup becomes valid without warning again. Do not throw.",
+    "warning": "Use the standard English disabling warning and describe the expected markup: one tablist, native <button type=\"button\"> tabs, one-to-one pairs with unique nonempty data-tabs-value values, and supported orientation/activation values.",
+    "completion": {
+      "attributes": [
+        "role=\"tablist\" on the tablist",
+        "role=\"tab\" on tabs",
+        "role=\"tabpanel\" on tabpanels",
+        "aria-controls on tabs",
+        "aria-labelledby on tabpanels"
+      ],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning.",
+      "excluded": "Tablist aria-orientation reflects the orientation value; tabpanel tabindex is required for controller operation. Neither is subject to completion warnings."
+    }
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "String",
+        "htmlAttribute": "data-tabs-value-value",
+        "description": "data-tabs-value of the initially selected pair"
+      },
+      "orientation": {
+        "type": "String",
+        "allowed": ["horizontal", "vertical"],
+        "default": "horizontal"
+      },
+      "activation": {
+        "type": "String",
+        "allowed": ["automatic", "manual"],
+        "default": "automatic"
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "The selected data-tabs-value, or an empty string without selection. Assignment follows select(value) and remains synchronized with data-tabs-value-value."
+      }
+    },
+    "methods": {
+      "select(value)": {
+        "returns": "void",
+        "description": "Select a known, valid, enabled pair. Empty or unknown values, invalid pairings, and disabled tabs are no-ops."
+      }
+    },
+    "events": {
+      "tabs:beforechange": {
+        "when": "Before committing selection from pointer or keyboard interaction",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "The value proposed for selection",
+          "previousValue": "The currently selected value, or an empty string without selection",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "preventDefault() prevents the selection change, but does not cancel keyboard-driven focus movement."
+      },
+      "tabs:change": {
+        "when": "After committing selection from pointer or keyboard interaction",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The selected value",
+          "previousValue": "The value before the change, or an empty string without selection",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "The value setter, select(value), initialization, dynamic fallback, and reconnection do not emit tabs:beforechange or tabs:change.",
+      "sameValue": "Selecting the current pair through pointer or keyboard interaction does not emit tabs:beforechange or tabs:change.",
+      "nestedTabs": "When listening on a root with nested tabs, use event.target === event.currentTarget, or :self in a Stimulus action, to exclude events from inner tabs."
+    }
+  },
+  "selection": {
+    "initial": [
+      "Select the pair referenced by data-tabs-value-value when that pair is valid and enabled.",
+      "Select the first enabled pair when the requested value is empty, unknown, invalidly paired, or disabled.",
+      "Without pairs or when all tabs are disabled, set value to an empty string and leave selection empty. Set every tab tabindex to -1 and hide every tabpanel."
+    ],
+    "pointer": "Clicking an enabled tab selects its pair with reason=\"pointer\". Do not select disabled tabs.",
+    "programmatic": "The value setter and select(value) emit no events and preserve current selection for invalid requests.",
+    "dynamic": [
+      "Preserve the selected pair while it remains valid and enabled.",
+      "Programmatically select the first enabled pair when the selected pair is removed, becomes invalid, or its tab becomes disabled.",
+      "Return to the initial no-selection state when no enabled pairs remain.",
+      "Adding a pair alone does not change the current value.",
+      "When no selection exists and a valid enabled pair is added or re-enabled, programmatically select the first enabled pair."
+    ]
+  },
+  "keyboard": {
+    "focusModel": "Use roving tabindex so Tab enters the tablist at the selected tab. Exclude disabled tabs from focus navigation.",
+    "horizontalLtr": {
+      "ArrowLeft": "Move to the previous enabled tab.",
+      "ArrowRight": "Move to the next enabled tab."
+    },
+    "horizontalRtl": {
+      "ArrowLeft": "Move to the next enabled tab.",
+      "ArrowRight": "Move to the previous enabled tab.",
+      "directionSource": "Use the tablist computed direction, including inherited direction."
+    },
+    "horizontalIgnored": ["ArrowUp", "ArrowDown"],
+    "vertical": {
+      "ArrowUp": "Move to the previous enabled tab.",
+      "ArrowDown": "Move to the next enabled tab."
+    },
+    "common": {
+      "Home": "Move to the first enabled tab.",
+      "End": "Move to the last enabled tab.",
+      "wrap": "Previous/next navigation wraps at both ends."
+    },
+    "activation": {
+      "automatic": "Select with reason=\"keyboard\" when focus moves.",
+      "manual": "Arrows, Home, and End move focus only; Enter or Space selects the focused tab with reason=\"keyboard\"."
+    }
+  },
+  "managedMarkup": {
+    "addWhenMissing": {
+      "tablist": ["role=\"tablist\"", "aria-orientation=\"vertical\" when orientation=vertical"],
+      "tab": ["role=\"tab\"", "id", "aria-controls referencing the corresponding tabpanel ID"],
+      "tabpanel": [
+        "role=\"tabpanel\"",
+        "id",
+        "aria-labelledby referencing the corresponding tab ID",
+        "tabindex=\"0\" only when tabindex is absent"
+      ]
+    },
+    "preservation": "Preserve existing IDs and authored attributes other than controller-owned state outputs. Authored role, aria-controls, aria-labelledby, or aria-orientation values conflicting with the contract violate the author contract and are outside the accessibility guarantee.",
+    "generatedIds": "Generated tab and tabpanel IDs must be unique within the document, including against authored IDs.",
+    "disabled": "Read the native tab disabled attribute; do not add data-* attributes for disabled state."
+  },
+  "stateOutputs": {
+    "ownership": "The following attributes are controller-owned state outputs and are normalized to the selection, even when authored values exist.",
+    "selectedTab": {
+      "aria-selected": "true",
+      "tabindex": "0",
+      "data-state": "active"
+    },
+    "unselectedTab": {
+      "aria-selected": "false",
+      "tabindex": "-1",
+      "data-state": "inactive"
+    },
+    "selectedPanel": {
+      "hidden": false,
+      "data-state": "active"
+    },
+    "unselectedPanel": {
+      "hidden": true,
+      "data-state": "inactive"
+    },
+    "emptySelection": "Put every tab in unselectedTab state and every tabpanel in unselectedPanel state."
+  },
+  "lifecycle": [
+    "Register event subscriptions in connect() and remove them in disconnect(). Do not duplicate them during Turbo reconnection.",
+    "Leave generated structural attributes and state outputs on disconnect().",
+    "Normalize structural attributes and state outputs against current markup and value on reconnection.",
+    "Track dynamic tablists, tabs, and tabpanels through tablistTargetConnected, tablistTargetDisconnected, tabTargetConnected, tabTargetDisconnected, tabpanelTargetConnected, and tabpanelTargetDisconnected.",
+    "Coalesce target and value callbacks into one reconciliation per microtask; do not run a queued reconciliation after root disconnect().",
+    "Observe tab disabled/type and tab/tabpanel data-tabs-value only while connected; stop the MutationObserver in disconnect().",
+    "Reflect runtime changes to data-tabs-value-value, orientation, and activation through Stimulus value callbacks."
+  ],
+  "manualVerification": {
+    "blocking": [
+      {
+        "environment": "macOS Safari + VoiceOver",
+        "item": "Verify roles, names, selected state, tab/panel relationships, automatic/manual activation, and disabled-tab announcements",
+        "status": "verified",
+        "impact": "The contract makes real-device verification an implementation completion requirement. Automated tests do not replace this result.",
+        "evidence": "The maintainer confirmed completion of the Safari + VoiceOver checks listed here. This is a maintainer-reported real-device result, not a conclusion inferred from automated tests."
+      }
+    ],
+    "observations": []
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Controller behavior, ARIA, focus, and keyboard interaction must meet WCAG 2.2 Level AA for conforming authored markup. Label contents, panel content, colors, focus indicators, layout, and other consumer-controlled appearance/content remain the consumer's responsibility.",
+    "Roles, names, relationships, aria-selected, focus, and keyboard interaction must agree with the WAI-ARIA APG single-select Tabs Pattern.",
+    "Preserve authored IDs. Generated IDs must not collide with document IDs or IDs from other tabs instances.",
+    "Keep value and the visible panel consistent for initialization, pointer, keyboard, public JS API, and dynamic fallback.",
+    "Tab aria-selected, tabindex, and data-state and panel hidden/data-state must always describe the same selection.",
+    "Invalid, unknown, or disabled programmatic values do nothing; programmatic changes emit no events.",
+    "User selection respects tabs:beforechange cancellation and emits tabs:change once only after commitment.",
+    "Repeated disconnect/reconnect must not duplicate listeners or increase event counts per user selection.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Real-device verification with macOS Safari and VoiceOver is an implementation completion requirement: verify roles, names, selected state, tab/panel relationships, automatic/manual activation, and disabled-tab announcements.",
+    "Report checks that have not been performed as unverified."
+  ],
+  "testMatrix": [
+    "Roles, aria-controls, aria-labelledby, aria-orientation, and the tablist accessible name",
+    "Authored ID preservation, document-wide generated-ID uniqueness, and multiple instances",
+    "Valid, empty, unknown, and disabled initial values; all-disabled state. With valid markup, no selection occurs only when all pairs are disabled; missing pairs invalidate enhancement.",
+    "Automatic/manual selection, roving tabindex, Tab entry, Enter, Space, Home, End, and wrapping",
+    "Horizontal LTR, horizontal RTL, vertical mode, and no handling of ArrowUp/ArrowDown in horizontal mode",
+    "Shared roving_navigation behavior for empty length, negative indexes, unrelated keys, and LTR/RTL mapping",
+    "Skipping disabled tabs for pointer and keyboard interaction",
+    "tabs:beforechange/tabs:change order, detail, bubbling, cancellation, and pointer/keyboard reasons",
+    "Successful value setter/select(value), invalid-value no-ops, and no programmatic events",
+    "Pair addition/removal, disabled changes, selection preservation/fallback, and transitions to no selection",
+    "Turbo-equivalent disconnect/reconnect and prevention of duplicate listeners",
+    "Synchronization of aria-selected, tabindex, data-state, and hidden",
+    "Isolation of nested tabs events through event.target === event.currentTarget or :self",
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device macOS Safari and VoiceOver results",
+    {
+      "testId": "tabs-completion-warning",
+      "description": "Missing completion attributes warn once per connection; complete markup does not warn."
+    },
+    {
+      "testId": "tabs-semantic-validation",
+      "description": "Invalid markup warns once and disables enhancement; valid markup reapplies enhancement without repeating the warning."
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "tabs-pair-validity",
+      "guard": "pair validity",
+      "mutation": {
+        "description": "Accept duplicates, missing counterparts, and tabs outside the tablist as valid.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "if (matchingTabs.length === 1 && matchingPanels.length === 1) {",
+            "replace": "if (matchingPanels.length === 1) {"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-pair-validity fails, along with tabs-semantic-validation checking the same pair-validity invariant."
+    },
+    {
+      "testId": "tabs-disabled-guard",
+      "guard": "disabled check",
+      "mutation": {
+        "description": "Make disabled tabs selectable. handleClick's tab.disabled check and requestSelection's enabledPairs are independent guards; removing only one is not detected. Remove both together.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tconst tab = this.eventTab(event);\n\t\tif (!tab || tab.disabled) {",
+            "replace": "\t\tif (!event.isTrusted) {\n\t\t\treturn;\n\t\t}\n\t\tconst tab = this.eventTab(event);\n\t\tif (!tab) {"
+          },
+          {
+            "find": "\t\t}\n\t\tconst pair = this.enabledPairs().find((candidate) => candidate.value === value);",
+            "replace": "\t\t}\n\t\tconst pair = this.validPairs().find((candidate) => candidate.value === value);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-disabled-guard fails."
+    },
+    {
+      "testId": "tabs-id-uniqueness",
+      "guard": "generated id uniqueness",
+      "mutation": {
+        "description": "Remove document-wide ID collision checks. Per-document counter persistence and the do-while document.getElementById check are independent guards; removing only one is not detected. Remove both together.",
+        "file": "src/internal/ensure_element_id.ts",
+        "replacements": [
+          {
+            "find": "let counter = documentCounters.get(prefix) ?? 0;",
+            "replace": "let counter = 0;"
+          },
+          {
+            "find": "} while (document.getElementById(id) !== null);",
+            "replace": "} while (false);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-id-uniqueness and ID-uniqueness tests in callers sharing ensureElementId fail. Measurements include accordion-id-uniqueness, combobox-state-sync, listbox-id-uniqueness-negative, tabs-state-sync, and ensureElementId unit tests. ID uniqueness is shared across callers, so failure is not limited to one test. The counter and do-while are independent guards; the tabs test fails only when both are removed. The do-while-only mutation belongs to listbox-id-uniqueness-negative. editable-ids also fails because it checks the same shared-utility invariant."
+    },
+    {
+      "testId": "tabs-id-preservation",
+      "guard": "existing id preservation",
+      "mutation": {
+        "description": "Overwrite authored IDs.",
+        "file": "src/internal/ensure_element_id.ts",
+        "replacements": [
+          {
+            "find": "\tif (element.id !== \"\") {\n\t\treturn element.id;\n\t}\n\n\tconst document = element.ownerDocument;",
+            "replace": "\tconst document = element.ownerDocument;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-id-preservation and tests of callers sharing ensureElementId fail. The measured 19 tests cover combobox, dialog, dropdown-menu, listbox, password-field, splitter, tabs, and ensureElementId unit tests. Authored-ID preservation is a shared invariant, so failure is not limited to one test. This is the sole owner of the mutation breaking that guard. editable-ids also fails because it checks the same shared-utility invariant."
+    },
+    {
+      "testId": "tabs-keyboard-orientation",
+      "guard": "orientation branch",
+      "mutation": {
+        "description": "Reverse the horizontal/vertical branch.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tlet delta: -1 | 1 | undefined;\n\t\tif (this.orientationValue === \"vertical\") {",
+            "replace": "\t\tlet delta: -1 | 1 | undefined;\n\t\tif (this.orientationValue !== \"vertical\") {"
+          },
+          {
+            "find": "\t\t\tdelta = horizontalArrowDelta(event.key, direction);",
+            "replace": "\t\t\tdelta = undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-keyboard-orientation fails."
+    },
+    {
+      "testId": "tabs-keyboard-direction",
+      "guard": "computed direction branch",
+      "mutation": {
+        "description": "Navigate in the LTR direction even in RTL.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "const direction = getComputedStyle(this.tablistTargets[0] ?? this.element).direction;",
+            "replace": "const direction = \"ltr\";"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-keyboard-direction fails."
+    },
+    {
+      "testId": "tabs-keyboard-disabled",
+      "guard": "keyboard disabled skip",
+      "mutation": {
+        "description": "Move focus to disabled tabs.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst pairs = this.enabledPairs();\n\t\tconst index = pairs.findIndex((pair) => pair.tab === tab);",
+            "replace": "\t\tconst pairs = this.validPairs();\n\t\tconst index = pairs.findIndex((pair) => pair.tab === tab);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-keyboard-disabled fails."
+    },
+    {
+      "testId": "tabs-keyboard-wrap",
+      "guard": "keyboard wrap",
+      "mutation": {
+        "description": "Stop navigation at the ends.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "nextIndex = wrapNavigationIndex(index + delta, pairs.length);",
+            "replace": "nextIndex = Math.min(Math.max(index + delta, 0), pairs.length - 1);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-keyboard-wrap fails; no other test fails."
+    },
+    {
+      "testId": "tabs-roving-empty-length-negative",
+      "guard": "empty navigation length guard",
+      "mutation": {
+        "description": "Remove the guard returning undefined for length <= 0, producing a NaN index.",
+        "file": "src/internal/roving_navigation.ts",
+        "replacements": [
+          {
+            "find": "\tif (length <= 0) {\n\t\treturn undefined;\n\t}\n\treturn ((index % length) + length) % length;",
+            "replace": "\treturn ((index % length) + length) % length;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-roving-empty-length-negative fails; no other test fails."
+    },
+    {
+      "testId": "tabs-roving-negative-index-negative",
+      "guard": "negative index normalization",
+      "mutation": {
+        "description": "Replace the double modulo normalizing negative indexes with a single modulo.",
+        "file": "src/internal/roving_navigation.ts",
+        "replacements": [
+          {
+            "find": "\treturn ((index % length) + length) % length;",
+            "replace": "\treturn index % length;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-roving-negative-index-negative fails. tabs-keyboard-orientation, tabs-keyboard-direction, tabs-keyboard-disabled, tabs-keyboard-wrap, tabs-activation, and toggle-group-navigation also fail because they check the same navigation invariant."
+    },
+    {
+      "testId": "tabs-roving-key-filter-negative",
+      "guard": "horizontal arrow key filter",
+      "mutation": {
+        "description": "Remove the guard excluding keys other than ArrowLeft and ArrowRight.",
+        "file": "src/internal/roving_navigation.ts",
+        "replacements": [
+          {
+            "find": "\tif (key !== \"ArrowLeft\" && key !== \"ArrowRight\") {\n\t\treturn undefined;\n\t}\n\tif (key === \"ArrowLeft\") {",
+            "replace": "\tif (key === \"ArrowLeft\") {"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-roving-key-filter-negative fails. The catalog/tag-input.html and catalog/toggle-group.html behavior scenarios, tabs-keyboard-orientation, tabs-keyboard-direction, tabs-keyboard-disabled, tabs-keyboard-wrap, tabs-activation, tag-input-inputless-navigation, tag-input-inputless-end-negative, tag-input-inputless-removal, tag-input-fallback-focus-negative, tag-input-inputless-microtask, tag-input-focus-request-negative, tag-input-inputless-dynamic, tag-input-remove, tag-input-beforeremove-cancel-negative, tag-input-navigation, tag-input-focus-after-removal, toggle-group-activation, toggle-group-navigation, toolbar-navigation, and toolbar-keydown-prevent-default-negative also fail on the shared navigation invariant."
+    },
+    {
+      "testId": "tabs-roving-rtl-left-negative",
+      "guard": "RTL ArrowLeft mapping",
+      "mutation": {
+        "description": "Remove the direction guard mapping ArrowLeft to the next item in RTL.",
+        "file": "src/internal/roving_navigation.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn direction === \"rtl\" ? 1 : -1;",
+            "replace": "\t\treturn -1;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-roving-rtl-left-negative fails. The catalog/tag-input.html and catalog/toggle-group.html behavior scenarios, tabs-keyboard-orientation, tabs-keyboard-direction, tabs-keyboard-disabled, tabs-keyboard-wrap, tabs-activation, tag-input-inputless-navigation, tag-input-inputless-end-negative, tag-input-direction, toggle-group-navigation, and toolbar-direction also fail on the shared navigation invariant."
+    },
+    {
+      "testId": "tabs-roving-rtl-right-negative",
+      "guard": "RTL ArrowRight mapping",
+      "mutation": {
+        "description": "Remove the direction guard mapping ArrowRight to the previous item in RTL.",
+        "file": "src/internal/roving_navigation.ts",
+        "replacements": [
+          {
+            "find": "\treturn direction === \"rtl\" ? -1 : 1;",
+            "replace": "\treturn 1;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-roving-rtl-right-negative fails. The catalog/toggle-group.html behavior scenario, tag-input-direction, toggle-group-navigation, and toolbar-direction also fail on the shared navigation invariant."
+    },
+    {
+      "testId": "tabs-activation",
+      "guard": "The manual/automatic activation branch",
+      "mutation": {
+        "description": "Reverse the activation branch.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.activationValue !== \"manual\") {",
+            "replace": "\t\tif (this.activationValue === \"manual\") {"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-activation fails."
+    },
+    {
+      "testId": "tabs-beforechange-cancel",
+      "guard": "tabs:beforechange cancel check",
+      "mutation": {
+        "description": "Commit selection even after preventDefault().",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeChange);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-beforechange-cancel fails."
+    },
+    {
+      "testId": "tabs-programmatic-silence",
+      "guard": "No events from programmatic changes",
+      "mutation": {
+        "description": "Emit events from programmatic changes.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.commit(value);\n\t};",
+            "replace": "\t\tthis.commit(value);\n\t\tthis.element.dispatchEvent(\n\t\t\tnew CustomEvent(\"tabs:change\", {\n\t\t\t\tbubbles: true,\n\t\t\t\tdetail: { value, previousValue: this.currentValue, reason: \"keyboard\" },\n\t\t\t}),\n\t\t);\n\t};"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-programmatic-silence fails."
+    },
+    {
+      "testId": "tabs-dynamic-preservation",
+      "guard": "dynamic selection preservation",
+      "mutation": {
+        "description": "Change the current selection when a pair is added.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "const selected = current ? (requested ?? current) : (requested ?? pairs[0]);",
+            "replace": "const selected = pairs.at(-1);"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-dynamic-preservation and other tests passing through reconcile()'s selection calculation fail. This calculation is shared by tests mounting tabs, so failure is not limited to one test."
+    },
+    {
+      "testId": "tabs-dynamic-fallback",
+      "guard": "dynamic fallback",
+      "mutation": {
+        "description": "Do not fall back when the current pair disappears.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "const selected = current ? (requested ?? current) : (requested ?? pairs[0]);",
+            "replace": "const selected = current ? (requested ?? current) : undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-dynamic-fallback and other tests using pair-removal fallback fail. Fallback calculation is a shared invariant, so failure is not limited to one test."
+    },
+    {
+      "testId": "tabs-state-sync",
+      "guard": "state output synchronization",
+      "mutation": {
+        "description": "Remove tab data-state updates.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttab.dataset.state = active ? \"active\" : \"inactive\";\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "tabs-state-sync and other tests checking tab data-state fail. State output is a shared invariant, so failure is not limited to one test."
+    },
+    {
+      "testId": "tabs-disconnect-cleanup",
+      "guard": "disconnect() subscription cleanup",
+      "mutation": {
+        "description": "Remove listener cleanup.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "tabs-disconnect-cleanup fails."
+    },
+    {
+      "testId": "tabs-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-completion-warning-negative fails."
+    },
+    {
+      "testId": "tabs-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "mutation": {
+        "description": "Remove semantic validation from reconcile() and continue enhancement with invalid markup.",
+        "file": "src/tabs_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!this.isValidMarkup()) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "tabs-semantic-validation-negative fails."
+    }
+  ]
+}

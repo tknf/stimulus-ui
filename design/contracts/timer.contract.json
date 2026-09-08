@@ -1,0 +1,420 @@
+{
+  "name": "timer",
+  "controller": "timer",
+  "pattern": "WAI-ARIA timer role with timestamp-based countdown/count-up timing",
+  "responsibility": "Expose state, numeric values, milestone events, and finish events. Consumers author digits, announcement wording, and live-region content.",
+  "references": [
+    "https://www.w3.org/TR/wai-aria-1.2/#timer",
+    "https://html.spec.whatwg.org/multipage/timers-and-user-prompts.html#timers",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Performance/now#ticking_during_sleep",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Place data-controller=\"timer\" on an HTMLElement wrapper containing the display and operation buttons.",
+    "targets": {
+      "display": "Provide one descendant HTMLElement with data-timer-target=\"display\" and role=\"timer\". Keep operation buttons outside the display."
+    },
+    "content": "Consumers author digits, units, names, and live-region wording. The timer's accessible name is optional.",
+    "controls": "Use named native type=button controls with data-action=\"timer#start\", \"timer#pause\", and \"timer#reset\". Do not remove or disable a focused button because time elapsed."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Exactly one descendant HTMLElement display target is required.",
+      "direction is down or up. duration is a finite nonnegative Number and must be positive for down.",
+      "milestones is an array of finite nonnegative Numbers, each no greater than a finite duration when present. Invalid JSON and non-array values disable enhancement."
+    ],
+    "completion": [
+      "Supply missing role=timer on the display, warning once per connection. Preserve authored roles."
+    ],
+    "completionExempt": "State/custom-property synchronization does not warn. Do not write aria-live. Names are optional and are neither required nor completed.",
+    "invalidMarkup": "Invalid settings/targets pause timing without notification, remove root state/custom properties, and emit one standard enhancement-disabled warning per connection. Repair permits resuming the paused value; changed settings reset to idle. Do not throw."
+  },
+  "api": {
+    "values": {
+      "direction": {
+        "type": "String",
+        "default": "down",
+        "description": "down moves from duration to 0; up moves from 0 toward elapsed time."
+      },
+      "duration": {
+        "type": "Number",
+        "default": 0,
+        "description": "Milliseconds. In up mode, 0 means unbounded. Positive duration finishes either direction after that elapsed time."
+      },
+      "milestones": {
+        "type": "Array",
+        "default": [],
+        "description": "Display-value thresholds, deduplicated and processed in crossing order. Do not notify at start for a threshold equal to the initial value."
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "number",
+        "access": "getter",
+        "description": "Last synchronized display value in milliseconds; 0 while invalid or disconnected. Reading does not change state."
+      },
+      "elapsed": {
+        "type": "number",
+        "access": "getter",
+        "description": "Last synchronized elapsed time in milliseconds, clamped to finite duration; 0 while invalid or disconnected."
+      }
+    },
+    "methods": {
+      "start()": {
+        "returns": "void",
+        "description": "Start from idle or resume from paused. Do nothing in running/finished. Emit no events."
+      },
+      "pause()": {
+        "returns": "void",
+        "description": "Synchronize to the current time and pause, or finish when at the endpoint. Do not notify milestones/finish crossed during this synchronization."
+      },
+      "reset()": {
+        "returns": "void",
+        "description": "Stop and restore elapsed=0, the initial value, and idle. Allow milestones to be notified again. Emit no events."
+      }
+    },
+    "events": {
+      "timer:milestone": {
+        "cancelable": false,
+        "bubbles": true,
+        "detail": "TimerMilestoneDetail: { values: number[], value: number, elapsed: number, reason: \"timer\" }. Aggregate thresholds crossed in one update in crossing order."
+      },
+      "timer:finish": {
+        "cancelable": false,
+        "bubbles": true,
+        "detail": "TimerFinishDetail: { value: number, elapsed: number, reason: \"timer\" }. Emit once at the endpoint, after any simultaneous milestone event."
+      }
+    }
+  },
+  "behavior": {
+    "clock": "Use Date.now() minus the start timestamp rather than adding elapsed time per callback. Time continues while hidden or during OS sleep. Forward clock adjustments count as elapsed time. Backward adjustments do not rewind committed elapsed time; hold the value until the clock catches up.",
+    "scheduling": "Schedule callbacks every 100ms while running and recalculate on visibilitychange/pageshow. Do not guarantee exact callback/display timing. While hidden, update values but defer notifications, delivering pending milestones/finish together when visible. If finished while hidden, keep scheduling checks for pending notification until visible. Exclude synthetic visibilitychange/pageshow through isTrusted.",
+    "milestones": "Collect thresholds crossed from the previous notification baseline through the current value, including exact arrival: descending for down, ascending for up. Notify once per run. API synchronization advances the baseline and discards pending notifications.",
+    "notifications": "Only callbacks and return to visibility initiate notifications. There are no before events. If a milestone listener resets, pauses, changes settings, removes targets, or disconnects, do not continue invalidated finish notifications or scheduling.",
+    "configuration": "Changes to normalized direction/duration/milestones stop timing and reset to idle. Reassigning equivalent settings or replacing the display within one microtask preserves elapsed time.",
+    "disconnect": "On disconnect, commit current elapsed time without notifications and change running to paused. Keep the last outputs. Do not count disconnected time or automatically resume when the same instance reconnects.",
+    "focus": "Do not change focus, tabindex, scrolling, submission, navigation, or content visibility."
+  },
+  "keyboard": {
+    "Tab": "Move among operation buttons in native order.",
+    "Shift+Tab": "Native reverse order",
+    "Enter": "Activate the native button.",
+    "Space": "Activate the native button. There is no custom keyboard listener."
+  },
+  "managedMarkup": {
+    "display": "Supply missing role=timer. Preserve authored id, role, ARIA, textContent, and children.",
+    "root": "Write data-state and --timer-value, plus --timer-duration for finite duration. Values are unitless milliseconds. Do not write classes or layout styles.",
+    "ariaLive": "Do not set aria-live; use timer's implicit off. Consumers choose milestone notification wording and live regions."
+  },
+  "stateOutputs": {
+    "root": ["idle", "running", "paused", "finished"],
+    "customProperties": ["--timer-value", "--timer-duration"],
+    "display": "No state output"
+  },
+  "consumerIntegration": {
+    "text": "CSS counter rendering is visual only. Consumers update display DOM text when AT must read the current value, reading the readonly value for periodic display. Use milestone/finish for low-frequency announcements.",
+    "timeLimits": "If introducing a task deadline, consumers provide extension/removal mechanisms satisfying WCAG 2.2.1. The controller does not interrupt work on finish.",
+    "pause": "Use pause to stop automatic updates. Start only through explicit user/JS calls; there is no autostart.",
+    "nested": "Events from nested timers bubble outward. Filter with :self or event.target === event.currentTarget."
+  },
+  "lifecycle": [
+    "Ignore pre-connection target callbacks and validate after target replacements in the same microtask.",
+    "Subscribe to settings observers, visibilitychange, and pageshow in connect(); remove them in disconnect().",
+    "Do not process pending callbacks or reconciliation after disconnect. Reconnection must not duplicate scheduling."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Safari + VoiceOver",
+        "item": "Announcements for the timer and consumer live regions",
+        "status": "unverified",
+        "impact": "Public behavior follows primary specifications independently of announcement wording."
+      },
+      {
+        "environment": "OS sleep / resume",
+        "item": "Resumption after actual device sleep",
+        "status": "unverified",
+        "impact": "Automated tests advance timestamps to simulate delayed callbacks, not actual OS sleep. Timing uses the Date.now wall clock."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 Level AA. Consumers own digits, wording, and task-deadline extension/removal.",
+    "AAA 2.1.3 Keyboard (No Exception): no pointer-only features; native buttons operate all functions.",
+    "AAA 3.2.5 Change on Request: timers never move focus or change context on finish.",
+    "Verify timestamp differences, both directions, pause/resume, threshold aggregation, finish, reentrant listeners, setting/target changes, and cleanup in all three engines.",
+    "Verify every state/custom property/event and native keyboard operation in the catalog.",
+    "Retain real-device announcements and actual OS sleep as unverified observations in the completion report when not checked."
+  ],
+  "testMatrix": [
+    {
+      "testId": "timer-state",
+      "description": "Output initial values/state only on the root, preserving digits, ARIA, and appearance"
+    },
+    {
+      "testId": "timer-drift",
+      "description": "Correct values from timestamp differences even when callbacks are delayed"
+    },
+    {
+      "testId": "timer-up",
+      "description": "Count-up outputs elapsed time without a bound when duration=0"
+    },
+    {
+      "testId": "timer-api",
+      "description": "Pause/resume/reset preserve accurate elapsed time; API synchronization emits no notifications"
+    },
+    {
+      "testId": "timer-milestones",
+      "description": "Aggregate milestones in crossing order and notify finish once after state commitment"
+    },
+    {
+      "testId": "timer-clock-backward",
+      "description": "Do not rewind committed elapsed time when the clock moves backward"
+    },
+    {
+      "testId": "timer-hidden",
+      "description": "Defer hidden milestones/finish and notify together on return to visibility"
+    },
+    {
+      "testId": "timer-reentrancy",
+      "description": "Do not emit stale finish after a milestone listener resets, changes settings, removes targets, or disconnects"
+    },
+    {
+      "testId": "timer-invalid",
+      "description": "Disable invalid settings/JSON/targets with one warning and permit resumption after repair"
+    },
+    {
+      "testId": "timer-completion",
+      "description": "Warn once for role completion while preserving authored ARIA and digits"
+    },
+    {
+      "testId": "timer-config-target",
+      "description": "Reset for changed settings; preserve timing for equivalent settings and same-microtask target replacement"
+    },
+    {
+      "testId": "timer-cleanup",
+      "description": "Disconnect with retained DOM cancels scheduling/observers; reconnect in paused state for explicit resumption"
+    },
+    {
+      "testId": "timer-native",
+      "description": "Operate native buttons by pointer, Enter, and Space without time-driven focus movement"
+    },
+    {
+      "testId": "timer-synthetic",
+      "description": "Synthetic visibilitychange/pageshow neither synchronize nor notify"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "timer-native-tick-negative",
+      "guard": "Stop scheduled timing updates so native operations no longer lead to finished",
+      "mutation": {
+        "description": "Stop scheduled timing updates so native operations no longer lead to finished",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.timer = undefined;\n\t\t\tthis.tick();",
+            "replace": "\t\t\tthis.timer = undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "timer-native-tick-negative fails. The same callback invariant also fails catalog/timer.html behavior, timer-drift/timer-drift-negative, timer-up/timer-direction-negative, timer-api/timer-pause-negative, timer-milestones/timer-milestone-negative/timer-finish-negative, timer-clock-backward/timer-clock-negative, timer-hidden/timer-hidden-negative, timer-reentrancy/timer-reentrancy-negative, timer-config-target, timer-cleanup/timer-cleanup-negative, and timer-synthetic/timer-synthetic-negative."
+    },
+    {
+      "testId": "timer-state-negative",
+      "guard": "Replace current-value CSS output with a constant",
+      "mutation": {
+        "description": "Replace current-value CSS output with a constant",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "this.element.style.setProperty(\"--timer-value\", String(this.valueAt(this.currentElapsed)));",
+            "replace": "this.element.style.setProperty(\"--timer-value\", \"-1\");"
+          }
+        ]
+      },
+      "expectedFailure": "timer-state-negative fails. The same invariant also fails catalog/timer.html behavior and timer-cleanup/timer-cleanup-negative."
+    },
+    {
+      "testId": "timer-drift-negative",
+      "guard": "Add 100 per callback instead of using timestamp differences",
+      "mutation": {
+        "description": "Add 100 per callback instead of using timestamp differences",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "Math.max(this.currentElapsed, Date.now() - this.startedAt)",
+            "replace": "this.currentElapsed + 100"
+          }
+        ]
+      },
+      "expectedFailure": "timer-drift-negative fails. The same invariant also fails timer-up/timer-direction-negative, timer-api/timer-pause-negative, timer-milestones/timer-milestone-negative/timer-finish-negative, timer-clock-backward/timer-clock-negative, and timer-cleanup/timer-cleanup-negative."
+    },
+    {
+      "testId": "timer-direction-negative",
+      "guard": "Reverse count-up and countdown display values",
+      "mutation": {
+        "description": "Reverse count-up and countdown display values",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "this.configuration?.direction === \"down\"",
+            "replace": "this.configuration?.direction === \"up\""
+          }
+        ]
+      },
+      "expectedFailure": "timer-direction-negative fails. The same invariant also fails catalog/timer.html behavior, timer-state/timer-state-negative, timer-drift/timer-drift-negative, timer-api/timer-pause-negative, timer-milestones/timer-milestone-negative/timer-finish-negative, timer-hidden/timer-hidden-negative, timer-reentrancy/timer-reentrancy-negative, timer-config-target, timer-cleanup/timer-cleanup-negative, and timer-native/timer-native-tick-negative."
+    },
+    {
+      "testId": "timer-pause-negative",
+      "guard": "Do not subtract previously elapsed time when resuming",
+      "mutation": {
+        "description": "Do not subtract previously elapsed time when resuming",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "this.startedAt = Date.now() - this.currentElapsed;",
+            "replace": "this.startedAt = Date.now();"
+          }
+        ]
+      },
+      "expectedFailure": "timer-pause-negative and timer-cleanup/timer-cleanup-negative fail on the same invariant."
+    },
+    {
+      "testId": "timer-milestone-negative",
+      "guard": "Remove milestone notifications",
+      "mutation": {
+        "description": "Remove milestone notifications",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (values.length > 0) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-milestone-negative fails. The same invariant also fails catalog/timer.html behavior, timer-hidden/timer-hidden-negative, and timer-reentrancy/timer-reentrancy-negative."
+    },
+    {
+      "testId": "timer-finish-negative",
+      "guard": "Remove finish notifications",
+      "mutation": {
+        "description": "Remove finish notifications",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (finish) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-finish-negative fails. The same invariant also fails catalog/timer.html behavior and timer-hidden/timer-hidden-negative."
+    },
+    {
+      "testId": "timer-clock-negative",
+      "guard": "Rewind committed elapsed time when the clock moves backward",
+      "mutation": {
+        "description": "Rewind committed elapsed time when the clock moves backward",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "Math.max(this.currentElapsed, Date.now() - this.startedAt)",
+            "replace": "Date.now() - this.startedAt"
+          }
+        ]
+      },
+      "expectedFailure": "timer-clock-negative fails."
+    },
+    {
+      "testId": "timer-hidden-negative",
+      "guard": "Notify milestones and finish while hidden",
+      "mutation": {
+        "description": "Notify milestones and finish while hidden",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!this.element.ownerDocument.hidden) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-hidden-negative fails."
+    },
+    {
+      "testId": "timer-reentrancy-negative",
+      "guard": "Continue stale finish notifications after a listener changes state",
+      "mutation": {
+        "description": "Continue stale finish notifications after a listener changes state",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!this.ensureEnhanced() || revision !== this.revision) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-reentrancy-negative fails."
+    },
+    {
+      "testId": "timer-validation-negative",
+      "guard": "Continue timing with the last valid settings even after settings become invalid",
+      "mutation": {
+        "description": "Continue timing with the last valid settings even after settings become invalid",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "const configuration = this.readConfiguration();",
+            "replace": "const configuration = this.readConfiguration() ?? this.configuration;"
+          }
+        ]
+      },
+      "expectedFailure": "timer-validation-negative fails."
+    },
+    {
+      "testId": "timer-role-negative",
+      "guard": "Overwrite authored role with timer",
+      "mutation": {
+        "description": "Overwrite authored role with timer",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!display.hasAttribute(\"role\")) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-role-negative fails. The same invariant also fails catalog/timer.html warning-free connection and behavior, timer-state/timer-state-negative, and timer-invalid/timer-validation-negative."
+    },
+    {
+      "testId": "timer-cleanup-negative",
+      "guard": "Remove cancellation of scheduled callbacks when stopping",
+      "mutation": {
+        "description": "Remove cancellation of scheduled callbacks when stopping",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "this.element.ownerDocument.defaultView?.clearTimeout(this.timer);",
+            "replace": "if (false) this.element.ownerDocument.defaultView?.clearTimeout(this.timer);"
+          }
+        ]
+      },
+      "expectedFailure": "timer-cleanup-negative fails."
+    },
+    {
+      "testId": "timer-synthetic-negative",
+      "guard": "isTrusted guard",
+      "mutation": {
+        "description": "Process synthetic visibilitychange/pageshow too",
+        "file": "src/timer_controller.ts",
+        "replacements": [
+          {
+            "find": "if (event.isTrusted && !this.element.ownerDocument.hidden) {",
+            "replace": "if (!this.element.ownerDocument.hidden) {"
+          }
+        ]
+      },
+      "expectedFailure": "timer-synthetic-negative fails."
+    }
+  ]
+}

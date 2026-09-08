@@ -1,0 +1,522 @@
+{
+  "name": "editable",
+  "controller": "editable",
+  "pattern": "Inline editing with native buttons and an input / textarea",
+  "responsibility": "Switches between viewing and editing and manages commit, cancel, native validation, and focus return. The user renders preview text and owns persistence",
+  "references": [
+    "https://ark-ui.com/docs/components/editable",
+    "https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constraint-validation",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://www.w3.org/TR/accname-1.2/#computation-steps"
+  ],
+  "authorMarkup": {
+    "root": "An HTMLElement wrapper with data-controller=\"editable\"",
+    "targets": {
+      "preview": "One HTMLElement containing the displayed content and the edit button",
+      "editor": "One HTMLElement containing the input and save / cancel buttons; do not nest it with preview",
+      "input": "One native input type=text or textarea inside editor",
+      "edit": "One named button type=button inside preview",
+      "save": "One named button type=button inside editor",
+      "cancel": "One named button type=button inside editor"
+    },
+    "labels": "Name the input with a visible text label, aria-label, or aria-labelledby. Name buttons with text or explicit ARIA. The subset of text-name rules is the same as toggle-group. The user supplies label meaning, units, and descriptions",
+    "initial": "Use input.value as the initial committed value. The user renders preview content corresponding to that value. Markup may set the editor's initial hidden state, but connection synchronizes it to viewing",
+    "content": "The controller does not generate preview numbers, text, or elements. Persistence and preview updates are performed by the commit event consumer or user JavaScript"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Place exactly one of each target and make all targets descendants of the root. preview and editor are separate, non-containing HTMLElements. input / save / cancel are inside editor and edit is inside preview",
+      "input is input type=text or textarea. Every operation button is type=button, and no element serves two target roles",
+      "When a field or button has no name, do not supplement it; disable enhancement"
+    ],
+    "completion": [
+      "When edit aria-controls is absent, set editor.id and issue one completion warning while connected. Preserve an authored value"
+    ],
+    "completionExempt": "Write editor.id, edit aria-expanded, preview / editor hidden, and root data-state without warnings because they are required for behavior and state. Do not write role or aria-live",
+    "invalidMarkup": "For an invalid configuration, cancel the editing draft, restore initial hidden / aria-expanded, and remove root state. Do not move focus. Warn once while connected. When valid again, connect in viewing with the current input.value as the committed value"
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "In viewing, native input.value; in editing, the committed value at edit start. The setter updates committed value and draft without dispatching an event and keeps editing when active. The getter is an empty string and the setter is a no-op when invalid or disconnected"
+      },
+      "editing": {
+        "type": "boolean",
+        "access": "getter",
+        "description": "Whether editing mode is active"
+      }
+    },
+    "methods": {
+      "edit()": {
+        "returns": "boolean",
+        "description": "Start editing and focus the input. Return false when already editing, when input is disabled / readonly, or when markup is invalid. Do not dispatch an event"
+      },
+      "commit()": {
+        "returns": "boolean",
+        "description": "When native checkValidity succeeds, commit the draft and return to viewing. Return false when not editing, input is disabled / readonly, or the value is invalid. Do not dispatch an event"
+      },
+      "cancel()": {
+        "returns": "boolean",
+        "description": "Restore the draft to the value committed at edit start and return to viewing. Return false when not editing. Do not dispatch an event"
+      }
+    },
+    "events": {
+      "editable:beforeedit": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "EditableChangeDetail: { value: string, previousValue: string, reason: \"pointer\" | \"keyboard\" }. preventDefault stops the state change"
+      },
+      "editable:edit": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "The same EditableChangeDetail. Notify after state commitment and any required focus movement"
+      },
+      "editable:beforecommit": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "EditableChangeDetail: { value: string, previousValue: string, reason: \"pointer\" | \"keyboard\" }. preventDefault stops the state change"
+      },
+      "editable:commit": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "The same EditableChangeDetail. Notify after state commitment and any required focus movement"
+      },
+      "editable:beforecancel": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "EditableChangeDetail: { value: string, previousValue: string, reason: \"pointer\" | \"keyboard\" }. preventDefault stops the state change"
+      },
+      "editable:cancel": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "The same EditableChangeDetail. Notify after state commitment and any required focus movement"
+      }
+    }
+  },
+  "behavior": {
+    "value": "While editing, native input.value is the draft. Commit and cancel update input.value, but the user updates preview content. commit previousValue is the earlier committed value, cancel previousValue is the discarded draft, and edit has equal value and previousValue",
+    "activation": "Trusted clicks on edit / save / cancel and input key operations dispatch the corresponding before / after events. Ignore synthetic or already-handled events and disabled buttons. Methods and the value setter do not notify",
+    "blur": "Do not commit or cancel on blur. Preserve the draft even after the user operates an outside element",
+    "validation": "Validate user saves with native reportValidity and remain editing when invalid. API commit uses checkValidity. When a viewing input receives a trusted invalid event, show the editor without notification or direct focus movement so native validation can reach the input",
+    "focus": "Focus the input when editing starts without selecting all. After commit or cancel, return focus to the edit button only when focus is inside editor or on body. Do not return it when focus moved outside. Respect focus and state changes made by before listeners",
+    "reentrancy": "Do not commit an old request when a before listener changes API, draft, settings, targets, or connection. Do not dispatch an old after event when a focus listener changes state",
+    "disabled": "Read native :disabled and input.readOnly and prevent editing and saving. Cancel remains possible regardless of input disabled / readonly. Keyboard save and cancel also respect the corresponding button's disabled state",
+    "reset": "Capture document reset and compare its input.form at dispatch time. When the associated form's native reset is not canceled, synchronize to viewing after returning to defaultValue. Do not dispatch an event or move focus",
+    "dynamic": "Validate target replacement within the same microtask against the final configuration. When a target changes, discard the old draft and begin viewing from the new input.value. Inspect label / type / disabled / readonly / form changes with a root observer and immediately before operations"
+  },
+  "keyboard": {
+    "Tab": "Move to input, save, and cancel in native order. Do not create a focus trap",
+    "Shift+Tab": "Native reverse order",
+    "Enter": "On a single-line input, save and prevent implicit form submission. A normal Enter in textarea inserts a newline. Enter on a button performs native click",
+    "Space": "Native click on a button",
+    "Escape": "Cancel from the input. Ignore during IME and with modifiers",
+    "Control+Enter / Meta+Enter": "Save in textarea. Alt / Shift combinations and simultaneous Control+Meta are outside the scope",
+    "IME": "Do not process keys with isComposing or keyCode 229"
+  },
+  "managedMarkup": {
+    "root": "data-state=viewing|editing. Do not write class, layout style, role, or aria-live",
+    "preview": "hidden only while editing",
+    "editor": "hidden only while viewing. When assigning an id, avoid collisions with authored ids in the document",
+    "edit": "Synchronize aria-expanded with state. Supplement aria-controls when absent",
+    "preservation": "Preserve input name / value / constraint validation / form owner, authored ARIA / id / labels, and preview content. Update input.value as behavior for commit, cancel, and the value setter",
+    "cleanup": "On disconnect, target replacement, or invalidation, discard the draft and restore hidden / aria-expanded changed by the controller to their pre-connection values. Retain supplemented id / aria-controls"
+  },
+  "stateOutputs": {
+    "root": ["viewing", "editing"],
+    "customProperties": "None"
+  },
+  "consumerIntegration": {
+    "saving": "Persist the commit event value and update the preview. To wait for asynchronous persistence, cancel beforecommit and call API commit after success. The API emits no event, so the consumer handles the result",
+    "form": "Preserve the native input name and form association. On form submission, field.value is the draft while editing and the committed value while viewing. The consumer controls submit when the draft should not be submitted",
+    "nested": "When receiving an event from a nested instance outside, narrow it with :self or event.target === event.currentTarget"
+  },
+  "lifecycle": [
+    "Subscribe to root click / keydown, settings observer, input invalid, and captured document reset in connect, and remove all subscriptions in disconnect",
+    "On reconnection of the same instance, begin viewing from the current field.value and do not duplicate listeners",
+    "Do not move focus from the controller during passive target / form / validation synchronization"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Safari + VoiceOver",
+        "item": "Announcements when editing starts at the input and focus returns to the edit button",
+        "status": "unverified",
+        "impact": "The public specification is based on native input/button semantics and DOM focus and does not depend on announcement wording"
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 Level AA. The user owns field/button names, validation explanations, and preview updates and appearance",
+    "AAA 2.1.3 Keyboard (No Exception): no pointer-only feature; everything is operable with native buttons and keys",
+    "AAA 3.2.5 Change on Request: move focus only for user operations and explicit API calls, never timer or passive synchronization",
+    "Verify commit/cancel, native validation/form reset, before cancellation, IME, disabled state, reentrancy, dynamic targets, and cleanup in all three engines",
+    "Verify both field configurations and every state / event / keyboard behavior in the catalog",
+    "Retain real-device screen-reader checks in the completion report when unverified"
+  ],
+  "testMatrix": [
+    {
+      "testId": "editable-state",
+      "description": "Synchronize initial value, hidden, ARIA, and root state while preserving preview content"
+    },
+    {
+      "testId": "editable-commit",
+      "description": "Edit and commit through trusted operations and report before/after state and values"
+    },
+    {
+      "testId": "editable-cancel",
+      "description": "Cancel the draft with Escape and remain editing on blur"
+    },
+    {
+      "testId": "editable-api",
+      "description": "API and value setter do not notify or steal focus moved outside"
+    },
+    {
+      "testId": "editable-before-cancel",
+      "description": "Canceling every before event stops state changes and after notifications"
+    },
+    {
+      "testId": "editable-validation",
+      "description": "Do not save an invalid draft and recheck custom validity from before listeners"
+    },
+    {
+      "testId": "editable-form",
+      "description": "Reveal native validation for a hidden input in editing and do not submit the form on Enter"
+    },
+    {
+      "testId": "editable-form-reset",
+      "description": "Native form reset respects cancellation and returns to defaultValue without notification or focus movement"
+    },
+    {
+      "testId": "editable-disabled",
+      "description": "Respect disabled and readonly, while editing cancel does not depend on input state"
+    },
+    {
+      "testId": "editable-synthetic",
+      "description": "Synthetic click and keydown do not change state"
+    },
+    {
+      "testId": "editable-ime",
+      "description": "Do not process IME Enter or Escape"
+    },
+    {
+      "testId": "editable-multiline",
+      "description": "Keep textarea Enter as a newline and save with Control/Meta"
+    },
+    {
+      "testId": "editable-reentrancy",
+      "description": "Do not overwrite API, draft, target, or connection changes from before listeners"
+    },
+    {
+      "testId": "editable-focus-reentrancy",
+      "description": "Do not emit after for editing canceled by a focus listener"
+    },
+    {
+      "testId": "editable-names",
+      "description": "Disable invalid names or target structure and return to viewing after repair"
+    },
+    {
+      "testId": "editable-dynamic",
+      "description": "Same-microtask target replacement discards the old draft and starts from the new input value"
+    },
+    {
+      "testId": "editable-ids",
+      "description": "Assign a collision-free editor id and preserve authored id and aria-controls"
+    },
+    {
+      "testId": "editable-cleanup",
+      "description": "Disconnect while retaining DOM, clean up draft/attributes/listeners, and reconnect"
+    },
+    {
+      "testId": "editable-external-reset",
+      "description": "Capture reset for the current form owner"
+    },
+    {
+      "testId": "editable-before-focus",
+      "description": "Preserve focus changes made by beforeedit listeners"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "editable-state-negative",
+      "guard": "Reverse root state output",
+      "mutation": {
+        "description": "Reverse root state output",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.currentEditing ? \"editing\" : \"viewing\"",
+            "replace": "this.currentEditing ? \"viewing\" : \"editing\""
+          }
+        ]
+      },
+      "expectedFailure": "editable-state-negative fails. editable-names, which reproduces the declared catalog/editable.html behavior, also fails because it tests the same invariant"
+    },
+    {
+      "testId": "editable-commit-negative",
+      "guard": "Use the previous committed value instead of the draft on commit",
+      "mutation": {
+        "description": "Use the previous committed value instead of the draft on commit",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.commitFinish(value, true)",
+            "replace": "this.commitFinish(action === \"commit\" ? this.committedValue : value, true)"
+          }
+        ]
+      },
+      "expectedFailure": "editable-commit-negative fails. editable-api, editable-validation, editable-form, and editable-multiline also fail because they test the same invariant"
+    },
+    {
+      "testId": "editable-cancel-negative",
+      "guard": "Do not restore the draft value on cancel",
+      "mutation": {
+        "description": "Do not restore the draft value on cancel",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "const value = action === \"cancel\" ? this.committedValue : draft;",
+            "replace": "const value = draft;"
+          }
+        ]
+      },
+      "expectedFailure": "editable-cancel-negative fails. editable-api and editable-disabled, along with the check that reproduces the declared catalog/editable.html behavior, also fail because they test the same invariant"
+    },
+    {
+      "testId": "editable-before-negative",
+      "guard": "Ignore before-event cancellation",
+      "mutation": {
+        "description": "Ignore before-event cancellation",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "event.defaultPrevented ||\n\t\t\t\t!this.ensureEnhanced()",
+            "replace": "false ||\n\t\t\t\t!this.ensureEnhanced()"
+          }
+        ]
+      },
+      "expectedFailure": "editable-before-negative fails."
+    },
+    {
+      "testId": "editable-validity-negative",
+      "guard": "Remove independent native validation before and after saving together",
+      "mutation": {
+        "description": "Remove independent native validation before and after saving together",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "!(reason ? elements.input.reportValidity() : elements.input.checkValidity())",
+            "replace": "false"
+          },
+          {
+            "find": "action === \"commit\" && !elements.input.reportValidity()",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "editable-validity-negative fails."
+    },
+    {
+      "testId": "editable-invalid-reveal-negative",
+      "guard": "Do not show the editor on native invalid",
+      "mutation": {
+        "description": "Do not show the editor on native invalid",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.commitEdit(false);",
+            "replace": "if (false) this.commitEdit(false);"
+          }
+        ]
+      },
+      "expectedFailure": "editable-invalid-reveal-negative fails."
+    },
+    {
+      "testId": "editable-reset-negative",
+      "guard": "Do not synchronize to viewing after form reset",
+      "mutation": {
+        "description": "Do not synchronize to viewing after form reset",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.commitFinish(this.elements.input.value, false);",
+            "replace": "if (false) this.commitFinish(this.elements.input.value, false);"
+          }
+        ]
+      },
+      "expectedFailure": "editable-reset-negative fails. editable-external-reset also tests the same form-reset state synchronization"
+    },
+    {
+      "testId": "editable-disabled-negative",
+      "guard": "Ignore input disabled and readonly",
+      "mutation": {
+        "description": "Ignore input disabled and readonly",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "!elements.input.matches(\":disabled\") && !elements.input.readOnly",
+            "replace": "true"
+          }
+        ]
+      },
+      "expectedFailure": "editable-disabled-negative fails. editable-reentrancy also tests the same invariant"
+    },
+    {
+      "testId": "editable-synthetic-negative",
+      "guard": "Remove isTrusted guards from click and keydown",
+      "mutation": {
+        "description": "Remove isTrusted guards from click and keydown",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "private handleClick = (event: MouseEvent) => {\n\t\tif (\n\t\t\t!event.isTrusted ||",
+            "replace": "private handleClick = (event: MouseEvent) => {\n\t\tif (\n\t\t\tfalse ||"
+          },
+          {
+            "find": "private handleKeydown = (event: KeyboardEvent) => {\n\t\tif (\n\t\t\t!event.isTrusted ||",
+            "replace": "private handleKeydown = (event: KeyboardEvent) => {\n\t\tif (\n\t\t\tfalse ||"
+          }
+        ]
+      },
+      "expectedFailure": "editable-synthetic-negative fails."
+    },
+    {
+      "testId": "editable-keyboard-negative",
+      "guard": "Treat normal textarea Enter as save too",
+      "mutation": {
+        "description": "Treat normal textarea Enter as save too",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "((plain && this.elements.input instanceof HTMLInputElement) || multilineCommit)",
+            "replace": "(plain || multilineCommit)"
+          }
+        ]
+      },
+      "expectedFailure": "editable-keyboard-negative fails. The check that reproduces the declared catalog/editable.html behavior also fails because it tests the same invariant"
+    },
+    {
+      "testId": "editable-reentrancy-negative",
+      "guard": "Remove independent post-before settings, draft, target, and revision guards together",
+      "mutation": {
+        "description": "Remove independent post-before settings, draft, target, and revision guards together",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (\n\t\t\t\tevent.defaultPrevented ||\n\t\t\t\t!this.ensureEnhanced() ||\n\t\t\t\tthis.elements !== elements ||\n\t\t\t\trevision !== this.revision ||\n\t\t\t\telements.input.value !== draft ||\n\t\t\t\t!this.canPerform(action, elements) ||\n\t\t\t\tbutton.matches(\":disabled\")\n\t\t\t) {",
+            "replace": "\t\t\tif (event.defaultPrevented) {"
+          }
+        ]
+      },
+      "expectedFailure": "editable-reentrancy-negative fails."
+    },
+    {
+      "testId": "editable-focus-negative",
+      "guard": "Remove independent post-focus structure, revision, and state guards together",
+      "mutation": {
+        "description": "Remove independent post-focus structure, revision, and state guards together",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn (\n\t\t\tthis.ensureEnhanced() &&\n\t\t\tthis.elements === elements &&\n\t\t\trevision === this.revision &&\n\t\t\tthis.currentEditing\n\t\t);",
+            "replace": "\t\treturn true;"
+          }
+        ]
+      },
+      "expectedFailure": "editable-focus-negative fails."
+    },
+    {
+      "testId": "editable-markup-negative",
+      "guard": "Enable an input even without a name",
+      "mutation": {
+        "description": "Enable an input even without a name",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "!this.hasInputName(input)",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "editable-markup-negative fails."
+    },
+    {
+      "testId": "editable-controls-negative",
+      "guard": "Overwrite authored aria-controls",
+      "mutation": {
+        "description": "Overwrite authored aria-controls",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!elements.edit.hasAttribute(\"aria-controls\")) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "editable-controls-negative fails. The catalog/editable.html markup connects without warnings, the check reproducing its declared behavior, editable-state, editable-names, and editable-dynamic also test the same invariant"
+    },
+    {
+      "testId": "editable-cleanup-negative",
+      "guard": "Remove restoration of pre-connection hidden and aria-expanded",
+      "mutation": {
+        "description": "Remove restoration of pre-connection hidden and aria-expanded",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "if (this.original) {",
+            "replace": "if (false && this.original) {"
+          }
+        ]
+      },
+      "expectedFailure": "editable-cleanup-negative fails."
+    },
+    {
+      "testId": "editable-label-negative",
+      "guard": "Observe label for changes",
+      "mutation": {
+        "description": "Remove the guard that observes label for changes",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\"for\",\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "editable-label-negative fails."
+    },
+    {
+      "testId": "editable-external-reset-negative",
+      "guard": "Capture reset for the current form owner",
+      "mutation": {
+        "description": "Remove the guard that captures reset for the current form owner",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.boundDocument.addEventListener(\"reset\", this.handleFormReset, true);",
+            "replace": "this.boundDocument.addEventListener(\"reset\", this.handleFormReset);"
+          }
+        ]
+      },
+      "expectedFailure": "editable-external-reset-negative fails."
+    },
+    {
+      "testId": "editable-before-focus-negative",
+      "guard": "Preserve focus changes from beforeedit listeners",
+      "mutation": {
+        "description": "Remove the guard that preserves focus changes from beforeedit listeners",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "this.commitEdit(this.element.ownerDocument.activeElement === active)",
+            "replace": "this.commitEdit(true)"
+          }
+        ]
+      },
+      "expectedFailure": "editable-before-focus-negative fails."
+    }
+  ]
+}

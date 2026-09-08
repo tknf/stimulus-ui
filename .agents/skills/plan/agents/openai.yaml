@@ -1,0 +1,6 @@
+interface:
+  display_name: "Plan"
+  short_description: "Confirm the approach and acceptance criteria without implementing"
+  default_prompt: "Use $plan to organize the investigation and decisions, and confirm the pre-implementation approach and required contract."
+policy:
+  allow_implicit_invocation: false

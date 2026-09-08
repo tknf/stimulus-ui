@@ -1,0 +1,738 @@
+{
+  "name": "combobox",
+  "controller": "combobox",
+  "pattern": "An editable single-select combobox combining the ARIA 1.2 Combobox Pattern with a listbox popup",
+  "responsibility": "Provides the relationship between input and listbox, ARIA, the focus model through aria-activedescendant, keyboard operations, single selection, the IME guard, and state output; it does not generate, filter, display, or position options",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/combobox/",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/listbox/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "data-controller=\"combobox\"",
+    "targets": {
+      "input": "One native single-line <input> with data-combobox-target=\"input\" inside the root",
+      "listbox": "One native <ul> or <ol> with data-combobox-target=\"listbox\" inside the root",
+      "option": "A listbox descendant that is a native <li> with data-combobox-target=\"option\". Each option has a non-empty, unique data-combobox-value"
+    },
+    "label": "The user provides the input's accessible name with a native label, aria-label, or aria-labelledby. The input's aria-controls relationship names the listbox",
+    "validity": "Markup is valid author markup when one root has exactly one input target and one listbox target, with options inside the listbox. Multiple selection, chip generation, grid/tree/dialog popups, and select-only comboboxes are outside the scope",
+    "filtering": "The user generates, filters, orders, and toggles hidden on options. The controller only uses visible and enabled options present in the DOM for keyboard operations and selection; it does not compare input text with option text",
+    "nativeDatalist": "A custom listbox is provided instead of native <datalist> because it needs option roles, selected/active state, keyboard support, and an event API. Using datalist at the same time is outside the scope",
+    "content": "The controller does not generate input, listbox, option, chip, or option content"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The input must be a native single-line <input type=\"text\"> or <input type=\"search\">",
+      "The listbox must be a native <ul> or <ol>",
+      "Each option must be a listbox-descendant native <li> with a non-empty data-combobox-value"
+    ],
+    "allowedRoles": "The input role may be omitted or combobox, the listbox role may be omitted or listbox, and the option role may be omitted or option. Any other authored role violates the contract",
+    "invalidMarkup": "On connection and target replacement, validate semanticElements, allowedRoles, option-value uniqueness, and the autocomplete value. When invalid, the controller does not apply listeners, ARIA, state, hidden, or focus operations and calls console.warn once per root while connected. It does not throw",
+    "warning": "The warning includes the violating element type or role and the controller name. Validate again after the markup is repaired and reconnected",
+    "completion": {
+      "attributes": [
+        "input role=\"combobox\"",
+        "listbox role=\"listbox\"",
+        "input aria-controls",
+        "option role=\"option\""
+      ],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning."
+    }
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "String",
+        "htmlAttribute": "data-combobox-value-value",
+        "default": "",
+        "description": "Initial input value. Synchronize it as the selected option when it matches an option value"
+      },
+      "open": {
+        "type": "Boolean",
+        "htmlAttribute": "data-combobox-open-value",
+        "default": false,
+        "description": "Initial popup open state"
+      },
+      "autocomplete": {
+        "type": "String",
+        "htmlAttribute": "data-combobox-autocomplete-value",
+        "allowed": ["none", "list"],
+        "default": "list",
+        "description": "ARIA autocomplete. list represents list suggestions filtered by the user; none represents options independent of input text. both/inline are outside the scope"
+      },
+      "multiple": {
+        "type": "Boolean",
+        "htmlAttribute": "data-combobox-multiple-value",
+        "default": false,
+        "description": "When true, selection is multiple. The role remains combobox, so treat this as a configuration difference of the same controller"
+      },
+      "selected": {
+        "type": "Array",
+        "htmlAttribute": "data-combobox-selected-value",
+        "default": [],
+        "description": "Multiple only. An array of option values selected initially. Ignore unknown values and ignore this value in single mode"
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "The current input.value. The setter synchronizes input and selected state without changing events, focus, or filtering"
+      },
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "The popup open state. The setter commits state without events or focus movement"
+      },
+      "selected": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Multiple only. An array of selected option values. The setter synchronizes the selection set and state without dispatching an event, ignores unknown values, and does not change input.value. In single mode, the getter returns an empty array and the setter does nothing"
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Open the listbox programmatically. Do not change focus or events"
+      },
+      "hide()": {
+        "returns": "void",
+        "description": "Close the listbox programmatically. Do not change focus or value, and do not dispatch an event"
+      },
+      "toggle()": {
+        "returns": "void",
+        "description": "Toggle open programmatically. Do not change focus or events"
+      },
+      "select(value)": {
+        "returns": "void",
+        "description": "Select a known enabled option value programmatically. In single mode, synchronize input.value and state as the selected value; in multiple mode, add it to the selection set without changing input.value. Do not change events, focus, or open"
+      },
+      "deselect(value)": {
+        "returns": "void",
+        "description": "Multiple only. Remove value from the selection set, intended to be called by a user's chip removal button. Do not change events, focus, open, or input.value. Do nothing in single mode or for an unknown or unselected value"
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "combobox:beforechange": {
+        "when": "Immediately before selection from a trusted option click or keyboard Enter",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "The option value about to be committed (the toggled value in multiple mode)",
+          "previousValue": "The value before the change (single only)",
+          "reason": "pointer | keyboard",
+          "selected": "Multiple only. The selection set about to be committed",
+          "previousSelected": "Multiple only. The selection set before the change"
+        },
+        "effect": "When preventDefault() is called, do not change input.value, the selection set, selected state, or the change event"
+      },
+      "combobox:change": {
+        "when": "After trusted option selection is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The committed option value (the toggled value in multiple mode)",
+          "previousValue": "The value before the change (single only)",
+          "reason": "pointer | keyboard",
+          "selected": "Multiple only. The committed selection set",
+          "previousSelected": "Multiple only. The selection set before the change"
+        }
+      },
+      "combobox:open": {
+        "when": "After the popup opens from trusted ArrowDown or ArrowUp",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "keyboard"
+        }
+      },
+      "combobox:close": {
+        "when": "After the popup closes from trusted Escape",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "keyboard"
+        }
+      },
+      "programmatic": "The value/open/selected setters, show(), hide(), toggle(), select(value), deselect(value), input events, initialization, filtering, dynamic option synchronization, and disconnect/reconnect do not dispatch events",
+      "input": "The controller does not cancel the user's input event and leaves input.value unchanged. Filtering and option display are the user's responsibility",
+      "synthetic": "Treat keydown and click with isTrusted=false as non-user operations and do not change open, selection, or events"
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Specify data-action=\"combobox:change->controller#method combobox:open->controller#method combobox:close->controller#method\" on the root or an ancestor. Ordinary input/option actions can also be used; the controller does not stop event propagation",
+    "cancelableHook": "To stop selection, call event.preventDefault() with data-action=\"combobox:beforechange->controller#method\"",
+    "programmatic": "Another controller can call value/open/show/hide/toggle/select through a Stimulus controller reference or outlets. The programmatic API and input event do not dispatch events",
+    "nested": "When receiving events from a nested combobox outside, narrow them to your root with the data-action :self modifier or event.target === event.currentTarget"
+  },
+  "behavior": {
+    "initial": "Synchronize value value to input.value and open value to listbox hidden and ARIA. Add selected state only when value matches an existing option",
+    "filtering": "The controller does not compare option text with input.value; it reads option hidden and aria-disabled to create the visible/enabled set",
+    "open": "With input focused, trusted ArrowDown opens the popup and activates the first or next visible/enabled option after the current active option; ArrowUp activates the last or previous option. Dispatch the open event once with keyboard reason",
+    "initialMultiple": "In multiple mode, synchronize selected value as the initial selection set. Initializing input.value from value value is the same in single and multiple modes",
+    "selection": "A trusted option click selects the active option with pointer reason; Enter on the input does so with keyboard reason. An option with hidden or aria-disabled=true is excluded",
+    "escape": "Escape while open closes the popup and preserves input focus and the current committed value. Dispatch close with keyboard reason. Escape while closed does nothing",
+    "tab": "Tab does not prevent native focus movement from the input. The controller closes the popup after blur/focusout without dispatching an event",
+    "selectionModes": "The default is single-select. When multiple value is true, selection is multiple; trusted click / Enter toggles selection, keeps the popup open, and does not change input.value. input is the filter field, while the user's chip markup (such as a removal button calling deselect(value)) displays and removes selections. The role remains combobox, so treat this as a configuration difference of the same controller. Do not implement chip generation or inline completion"
+  },
+  "keyboard": {
+    "input": {
+      "ArrowDown": "Activate the next visible/enabled option and open the popup if closed",
+      "ArrowUp": "Activate the previous visible/enabled option and open the popup if closed",
+      "Home": "Activate the first visible/enabled option only while the popup is open",
+      "End": "Activate the last visible/enabled option only while the popup is open",
+      "Enter": "Commit selection only when the popup is open and an active option exists. In multiple mode, toggle selection and keep the popup open",
+      "Escape": "Close only while the popup is open"
+    },
+    "option": "Keep DOM focus on the input and represent the active option with the input's aria-activedescendant. Do not move focus to the option itself",
+    "ime": "During an IME-processing keydown (KeyboardEvent.isComposing, between compositionstart and compositionend, or keyCode 229), do not navigate, commit, or close with Arrow, Home, End, Enter, or Escape. Safari fires the IME commit Enter keydown after compositionend with isComposing=false / keyCode 229, so reject keyCode 229 before and after compositionend (the IME section of docs/notes/browser-engine-differences.md). Share detection in src/internal/ime.ts with listbox / tree typeahead",
+    "optional": "Alt+Arrow, typeahead, inline completion, and page navigation are outside the scope"
+  },
+  "focus": {
+    "model": "Use the ARIA activedescendant model and keep DOM focus on the input at all times",
+    "active": "Set input aria-activedescendant to the option ID only when an active option exists. Remove the attribute when none exists",
+    "close": "The controller does not change input focus when closing from Escape or focusout",
+    "selection": "Keep focus on the input after selection and do not change the caret position"
+  },
+  "managedMarkup": {
+    "input": [
+      "Supplement role=\"combobox\" only when role is missing",
+      "Synchronize aria-expanded with open state as controller-owned state output",
+      "Supplement the listbox ID only when aria-controls is missing",
+      "Synchronize aria-autocomplete with the autocomplete value",
+      "Supplement an ID that is unique within the document only when id is missing"
+    ],
+    "listbox": [
+      "Supplement role=\"listbox\" only when role is missing",
+      "Supplement an ID that is unique within the document only when id is missing",
+      "Synchronize hidden with open state as controller-owned state output",
+      "Synchronize aria-multiselectable=\"true\" only when multiple value is true (a value reflection; treat it like the listbox component and not as a completion-warning target)"
+    ],
+    "option": [
+      "Supplement role=\"option\" only when role is missing",
+      "Supplement an ID that is unique within the document only when id is missing",
+      "Synchronize aria-selected, data-state, and tabindex as controller-owned state output"
+    ],
+    "preservation": "Do not overwrite id, role, aria-label, aria-labelledby, aria-controls, aria-expanded, aria-autocomplete, aria-disabled, hidden, or other attributes authored earlier by the user. Synchronize controller-owned role completion, aria-expanded, aria-autocomplete, aria-activedescendant, aria-selected, hidden, data-state, and tabindex",
+    "disabled": "Use only option aria-disabled=\"true\" and hidden to exclude an option. Do not add data-* for disabled"
+  },
+  "stateOutputs": {
+    "ownership": "root, input, and option data-state and input/listbox/option ARIA state are controller-owned. Preserve user values for input.value and option hidden",
+    "open": {
+      "root": "data-state=\"open\"",
+      "input": "data-state=\"open\"、aria-expanded=\"true\"",
+      "listbox": "data-state=\"open\"、hidden=false"
+    },
+    "closed": {
+      "root": "data-state=\"closed\"",
+      "input": "data-state=\"closed\"、aria-expanded=\"false\"",
+      "listbox": "data-state=\"closed\"、hidden=true"
+    },
+    "option": "In single mode, mark the visible/enabled option matching the committed value; in multiple mode, mark options in the selection set with aria-selected=\"true\" and data-state=\"selected\". Give the active option priority with data-state=\"active\" and set other options to aria-selected=\"false\", data-state=\"inactive\". Set hidden or aria-disabled=true options to data-state=\"disabled\" and aria-selected=\"false\""
+  },
+  "lifecycle": [
+    "Register outside-focus listeners for input, listbox, option, and document in connect() and remove them in disconnect(). Do not register them twice after reconnection",
+    "Register compositionstart/compositionend, input, keydown, and click listeners in connect() and remove them in disconnect()",
+    "In disconnect(), do not run pending focusout/IME processing or dispatch events",
+    "Track added and removed input, listbox, and option targets with Stimulus TargetConnected/TargetDisconnected",
+    "When options change dynamically, retain the committed value if it remains; if the active option is removed, disable aria-activedescendant",
+    "Do not throw when a target is temporarily absent."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver and OS IME environments",
+        "item": "Input and option announcements, multiple selection, and IME confirmation Enter with keyCode 229",
+        "status": "unverified",
+        "impact": "The contract fixes Combobox/Listbox semantics and IME suppression. The 229 guard has unit coverage; OS integration and wording remain compatibility observations, not verified browser-test results."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The native input/list/option, roles, names, aria-controls, aria-expanded, aria-autocomplete, aria-activedescendant, and option state of an editable combobox (single / multiple) and listbox popup conform to the ARIA Combobox/Listbox Pattern and WCAG 2.2 Level AA",
+    "In multiple mode, aria-multiselectable and multiple aria-selected=\"true\" values match the selection set; toggling selection leaves the popup open and input.value unchanged. Report multiple-selection announcements on a real screen reader as unverified",
+    "Detect authored roles that conflict with semantic HTML or combobox/listbox with console.warn and disabled enhancement",
+    "The controller does not own option generation, filtering, ordering, position, chips, or inline completion and uses the user's markup and filtering as-is",
+    "Synchronize keyboard movement among visible/enabled options and aria-activedescendant while keeping DOM focus on input",
+    "Suppress option navigation, commitment, and Escape for keydown during IME composition and from IME commit (keyCode 229), then return to ordinary processing for other keydowns",
+    "Safari's IME commit Enter (after compositionend / isComposing=false / keyCode 229) does not select an option. Because trusted keydowns with keyCode 229 cannot be produced in the combobox integration test, ime.ts unit tests and real-device checks cover it; record it as unverified when real-device verification is unavailable",
+    "Only trusted option selection dispatches one cancelable beforechange and one change after commitment; the programmatic API and input events dispatch no custom events",
+    "Opening with ArrowDown/ArrowUp, closing with Escape, and default Tab focus movement match the contract",
+    "Preserve existing IDs and ARIA attributes; generated IDs do not collide within the same document",
+    "Automated tests pass in Chromium, Firefox, and WebKit. Record engine differences for IME synthetic events as unverified",
+    "Report input, option navigation, selection, and announcements with macOS + Safari + VoiceOver as unverified if not performed"
+  ],
+  "testMatrix": [
+    {
+      "testId": "combobox-state-sync",
+      "description": "Valid markup, input/listbox/option roles, accessible name, ID, aria-controls, aria-autocomplete, and state"
+    },
+    {
+      "testId": "combobox-programmatic-silence",
+      "description": "No events from initial value/open, the value setter, show/hide/toggle/select, input events, or the programmatic API"
+    },
+    {
+      "testId": "combobox-keyboard-navigation",
+      "description": "ArrowDown/ArrowUp/Home/End/Enter/Escape, aria-activedescendant, and DOM focus retention"
+    },
+    {
+      "testId": "combobox-navigation-wrap",
+      "description": "Navigation wrapping at the ends. Do not place the mutation that breaks listbox_navigation.ts's wrapping guard here because listbox-navigation-wrap-negative owns it"
+    },
+    {
+      "testId": "combobox-option-guards",
+      "description": "Guards for visible/hidden, aria-disabled, and enabled-option navigation"
+    },
+    {
+      "testId": "combobox-accessible-name-negative",
+      "description": "Detecting a missing input accessible name with a warning and disabled enhancement"
+    },
+    {
+      "testId": "combobox-synthetic-keyboard-silence",
+      "description": "Do not treat an untrusted synthetic keydown as a keyboard operation"
+    },
+    {
+      "testId": "combobox-dynamic-targets",
+      "description": "Dynamic option addition/removal and active-state synchronization"
+    },
+    {
+      "testId": "combobox-selection-events",
+      "description": "beforechange cancellation, change detail, pointer/keyboard reason, and no event from a synthetic click"
+    },
+    {
+      "testId": "combobox-ime-guard",
+      "description": "IME guards for compositionstart/compositionend and isComposing. The keyCode 229 guard cannot be tested in the integration test (a trusted keydown cannot carry 229), so ime.ts unit tests and real-device checks cover it"
+    },
+    {
+      "testId": "combobox-focusout-disconnect",
+      "description": "focusout, disconnect/reconnect, listener cleanup, and the native Tab focus path"
+    },
+    {
+      "testId": "combobox-nested-events",
+      "description": "Target isolation for nested combobox events"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device macOS Safari and VoiceOver results",
+    {
+      "testId": "combobox-completion-warning",
+      "description": "Completion warnings for missing attributes, none for complete markup, and separation from invalid-markup warnings"
+    },
+    {
+      "testId": "combobox-multiple-toggle",
+      "description": "Multiple trusted Enter/click toggling, popup, input.value, and active-option retention"
+    },
+    {
+      "testId": "combobox-multiple-state",
+      "description": "Multiple aria-multiselectable, aria-selected and data-state for multiple options, and deselection synchronization"
+    },
+    {
+      "testId": "combobox-multiple-api",
+      "description": "Multiple selected initial-value normalization, selected setter, no events from deselect/select, and the single no-op"
+    },
+    {
+      "testId": "combobox-multiple-events",
+      "description": "Multiple beforechange/change detail, cancellation, and no custom event from synthetic events"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "combobox-semantic-validation-negative",
+      "guard": "semantic target and role validation",
+      "mutation": {
+        "description": "Disable semantic validation and accept non-conforming targets and roles",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-semantic-validation-negative fails. combobox-accessible-name-negative and combobox-duplicate-value-negative also check the same enhancement-disabling invariant"
+    },
+    {
+      "testId": "combobox-duplicate-value-negative",
+      "guard": "duplicate option value validation",
+      "mutation": {
+        "description": "Disable the duplicate option-value guard",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "const valuesAreUnique = new Set(values).size === values.length;",
+            "replace": "const valuesAreUnique = true;"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-duplicate-value-negative fails."
+    },
+    {
+      "testId": "combobox-root-state-negative",
+      "guard": "root state output",
+      "mutation": {
+        "description": "Remove root data-state synchronization.",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = this.currentOpen ? \"open\" : \"closed\";\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "combobox-root-state-negative fails. combobox-programmatic-silence, combobox-keyboard-navigation, combobox-ime-guard, combobox-focusout-disconnect, and combobox-synthetic-keyboard-silence also check the same root state output"
+    },
+    {
+      "testId": "combobox-input-expanded-negative",
+      "guard": "input aria-expanded state output",
+      "mutation": {
+        "description": "Remove input aria-expanded synchronization",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.setAttribute(\"aria-expanded\", String(this.currentOpen));\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "combobox-input-expanded-negative fails."
+    },
+    {
+      "testId": "combobox-listbox-hidden-negative",
+      "guard": "listbox hidden state output",
+      "mutation": {
+        "description": "Remove listbox hidden synchronization",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (listbox.hidden !== !this.currentOpen) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-listbox-hidden-negative fails."
+    },
+    {
+      "testId": "combobox-option-selected-negative",
+      "guard": "option aria-selected state output",
+      "mutation": {
+        "description": "Remove option aria-selected synchronization",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\toption.setAttribute(\"aria-selected\", String(selected));\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "combobox-option-selected-negative fails. combobox-programmatic-silence, combobox-multiple-toggle, and combobox-multiple-state also check the same option selection state"
+    },
+    {
+      "testId": "combobox-option-disabled-state-negative",
+      "guard": "disabled option state priority",
+      "mutation": {
+        "description": "Remove the guard that emits hidden/disabled options as disabled state",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\toption.dataset.state = !isEnabledVisibleOption(option)",
+            "replace": "\t\t\toption.dataset.state = false"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-option-disabled-state-negative fails."
+    },
+    {
+      "testId": "combobox-option-active-state-negative",
+      "guard": "active option state priority",
+      "mutation": {
+        "description": "Remove the active-option state priority",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t: this.activeOption === option",
+            "replace": "\t\t\t\t: false"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-option-active-state-negative fails."
+    },
+    {
+      "testId": "combobox-input-controls-preservation-negative",
+      "guard": "input aria-controls preservation",
+      "mutation": {
+        "description": "Remove the hasAttribute guard that preserves existing aria-controls",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!input.hasAttribute(\"aria-controls\")) {\n\t\t\tinput.setAttribute(\"aria-controls\", listbox.id);\n\t\t}",
+            "replace": "\t\tinput.setAttribute(\"aria-controls\", listbox.id);"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-input-controls-preservation-negative fails."
+    },
+    {
+      "testId": "combobox-programmatic-event-negative",
+      "guard": "No event from the programmatic API",
+      "mutation": {
+        "description": "Dispatch combobox:change from a programmatic value commit",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.syncState();\n\t};\n\n\tprivate syncValueAttribute",
+            "replace": "\t\tthis.syncState();\n\t\tthis.element.dispatchEvent(new CustomEvent(\"combobox:change\"));\n\t};\n\n\tprivate syncValueAttribute"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-programmatic-event-negative fails. combobox-selection-events and combobox-focusout-disconnect also check that the programmatic API dispatches no events"
+    },
+    {
+      "testId": "combobox-open-event-guard-negative",
+      "guard": "open event same-state guard",
+      "mutation": {
+        "description": "Remove the guard that prevents combobox:open from dispatching when the popup is already open",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!this.currentOpen) {\n\t\t\t\tthis.commitOpen(true);",
+            "replace": "\t\t\tif (true) {\n\t\t\t\tthis.commitOpen(true);"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-open-event-guard-negative fails."
+    },
+    {
+      "testId": "combobox-option-click-guard-negative",
+      "guard": "option click enabled/visible guard",
+      "mutation": {
+        "description": "Remove trusted-click exclusion for hidden/aria-disabled options",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!option || !isEnabledVisibleOption(option)) {",
+            "replace": "\t\tif (!option) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-option-click-guard-negative fails."
+    },
+    {
+      "testId": "combobox-click-trusted-negative",
+      "guard": "click isTrusted and detail guards",
+      "mutation": {
+        "description": "Remove both guards so a synthetic option click is treated as trusted pointer selection",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted || event.detail === 0) {",
+            "replace": "\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-click-trusted-negative fails."
+    },
+    {
+      "testId": "combobox-beforechange-cancel-negative",
+      "guard": "beforechange cancel",
+      "mutation": {
+        "description": "Commit selection even after beforechange preventDefault()",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeChange);"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-beforechange-cancel-negative fails. combobox-multiple-events also checks the same cancellation invariant at the shared beforechange dispatch line"
+    },
+    {
+      "testId": "combobox-composition-guard-negative",
+      "guard": "IME composition guard",
+      "mutation": {
+        "description": "Remove the guard that suppresses keydown during composition",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tisImeKeydown(event) ||\n\t\t\tthis.composing",
+            "replace": "\t\t\tfalse"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-composition-guard-negative fails."
+    },
+    {
+      "testId": "combobox-focusout-containment-negative",
+      "guard": "focusout internal containment",
+      "mutation": {
+        "description": "Remove the containment guard that keeps focusout inside the root from closing",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.relatedTarget instanceof Node && this.element.contains(event.relatedTarget)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-focusout-containment-negative fails."
+    },
+    {
+      "testId": "combobox-document-focus-containment-negative",
+      "guard": "document focus internal containment",
+      "mutation": {
+        "description": "Remove the containment guard that keeps document focusin inside the root from closing",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!(event.target instanceof Node) || !this.element.contains(event.target))",
+            "replace": "\t\tif (true)"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-document-focus-containment-negative fails. combobox-selection-events, combobox-keydown-target-negative, and combobox-nested-events also check the same containment invariant that maintains focus inside the root"
+    },
+    {
+      "testId": "combobox-initial-value-attribute-guard-negative",
+      "guard": "authored input value precedence",
+      "mutation": {
+        "description": "Remove the guard that reads the authored input value when there is no data value",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst requestedValue = this.element.hasAttribute(\"data-combobox-value-value\")\n\t\t\t? this.valueValue\n\t\t\t: (input?.value ?? this.valueValue);",
+            "replace": "\t\tconst requestedValue = this.valueValue;"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-initial-value-attribute-guard-negative fails."
+    },
+    {
+      "testId": "combobox-selection-noop-negative",
+      "guard": "same value selection early return",
+      "mutation": {
+        "description": "Remove the early return that makes selection of the same value a no-op",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (candidate.value === this.currentValue) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-selection-noop-negative fails."
+    },
+    {
+      "testId": "combobox-keydown-target-negative",
+      "guard": "keydown input target guard",
+      "mutation": {
+        "description": "Remove the check that keydown originated on the input itself",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.target !== input ||",
+            "replace": "\t\t\tfalse ||"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-keydown-target-negative fails."
+    },
+    {
+      "testId": "combobox-disconnect-cleanup-negative",
+      "guard": "disconnect connected state and listener cleanup",
+      "mutation": {
+        "description": "Remove disconnect's inactive state and root/document listener and observer cleanup together",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = true;"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"compositionstart\", this.handleCompositionStart);\n\t\tthis.element.removeEventListener(\"compositionend\", this.handleCompositionEnd);\n\t\tthis.element.removeEventListener(\"focusout\", this.handleFocusOut);\n\t\tthis.element.removeEventListener(\"input\", this.handleInput);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.element.ownerDocument.removeEventListener(\"focusin\", this.handleDocumentFocusIn);\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = undefined;",
+            "replace": "\t\tvoid this.element;"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "combobox-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-completion-warning-negative fails."
+    },
+    {
+      "testId": "combobox-multiple-toggle-negative",
+      "guard": "multiple selection toggle",
+      "mutation": {
+        "description": "Remove multiple-selection toggle detection so selections cannot be deselected",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tconst isSelected = previousSelected.includes(candidate.value);",
+            "replace": "\t\t\tconst isSelected = false;"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-multiple-toggle-negative fails. combobox-multiple-events also checks that detail contains the selection set after toggling"
+    },
+    {
+      "testId": "combobox-multiple-state-negative",
+      "guard": "multiple aria-multiselectable state output",
+      "mutation": {
+        "description": "Remove aria-multiselectable synchronization for a multiple listbox",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.setAttribute(\"aria-expanded\", String(this.currentOpen));\n\t\tif (this.multipleValue) {",
+            "replace": "\t\tinput.setAttribute(\"aria-expanded\", String(this.currentOpen));\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-multiple-state-negative fails."
+    },
+    {
+      "testId": "combobox-multiple-api-negative",
+      "guard": "multiple deselect API",
+      "mutation": {
+        "description": "Make deselect(value) a no-op so values cannot be removed from the selection set",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitSelected(this.currentSelected.filter((candidate) => candidate !== value));",
+            "replace": "\t\tthis.commitSelected([...this.currentSelected]);"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-multiple-api-negative fails."
+    },
+    {
+      "testId": "combobox-multiple-events-negative",
+      "guard": "multiple change detail",
+      "mutation": {
+        "description": "Set selected in multiple change detail to an empty array so the selection set is not reported",
+        "file": "src/combobox_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\tselected: [...nextSelected],",
+            "replace": "\t\t\t\tselected: [],"
+          }
+        ]
+      },
+      "expectedFailure": "combobox-multiple-events-negative fails."
+    }
+  ]
+}

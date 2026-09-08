@@ -1,0 +1,36 @@
+.tour-demo-page {
+  position: relative;
+  width: 600px;
+  height: 340px;
+}
+
+#tour-demo-search {
+  position: absolute;
+  top: 20px;
+  left: 30px;
+  anchor-name: --tour-demo-search;
+}
+
+#tour-demo-settings {
+  position: absolute;
+  top: 210px;
+  left: 280px;
+  anchor-name: --tour-demo-settings;
+}
+
+#tour-demo-dialog {
+  position: fixed;
+  margin: 0;
+  inset: auto;
+  top: anchor(bottom, 8px);
+  left: anchor(left, 8px);
+  width: 260px;
+}
+
+[data-step="0"] > #tour-demo-dialog {
+  position-anchor: --tour-demo-search;
+}
+
+[data-step="1"] > #tour-demo-dialog {
+  position-anchor: --tour-demo-settings;
+}

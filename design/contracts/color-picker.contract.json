@@ -1,0 +1,609 @@
+{
+  "name": "color-picker",
+  "controller": "color-picker",
+  "pattern": "A named group for editing a color in a specified-gamut HSVA model. Operate the square color area and hue wheel with native buttons and each channel with native ranges. Do not create a two-dimensional slider role or application role",
+  "responsibility": "Manage one color, synchronization between direct manipulation and native controls, color and channel values readable by CSS, cancelable commit events, connection, and form reset. The user provides the HTML, color surfaces, handles, gradients, labels, and placement",
+  "references": [
+    "https://www.w3.org/TR/css-color-4/#predefined",
+    "https://www.w3.org/TR/css-color-4/#valdef-color-display-p3",
+    "https://www.w3.org/TR/css-images-4/#coloring-gradient-line",
+    "https://react-aria.adobe.com/ColorArea/useColorArea",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/slider/",
+    "https://www.w3.org/TR/wai-aria-1.2/#group",
+    "https://html.spec.whatwg.org/multipage/input.html#range-state-(type=range)",
+    "https://www.w3.org/TR/pointerevents3/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "relationship": "area, wheel, and channel sliders are different interaction entry points for the same color and are not separate controllers. Existing slider state is a single native-range value or a start/end pair, while this controller is a named group whose state is the entire color including its color space. Native input[type=color] does not provide two-axis editing in the page and has engine differences in preserving alpha / colorspace. Refer to measurements in native_color.test.ts and fixtures/native_color_observations.json",
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"color-picker\" and role=\"group\". Do not use a button/input/select/textarea itself as the root. Name its purpose with aria-label or aria-labelledby",
+    "targets": {
+      "area": "Zero or one native button[type=button] that operates the whole saturation × brightness square. Give it a name that makes movement to channel controls with Enter / Space clear",
+      "wheel": "Zero or one native button[type=button] that selects hue from an angle on the color surface. Give it a name that makes movement to the hue control with Enter / Space clear",
+      "hueControl": "One named native input[type=range]. min=0, max=360, step=any. The unit is degrees",
+      "saturationControl": "One named native input[type=range]. min=0, max=100, step=any. The unit is %",
+      "brightnessControl": "One named native input[type=range]. min=0, max=100, step=any. The unit is %",
+      "alphaControl": "One named native input[type=range]. min=0, max=1, step=any. 0 is transparent and 1 is opaque",
+      "instructions": "Exactly one is required when area or wheel exists; otherwise zero or one. A non-empty HTMLElement describing direct arrow, Shift, Escape, and Enter/Space interactions and native range positions. Do not reuse the root or another target, and place it outside the handle"
+    },
+    "composition": "All configurations require four ranges. Allow range-only, area, wheel, and area-plus-wheel configurations. Every target must be a distinct descendant of the root; do not nest buttons or put ranges / instructions inside a button. Do not hide ranges or set aria-hidden; use CSS that makes every track clickable and tappable. When ranges are grouped in details, preserve a structure that reaches every control from summary",
+    "names": "Name each range with a label, aria-label, or aria-labelledby. Verify that label.control references the input. Name each button with text, aria-label, or aria-labelledby. aria-labelledby requires a non-empty reference target. The controller does not infer names or descriptions",
+    "relations": "area aria-controls references the IDs of saturationControl and brightnessControl; wheel references the ID of hueControl. The user keeps replacement control IDs and authored relationship attributes consistent. Compose instructions into aria-describedby",
+    "form": "All range form owners must be the same form or all null. The user writes name and any hidden input required to submit the color space. Native ranges submit each number. The full color CSS string is available from the public color getter. The controller does not generate a hidden input",
+    "css": "Use a horizontal writing mode for area and wheel with no border / padding and no rotation, skew, or inversion transform. For area, saturation 0 is inline-start and 100 inline-end; brightness 100 is the top and 0 the bottom. For wheel, hue 0 is at the top and increases clockwise; do not reverse direction in RTL. The user sets touch-action to none on the handle. Use output values to draw surfaces and handles; the controller does not directly set position, dimension, or color properties. Keep P3 as CSS color(display-p3 ...)"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root and every target satisfy the authorMarkup counts, containment, element types, names, relationships, and range bounds",
+      "An explicit root role is group, a handle role is button, and a range role is slider. Use native semantics when roles are omitted",
+      "Check the handle's horizontal writing mode, finite settings, and value shape"
+    ],
+    "invalidMarkup": "Validate initially and when targets or settings change. If invalid, do not partially apply completion; disable enhancement and issue one warning in English while connected. If a valid configuration becomes invalid, cancel the preview, restore old output to the committed value, and remove listeners. For initially invalid markup, do not write state or CSS. Revalidate after the target or settings are repaired",
+    "completion": {
+      "attributes": [
+        "root role=group",
+        "Missing range min / max / step=any",
+        "area / wheel aria-controls"
+      ],
+      "warning": "List the completed attributes and issue the warning \"Added <attributes>. Include them in your markup.\" once while connected. Use a separate flag from the disabling warning"
+    },
+    "completionExempt": [
+      "Collision-free generation of missing IDs",
+      "Composition of the instructions ID into aria-describedby",
+      "Synchronization of range.value with state and CSS custom properties"
+    ],
+    "preservation": "Do not overwrite authored IDs or static attributes. Verify that min/max use the HTML valid floating-point number syntax and equal the contract values, and that step is any. Use native values without adding aria-valuenow/min/max to ranges. Do not change disabled"
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "Object",
+        "default": {
+          "colorSpace": "srgb",
+          "hue": 0,
+          "saturation": 100,
+          "brightness": 100,
+          "alpha": 1
+        },
+        "htmlAttribute": "data-color-picker-value-value",
+        "description": "Initial ColorPickerValue. Apply a bulk change as a new value. Reject invalid JSON, shape, color space, or non-finite numbers and retain the last committed value"
+      },
+      "step": {
+        "type": "Number",
+        "default": 1,
+        "htmlAttribute": "data-color-picker-step-value",
+        "description": "The percentage step for saturation and brightness changed by area arrows. Greater than 0 and at most 100"
+      },
+      "hueStep": {
+        "type": "Number",
+        "default": 1,
+        "htmlAttribute": "data-color-picker-hue-step-value",
+        "description": "The degree step for hue changed by wheel arrows. Greater than 0 and at most 360"
+      }
+    },
+    "properties": {
+      "value": {
+        "type": "ColorPickerValue | null",
+        "access": "getter/setter",
+        "description": "A copy of the committed color. ColorPickerValue has colorSpace: srgb | display-p3, hue:0..360, saturation:0..100, brightness:0..100, and alpha:0..1. The setter validates four finite numbers and the color space, clamps out-of-range values, invalidates the preview, and commits without notification or focus movement. Invalid values and calls while disconnected are no-ops. null before the first valid connection"
+      },
+      "color": {
+        "type": "string | null",
+        "access": "getter",
+        "description": "Returns the committed color as color(srgb r g b / a) or color(display-p3 r g b / a). RGB uses encoded components 0..1 in each color space and is derived from HSVA. Do not round to 8-bit or reduce P3 to sRGB. null before the first valid connection"
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "color-picker:beforechange": {
+        "when": "Immediately before commitment from a trusted direct pointerup, handle arrow, or native range change. A trusted input without an origin, such as AT input, commits once",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "ColorPickerChangeDetail = { value: ColorPickerValue; previousValue: ColorPickerValue; color: string; reason: pointer | keyboard; source: area | wheel | hue | saturation | brightness | alpha }",
+        "effect": "preventDefault stops commitment and change and restores all output to the committed value before the change. API, settings, target, disabled, or connection changes in a listener take precedence over the candidate; do not apply an old candidate"
+      },
+      "color-picker:change": {
+        "when": "After committing the change and synchronizing all output",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "The same ColorPickerChangeDetail as beforechange. Do not share the object between internal state, before, and after"
+      },
+      "preview": "pointermove and range input with an origin emit preview only. The public getter returns the committed value. Do not emit either event for an equal-value commitment. Distinguish hue 0 and 360 as channel values even when their RGB is equal",
+      "reason": "Use pointer when direct pointer or range pointerdown is the origin; use keyboard for keydown or an originless native AT adjustment. Do not notify for programmatic changes, reset, reconnection, or cancellation",
+      "synthetic": "Ignore pointer, keydown, and click with isTrusted=false. For synthetic input/change, return to current output values and do not notify even if only the native value changes"
+    }
+  },
+  "behavior": {
+    "model": "HSVA represents the encoded RGB cube of the specified color space. Preserve hue for achromatic saturation=0 and brightness=0 so it is not lost when saturation or brightness increases again. Interpret assignment of a value including colorSpace as a new color; do not perform automatic color-space conversion or gamut mapping. The browser drawing CSS owns gamut mapping for the display",
+    "configuration": "Save the first valid value as the form-reset snapshot. A value-attribute change applies the latest input in bulk; a step-only change and reconnection retain the current committed value. Read values through Stimulus values and catch JSON errors. Settings and target changes cancel an operation in progress",
+    "direct": "Capture area/wheel only for a primary-pointer left button and use pointer position as the preview. Clamp area coordinates to 0..100 and reverse the saturation axis in RTL. Convert the angle of the vector from the normalized center into clockwise 0..360 with 0 at the top for wheel. Preserve the existing hue at the center point. Commit once at the final pointerup coordinates. A stationary click or tap can select a value through the same path. Do not start when capture fails or dimensions are zero or non-finite",
+    "cancellation": "Discard the preview on pointercancel, unexpected lostpointercapture, Escape, window blur, surface rectangle/direction/disabled changes, settings changes, target replacement, the public setter, reset, or disconnect. Do not mix events from another pointer. Ordinary capture release after pointerup does not cancel commitment",
+    "nativeRange": "Preserve native keyboard, track click, drag, and AT input. Take a starting snapshot on pointerdown or the corresponding keydown, preview on input, and commit on change. A trusted originless input/change commits as one keyboard operation and does not notify twice on a subsequent equal change. keyup/pointerup wait for native change and return to idle when equal. Cancel the preview if change has not completed before blur",
+    "staleRange": "Return remaining input/change from a native range operation invalidated by an API, settings, target change, reset, or similar action to the current value. Release the invalidation record in the next task after a new trusted pointerdown/keydown or physical operation ends. If pointerup/keyup is lost, release it in the next task after trusted focus resumes on the range or window, or after a pointermove with buttons=0. Exclude an old completion delivered in the same task as focus resumption, and accept originless AT adjustments thereafter. Remove delayed processing on disconnect",
+    "activation": "When area/wheel is activated by Enter/Space or an originless trusted click, move focus from area to enabled saturationControl, or brightnessControl if unavailable; move focus from wheel to enabled hueControl. Open closed ancestor details from the outside inward. A click immediately after selecting a color with the pointer does not move focus this way",
+    "disabled": "Read native disabled and ancestor-fieldset disabled with :disabled. A disabled handle stops only its direct manipulation. A disabled range also fixes that channel against direct manipulation. If only one area channel is disabled, the other still moves. Cancel all previews when disabled state changes during an operation. The public setter remains usable regardless of disabled",
+    "reset": "For reset of the form owning the four ranges, check defaultPrevented after dispatch and return to the initial snapshot in a task after native reset. A canceled reset changes nothing, including the preview. API, settings, target, and disconnect changes after scheduling take precedence and are not overwritten by an old schedule. Do not dispatch events or move focus",
+    "nested": "Separate targets of same-type controllers by Stimulus scope and verify ownership of the current target when processing events. Users receiving notifications outside narrow them with :self or event.target===event.currentTarget"
+  },
+  "keyboard": {
+    "area": {
+      "ArrowLeft": "Decrease saturation by 1 step visually to the left (increase in RTL)",
+      "ArrowRight": "Decrease saturation by 1 step visually to the right (decrease in RTL)",
+      "ArrowUp": "Increase brightness by 1 step",
+      "ArrowDown": "Decrease brightness by 1 step",
+      "Shift": "Multiply step by 10"
+    },
+    "wheel": {
+      "ArrowRight": "Increase hue by hueStep (decrease in RTL)",
+      "ArrowLeft": "Decrease hue by hueStep (increase in RTL)",
+      "ArrowUp": "Increase hue by hueStep",
+      "ArrowDown": "Decrease hue by hueStep",
+      "Home": "hue=0",
+      "End": "hue=360",
+      "Shift": "Multiply hueStep by 10"
+    },
+    "handles": {
+      "Enter": "Move to the corresponding range",
+      "Space": "Move to the corresponding range",
+      "Escape": "Cancel the operation in progress",
+      "Control": "Ignore custom key operations while modified",
+      "Alt": "Ignore custom key operations while modified",
+      "Meta": "Ignore custom key operations while modified",
+      "IME": "Exclude isComposing and keyCode229"
+    },
+    "nativeControls": {
+      "ArrowLeft": "Delegate to the native range",
+      "ArrowRight": "Delegate to the native range",
+      "ArrowUp": "Delegate to the native range",
+      "ArrowDown": "Delegate to the native range",
+      "Home": "Delegate to the native range",
+      "End": "Delegate to the native range",
+      "PageUp": "Delegate to the native range",
+      "PageDown": "Delegate to the native range",
+      "Tab": "Native focus movement",
+      "Shift+Tab": "Native reverse focus movement",
+      "Escape": "Cancel an uncommitted preview"
+    }
+  },
+  "stateOutputs": {
+    "root": "Emit root data-state=idle | adjusting and data-color-space=srgb | display-p3. The whole color has one interaction state and color space. The color space can also be used to choose the CSS interpolation method. Do not add disabled or per-channel boundary states",
+    "properties": "Emit unitless --color-picker-hue (degrees), --color-picker-saturation / --color-picker-brightness (0..1), --color-picker-alpha (0..1), --color-picker-color (the selected color() string), and --color-picker-hue-color (a color() string in the same color space and hue with saturation, brightness, and alpha set to 1) on the root. During preview use the candidate; otherwise use the committed value. Do not convert the color space to sRGB",
+    "controls": "Synchronize the values of four native ranges to the same HSVA value. min/max/step are completion targets; do not write aria-valuenow/min/max separately"
+  },
+  "lifecycle": [
+    "Target callbacks are also called before connect, so do not set listeners or output before connection",
+    "Remove all root, document, window, and form listeners, the settings observer, pointer capture, and reset and stale-record timers in disconnect",
+    "Do not duplicate registrations on reconnection; revalidate the latest markup and current value. Old targets and callbacks have no effect",
+    "disconnect discards the preview and retains committed-value output and generated attributes. Do not move focus with a timer"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Safari + VoiceOver, Firefox + NVDA, touch devices, and Display-P3 displays",
+        "item": "Group names, four range values and instructions, native AT adjustment, touch drag/track tap, and P3 rendering",
+        "status": "unverified",
+        "impact": "Named native controls always provide an equivalent route. Geometry, roles, and public values are fixed; headless screenshots do not verify physical P3 rendering."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 Level AA for every configuration. Preserve the name, values, and operations of the named group and native button/range, and do not represent two axes with a single aria-valuenow",
+    "AAA 2.1.3 Keyboard (No Exception): the area axes, wheel hue, and every channel can be operated by keyboard. AAA 3.2.5 Change on Request: move focus only from user activation and never from a timer",
+    "WCAG 2.2 AA 2.5.7: directly test area/wheel clicks and taps and track clicks on every native range in all three engines. Keyboard equivalents alone do not pass",
+    "Preserve every encoded component range of sRGB and Display-P3 and alpha0..1; do not replace P3 primary red with sRGB red. Test CSS color() color-space tags and channels in a real browser",
+    "Test direct operations, native operations, cancellation, reentrancy, invalid markup, dynamic targets, reset, RTL, multiple instances, and synthetic events in Chromium, Firefox, and WebKit",
+    "Place a negative control for each guard and verify that the targeted test fails and the source is restored",
+    "observation (unverified): observe group/name, four-range values, operation instructions, and native AT adjustments with Safari+VoiceOver, Firefox+NVDA, and similar combinations. An equivalent path to native controls always exists, and public specifications do not depend on observations. Touch-device drag and track tap and color rendering on P3-capable displays are also unverified compatibility observations. Do not treat headless screenshots as evidence of P3 color rendering"
+  ],
+  "testMatrix": [
+    { "testId": "color-picker-model", "description": "HSVA, sRGB/P3/alpha, and CSS output" },
+    {
+      "testId": "color-picker-keyboard",
+      "description": "Two axes, wheel, RTL, modifiers, and IME"
+    },
+    {
+      "testId": "color-picker-pointer",
+      "description": "Preview and commitment for clicks and drag"
+    },
+    { "testId": "color-picker-range", "description": "Native range keyboard, track, and drag" },
+    {
+      "testId": "color-picker-cancel",
+      "description": "Cancellation of before and in-progress operations"
+    },
+    {
+      "testId": "color-picker-reentrant",
+      "description": "Priority of API, settings, and target reentrancy"
+    },
+    {
+      "testId": "color-picker-disabled",
+      "description": "Disabled state including fieldsets and fixed channels"
+    },
+    {
+      "testId": "color-picker-validation",
+      "description": "Validation and completion of semantics, names, and values"
+    },
+    {
+      "testId": "color-picker-lifecycle",
+      "description": "Disconnected, replaced, restored, and invalidated input"
+    },
+    {
+      "testId": "color-picker-reset",
+      "description": "Native reset cancellation, delay, and generations"
+    },
+    { "testId": "color-picker-trusted", "description": "Rejection of synthetic events" },
+    {
+      "testId": "color-picker-isolation",
+      "description": "Isolation of nested same-type controllers and multiple roots"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "color-picker-blur-at-negative",
+      "guard": "Reusing an invalidated range when focus resumes after blur",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove both independent release paths: focus resumption on range/window and end detection from buttons=0",
+        "replacements": [
+          {
+            "find": "if (!event.isTrusted || event.target !== this.boundWindow) {",
+            "replace": "if (true) {"
+          },
+          {
+            "find": "if (event.isTrusted && event.buttons === 0) {",
+            "replace": "if (false) {"
+          },
+          {
+            "find": "if (input !== null && input !== undefined && stale !== undefined) {\n\t\t\tthis.releaseStale(input, stale);\n\t\t}",
+            "replace": "if (false) {}"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-blur-at-negative fails."
+    },
+    {
+      "testId": "color-picker-idle-escape-negative",
+      "guard": "Passing idle Escape to the parent operation",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove the guard that passes idle Escape to the parent operation",
+        "replacements": [
+          {
+            "find": "if (event.key === \"Escape\") {\n\t\t\tif (this.interaction !== null) {",
+            "replace": "if (event.key === \"Escape\") {\n\t\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-idle-escape-negative fails."
+    },
+    {
+      "testId": "color-picker-range-syntax-negative",
+      "guard": "Checking the HTML floating-point syntax",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove the guard that checks the HTML floating-point syntax",
+        "replacements": [
+          {
+            "find": "/^-?(?:\\d+(?:\\.\\d+)?|\\.\\d+)(?:[eE][+-]?\\d+)?$/.test(value) && Number(value) === expected;",
+            "replace": "Number(value) === expected;"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-range-syntax-negative fails."
+    },
+    {
+      "testId": "color-picker-button-ancestor-negative",
+      "guard": "Rejecting button ancestors for all targets",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove the guard that rejects button ancestors for all targets",
+        "replacements": [
+          {
+            "find": "if (ancestor instanceof HTMLButtonElement) {\n\t\t\t\t\treturn false;\n\t\t\t\t}",
+            "replace": "if (false) {\n\t\t\t\t\treturn false;\n\t\t\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-button-ancestor-negative fails."
+    },
+    {
+      "testId": "color-picker-color-negative",
+      "guard": "Preserving the color-space tag",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that preserves the color-space tag",
+        "replacements": [
+          {
+            "find": "color(${value.colorSpace} ${rgb(5)}",
+            "replace": "color(srgb ${rgb(5)}"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-color-negative fails."
+    },
+    {
+      "testId": "color-picker-output-negative",
+      "guard": "Emitting saturation as a continuous 0..1 value",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that emits saturation as a continuous 0..1 value",
+        "replacements": [
+          {
+            "find": "String(value.saturation / 100)",
+            "replace": "String(value.saturation)"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-output-negative fails. color-picker-preview-negative, which checks the same invariant, also fails"
+    },
+    {
+      "testId": "color-picker-value-negative",
+      "guard": "The getter does not share the internal object",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that keeps the getter from sharing the internal object",
+        "replacements": [
+          {
+            "find": "return this.committedValue === null ? null : { ...this.committedValue };",
+            "replace": "return this.committedValue;"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-value-negative fails."
+    },
+    {
+      "testId": "color-picker-rtl-negative",
+      "guard": "Reversing key direction in RTL",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that reverses key direction in RTL",
+        "replacements": [
+          {
+            "find": "* (rtl ? -1 : 1);",
+            "replace": "* 1;"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-rtl-negative fails."
+    },
+    {
+      "testId": "color-picker-preview-negative",
+      "guard": "Retaining the committed value during a direct-pointer preview",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that retains the committed value during a direct-pointer preview",
+        "replacements": [
+          {
+            "find": "this.previewValue = this.directCandidate(interaction, event.clientX, event.clientY);",
+            "replace": "this.previewValue = this.directCandidate(interaction, event.clientX, event.clientY);\n\t\tif (this.previewValue !== null) this.committedValue = { ...this.previewValue };"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-preview-negative fails. color-picker-pointer (wheel), color-picker-before-negative, color-picker-capture-negative, color-picker-reentrant-negative, color-picker-cleanup-negative, color-picker-geometry-negative, and color-picker-membership-negative, which check the same invariant, also fail"
+    },
+    {
+      "testId": "color-picker-range-negative",
+      "guard": "Reflecting native input in the preview",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that reflects native input in the preview",
+        "replacements": [
+          {
+            "find": "this.previewValue = normalize({ ...this.committedValue, [native.channel]: native.value });",
+            "replace": "this.previewValue = { ...this.committedValue };"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-range-negative fails. color-picker-before-negative, which checks the same invariant, also fails"
+    },
+    {
+      "testId": "color-picker-before-negative",
+      "guard": "Protecting beforechange cancellation",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that protects beforechange cancellation",
+        "replacements": [
+          {
+            "find": "!accepted ||",
+            "replace": "false ||"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-before-negative fails."
+    },
+    {
+      "testId": "color-picker-capture-negative",
+      "guard": "Canceling the preview when capture is lost",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that cancels the preview when capture is lost",
+        "replacements": [
+          {
+            "find": "if (this.interaction?.pointerId === event.pointerId) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-capture-negative fails."
+    },
+    {
+      "testId": "color-picker-reentrant-negative",
+      "guard": "Prioritizing API updates inside before",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that prioritizes API updates inside before",
+        "replacements": [
+          {
+            "find": "revision !== this.revision ||\n\t\t\tthis.boundMarkup !== markup",
+            "replace": "false ||\n\t\t\tthis.boundMarkup !== markup"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-reentrant-negative fails."
+    },
+    {
+      "testId": "color-picker-disabled-negative",
+      "guard": "Do not change a disabled channel from a direct pointer",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that prevents a disabled channel from changing from a direct pointer",
+        "replacements": [
+          {
+            "find": "if (!markup.controls.saturation.matches(\":disabled\")) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-disabled-negative fails."
+    },
+    {
+      "testId": "color-picker-validation-negative",
+      "guard": "Checking required operation instructions",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that checks required operation instructions",
+        "replacements": [
+          {
+            "find": "if (handles.length > 0 && markup.instructions === null) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-validation-negative fails."
+    },
+    {
+      "testId": "color-picker-reset-negative",
+      "guard": "Ignoring a canceled reset",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that ignores a canceled reset",
+        "replacements": [
+          {
+            "find": "event.defaultPrevented ||\n\t\t\t\t!this.connected",
+            "replace": "false ||\n\t\t\t\t!this.connected"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-reset-negative fails. color-picker-reset (settings update and cancellation), which checks the same invariant, also fails"
+    },
+    {
+      "testId": "color-picker-geometry-negative",
+      "guard": "Detecting dimension and direction changes during an operation",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that detects dimension and direction changes during an operation",
+        "replacements": [
+          {
+            "find": "geometry === null || JSON.stringify(geometry) !== JSON.stringify(interaction.geometry)",
+            "replace": "geometry === null"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-geometry-negative fails."
+    },
+    {
+      "testId": "color-picker-membership-negative",
+      "guard": "Checking target ownership immediately after before",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that checks target ownership immediately after before",
+        "replacements": [
+          {
+            "find": "this.sameMarkup(markup, this.boundMarkup) &&",
+            "replace": "true &&"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-membership-negative fails."
+    },
+    {
+      "testId": "color-picker-activation-negative",
+      "guard": "Opening ancestor details of a range on activation",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that opens ancestor details of a range on activation",
+        "replacements": [
+          {
+            "find": "ancestor.open = true;",
+            "replace": "ancestor.open = false;"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-activation-negative fails."
+    },
+    {
+      "testId": "color-picker-preservation-negative",
+      "guard": "Protecting completion guards for authored attributes",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Break the guard that protects completion guards for authored attributes",
+        "replacements": [
+          {
+            "find": "if (!element.hasAttribute(name)) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-preservation-negative fails. color-picker-validation-negative, color-picker-range-syntax-negative, color-picker-button-ancestor-negative, and catalog/color-picker.html connection and behavior checks, which check the same invariant, also fail"
+    },
+    {
+      "testId": "color-picker-cleanup-negative",
+      "guard": "State invalidation and listener removal in disconnect",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove the multiple guards for state invalidation and capture and listener removal in disconnect together",
+        "replacements": [
+          {
+            "find": "disconnect = () => {\n\t\tthis.cancelInteraction();\n\t\tthis.connected = false;\n\t\tthis.unbind();\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = null;\n\t\tthis.enhanced = false;\n\t\tthis.reconcileQueued = false;\n\t\tfor (const input of this.staleRanges.keys()) {\n\t\t\tthis.clearStale(input);\n\t\t}\n\t};",
+            "replace": "disconnect = () => {};"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-cleanup-negative fails."
+    },
+    {
+      "testId": "color-picker-stale-negative",
+      "guard": "Rejecting subsequent events from invalidated native operations",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove the independent stale checks on nativeValue and input/change together",
+        "replacements": [
+          {
+            "find": "this.staleRanges.has(input) ||",
+            "replace": "false ||"
+          },
+          {
+            "find": "if (this.staleRanges.has(native.input)) {\n\t\t\tthis.syncState();\n\t\t\treturn;\n\t\t}\n\t\tif (current?.kind",
+            "replace": "if (current?.kind"
+          },
+          {
+            "find": "if (this.staleRanges.has(native.input)) {\n\t\t\tthis.syncState();\n\t\t\treturn;\n\t\t}\n\t\tif (current !== null",
+            "replace": "if (current !== null"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-stale-negative fails. color-picker-blur-at-negative, which checks the same rejection of old native operations, also fails"
+    },
+    {
+      "testId": "color-picker-trusted-negative",
+      "guard": "Rejecting synthetic keydown and native notifications",
+      "mutation": {
+        "file": "src/color_picker_controller.ts",
+        "description": "Remove isTrusted from keydown and nativeValue and verify detection of synthetic-event rejection",
+        "replacements": [
+          {
+            "find": "!event.isTrusted ||\n\t\t\tevent.defaultPrevented ||\n\t\t\tisImeKeydown(event)",
+            "replace": "event.defaultPrevented ||\n\t\t\tisImeKeydown(event)"
+          },
+          {
+            "find": "!event.isTrusted ||\n\t\t\tthis.staleRanges.has(input)",
+            "replace": "this.staleRanges.has(input)"
+          }
+        ]
+      },
+      "expectedFailure": "color-picker-trusted-negative fails."
+    }
+  ]
+}

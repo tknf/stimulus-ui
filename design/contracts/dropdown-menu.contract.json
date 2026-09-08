@@ -1,0 +1,1129 @@
+{
+  "name": "dropdown-menu",
+  "controller": "dropdown-menu",
+  "pattern": "An action menu opened by the WAI-ARIA APG Menu Button Pattern and context actions",
+  "responsibility": "Provides menu opening and closing, item focus and keyboard operations, ARIA, item selection, and context-action coordinates. Does not generate positioning, appearance, submenus, or item content",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/menubar/",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://developer.mozilla.org/en-US/docs/Web/API/Element/contextmenu_event",
+    "https://www.w3.org/TR/pointerevents3/"
+  ],
+  "authorMarkup": {
+    "root": "data-controller=\"dropdown-menu\"",
+    "targets": {
+      "trigger": "One native <button type=\"button\"> with data-dropdown-menu-target=\"trigger\" inside the root",
+      "menu": "One native <menu> with data-dropdown-menu-target=\"menu\" inside the root",
+      "item": "Zero or more native <button type=\"button\"> elements with data-dropdown-menu-target=\"item\" inside the menu. Each item may have a non-empty data-dropdown-menu-value",
+      "context": "Zero or one optional HTMLElement region. It is a root descendant other than the root itself, does not contain the menu, and is not inside the menu. The user supplies the region's role, name, and focusability according to its meaning. A trigger remains required in this configuration"
+    },
+    "label": "Give the trigger and menu items names through text content, aria-label, or aria-labelledby. Name the menu with aria-label or aria-labelledby; when omitted, supplement aria-labelledby referencing the trigger. The rules for text-based names are the same as toggle-group",
+    "validity": "Markup with exactly one trigger target and one menu target in a root is valid author markup. Navigation links, listboxes, select-only comboboxes, and submenus are outside the action-menu scope",
+    "positioning": "The user owns menu position, z-index, backdrop, and transition in CSS. Output viewport coordinates as CSS custom properties only when a context target exists. Do not provide a top layer",
+    "content": "The controller does not generate elements, items, or content"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The trigger must be a native <button type=\"button\">",
+      "The menu must be a native <menu>",
+      "An item must be a native <button type=\"button\"> descendant of the menu",
+      "There must be zero or one context target, an HTMLElement that is a root descendant and does not contain the menu or reside inside it. Disable enhancement when the trigger or an item has an empty name, or an explicitly supplied menu name is empty"
+    ],
+    "allowedRoles": "Allow menu role only when omitted or menu; trigger aria-haspopup only when omitted, menu, or true; and item role only when omitted or menuitem. Any other authored role or aria-haspopup violates the action-menu contract",
+    "invalidMarkup": "Validate semanticElements and allowedRoles on connection and operation or target replacement. For markup that is invalid from the start, do not set ARIA, state, hidden, or focus and issue one warning while connected. If a previously valid configuration becomes invalid, synchronize an open menu to closed, clean up long-press tracking, context, and coordinates, and disable later operations. Do not move focus",
+    "warning": "The warning includes the violating element type, role, and controller name. Validate again after the user repairs the markup and reconnects",
+    "completion": {
+      "attributes": [
+        "trigger aria-haspopup=\"menu\"",
+        "menu role=\"menu\"",
+        "trigger aria-controls",
+        "item role=\"menuitem\"",
+        "aria-labelledby referencing the trigger when the menu has no name"
+      ],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning"
+    },
+    "completionExempt": "Add trigger / menu / item ids, state and focus output, and context-configuration coordinate custom properties without warnings. The user owns static context role, name, and tabindex because their meaning cannot be determined"
+  },
+  "api": {
+    "values": {
+      "open": {
+        "type": "Boolean",
+        "htmlAttribute": "data-dropdown-menu-open-value",
+        "default": false,
+        "description": "Initial open state"
+      }
+    },
+    "properties": {
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current open state. The setter commits state without dispatching an event or moving focus"
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Open programmatically without changing initial focus or dispatching an event"
+      },
+      "hide()": {
+        "returns": "void",
+        "description": "Close programmatically without changing focus or dispatching an event"
+      },
+      "toggle()": {
+        "returns": "void",
+        "description": "Toggle open programmatically without changing focus or dispatching an event"
+      },
+      "select(value)": {
+        "returns": "void",
+        "description": "Select a known enabled item by value and close the menu without dispatching an event. Unknown, empty, and disabled values are no-ops"
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "dropdown-menu:beforeopen": {
+        "when": "Immediately before opening from trusted trigger activation or a context action, or changing the context of an open menu",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "context": "The HTMLElement where the context action started. Absent when opened from an ordinary button or the API"
+        },
+        "effect": "When preventDefault() is called, do not open or move focus"
+      },
+      "dropdown-menu:open": {
+        "when": "After opening from trusted trigger activation or a context action, or committing a context change",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "context": "The HTMLElement where the context action started. Absent when opened from an ordinary button or the API"
+        }
+      },
+      "dropdown-menu:beforeclose": {
+        "when": "Immediately before close from trusted Escape, outside pointer, Tab, trigger toggle, or item selection",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "value": "The value when item selection initiated the close; otherwise an empty string",
+          "context": "The HTMLElement where the context action started. Absent when opened from an ordinary button or the API"
+        },
+        "effect": "When preventDefault() is called, keep the menu open; for item selection, do not commit selection or close"
+      },
+      "dropdown-menu:close": {
+        "when": "After a trusted close is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "value": "The value when item selection initiated the close; otherwise an empty string",
+          "context": "The HTMLElement where the context action started. Absent when opened from an ordinary button or the API"
+        }
+      },
+      "dropdown-menu:select": {
+        "when": "After trusted item activation commits without beforeclose cancellation and the menu closes",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The selected item's data-dropdown-menu-value",
+          "reason": "pointer | keyboard",
+          "context": "The HTMLElement where the context action started. Absent when opened from an ordinary button or the API"
+        }
+      },
+      "programmatic": "The open setter, show(), hide(), toggle(), select(value), initialization, dynamic target synchronization, and disconnect/reconnect do not dispatch events"
+    },
+    "customProperties": {
+      "--dropdown-menu-x": "The viewport-relative x coordinate (px) output on the root in a context configuration",
+      "--dropdown-menu-y": "The viewport-relative y coordinate (px) output on the root in a context configuration"
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Specify data-action=\"dropdown-menu:select->controller#method dropdown-menu:close->controller#method\" on the root or an ancestor. Ordinary item click actions can also be used; the controller does not stop event propagation",
+    "cancelableHook": "To stop close, call event.preventDefault() with data-action=\"dropdown-menu:beforeclose->controller#method\". Item selection canceled by beforeclose dispatches neither select nor close",
+    "programmatic": "Another controller can call open/show/hide/toggle/select through a Stimulus controller reference or outlets. APIs called programmatically do not dispatch events",
+    "nested": "When receiving events from a nested menu outside, narrow them to your root with the data-action :self modifier or event.target === event.currentTarget"
+  },
+  "behavior": {
+    "initial": "Synchronize menu hidden, trigger aria-expanded, and state output from the open value. Do not move focus for initial open",
+    "trigger": "A trusted click toggles open/close with pointer or keyboard reason. Ignore disabled triggers",
+    "item": "A trusted click on an enabled item commits its value with pointer reason, then performs close and dropdown-menu:select through beforeclose. Ignore disabled items",
+    "outside": "A pointerdown outside the root while open closes through beforeclose with pointer reason. Do not treat it as outside when root appears in composedPath()",
+    "lightDismiss": "The controller handles Escape and outside pointerdown. Do not depend on the popover attribute or browser light dismiss",
+    "positioning": "Output --dropdown-menu-x / --dropdown-menu-y on the root only in a context configuration. Pointer actions use clientX / clientY; keyboard and trigger / API actions use the target rect's bottom and logical start (left in LTR, right in RTL). Commit coordinates when opening; CSS and the user own scroll following, clamping, and placement",
+    "selection": "Output value only in event detail; the controller does not store the user's selection. select(value) temporarily synchronizes the selected item's data-state and closes",
+    "context": "Open from a trusted contextmenu, Shift+F10, or an unmodified ContextMenu key in the context region. Exclude editing regions of input / textarea / select / contenteditable and menu items. Do not open when the trigger is disabled. A further context action on an open menu updates its target and coordinates through beforeopen",
+    "longPress": "Prefer native contextmenu. When no native event occurs, open on release after at least 600ms from a primary touch / pen within 8px of the start position. Cancel on movement, pointercancel, leaving the region, another pointer, or configuration changes. Suppress the compatibility click immediately after accepting a long press. Do not block short taps or scrolling and do not use a timer. Suppress the compatibility click with preventDefault and stopImmediatePropagation in root capture to prevent duplicate user click actions",
+    "nativeMenu": "Call preventDefault on native contextmenu only when accepting a request to open the menu. A canceled beforeopen preserves the prior open state and coordinates and does not block the native menu. Stop default behavior when recognizing a keyboard shortcut and do not reopen from the native event after beforeopen cancellation. Distinguish this from a directly received contextmenu event. Do not alter OS/browser operations that do not dispatch contextmenu, such as Firefox Shift+right-click",
+    "reentrancy": "Respect API, settings, target, and connection changes made by before listeners and do not commit an old request. Do not continue an old focus move when an after listener changes state"
+  },
+  "keyboard": {
+    "trigger": {
+      "Enter": "Open the menu and focus the first enabled item",
+      "Space": "Open the menu and focus the first enabled item",
+      "ArrowDown": "Open the menu and focus the first enabled item",
+      "ArrowUp": "Open the menu and focus the last enabled item"
+    },
+    "menu": {
+      "ArrowDown": "Focus the next enabled item; wrap to the first at the end",
+      "ArrowUp": "Focus the previous enabled item; wrap to the last at the start",
+      "Home": "Focus the first enabled item",
+      "End": "Focus the last enabled item",
+      "Enter": "Select the focused item with keyboard reason",
+      "Space": "Select the focused item with keyboard reason",
+      "Escape": "Close the menu and return focus to the trigger",
+      "Tab": "Close through beforeclose and do not prevent default Tab movement"
+    },
+    "optional": "Typeahead, submenus, ArrowLeft/ArrowRight, menuitemcheckbox, and menuitemradio are outside the scope",
+    "context": {
+      "Shift+F10": "Open from the focused element in the context region or from the trigger",
+      "ContextMenu": "Perform the same operation without modifiers",
+      "IME": "Do not process keydown with isComposing / keyCode 229"
+    }
+  },
+  "focus": {
+    "openByKeyboard": "When opened with trigger Enter, Space, ArrowDown, or ArrowUp, focus the specified first or last enabled item",
+    "openByPointer": "When opened by a pointer click, also focus the first enabled item",
+    "close": "After close from Escape, item selection, outside pointer, or trigger toggle, return focus when the trigger remains connected and enabled. Do not prevent default focus movement for Tab close",
+    "empty": "When no enabled item exists, open the menu without moving focus to an item and keep focus on the trigger",
+    "context": "For context actions, remember the element focused in the region when opening and return focus there after Escape or selection. Return to the trigger when the target is disconnected, disabled, or hidden. Do not add a new tabindex to the context region",
+    "reentrancy": "Respect focus moved outside by before listeners and state or focus changes made by after listeners"
+  },
+  "managedMarkup": {
+    "trigger": [
+      "When aria-haspopup is absent, add aria-haspopup=\"menu\"",
+      "Synchronize aria-expanded with the open state as a controller-owned state output",
+      "When aria-controls is absent, add the menu id"
+    ],
+    "menu": [
+      "When role is absent, add role=\"menu\"",
+      "When id is absent, add an id unique within the document",
+      "Synchronize hidden with the open state as a controller-owned state output",
+      "When no name is supplied, reference the trigger id with aria-labelledby"
+    ],
+    "item": [
+      "When role is absent, add role=\"menuitem\"",
+      "Synchronize enabled items to tabindex -1 as a controller-owned focus output",
+      "When id is absent, add an id unique within the document"
+    ],
+    "preservation": "Do not overwrite an authored id, role, aria-haspopup, aria-controls, aria-expanded, or other attribute. Synchronize only the completion of a missing controller-owned role, hidden, aria-expanded, tabindex, and data-state",
+    "disabled": "Read native :disabled on items and triggers, including disabled state inherited from fieldset. Do not add data-* attributes for disabled state",
+    "context": "Do not write role, tabindex, class, or layout style. Own root --dropdown-menu-x / --dropdown-menu-y only while connected, and restore authored values when the context target is removed or on disconnect"
+  },
+  "stateOutputs": {
+    "ownership": "Root, trigger, menu, and item data-state, trigger aria-expanded, menu hidden, and item tabindex are controller-owned",
+    "open": {
+      "root": "data-state=\"open\"",
+      "trigger": "data-state=\"open\"、aria-expanded=\"true\"",
+      "menu": "data-state=\"open\"、hidden=false"
+    },
+    "closed": {
+      "root": "data-state=\"closed\"",
+      "trigger": "data-state=\"closed\"、aria-expanded=\"false\"",
+      "menu": "data-state=\"closed\"、hidden=true"
+    },
+    "item": "The focused enabled item has data-state=\"active\" and others have data-state=\"inactive\". Disabled items always have data-state=\"disabled\" and are excluded from focus and selection",
+    "customProperties": ["--dropdown-menu-x", "--dropdown-menu-y"]
+  },
+  "lifecycle": [
+    "Register trigger, menu, and item listeners and the root document pointerdown listener in connect(), and remove them in disconnect(). Do not register twice after reconnection",
+    "In disconnect(), remove the document listener and synchronize a menu to closed state without dispatching an event even when it is open",
+    "Leave generated attributes and state outputs in place on disconnect().",
+    "Track trigger, menu, and item additions and removals with Stimulus TargetConnected/TargetDisconnected",
+    "Do not throw when a target is temporarily absent.",
+    "Remove root contextmenu / pointerdown / pointermove / pointerup / pointercancel / pointerleave listeners and long-press tracking on disconnect. Discard an in-progress long press when context, trigger, or menu is replaced"
+  ],
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Use native <button> + <menu> + menuitem buttons for the action menu; role=menu, role=menuitem, aria-haspopup, aria-expanded, aria-controls, and the focus model conform to the APG Menu Button Pattern and WCAG 2.2 Level AA",
+    "Detect semantic HTML violations and authored role/aria-haspopup that conflict with an action menu using console.warn and disabled enhancement",
+    "The controller does not own menu position, appearance, backdrop, top layer, submenus, or typeahead",
+    "Only trusted open/close/item-selection operations honor before-event cancellation and dispatch one committed event in the defined order",
+    "The public API, initialization, dynamic target synchronization, and disconnect/reconnect do not dispatch events",
+    "Disabled triggers/items are excluded from pointer and keyboard operations; only enabled items are focusable and selectable",
+    "Focus return after Escape, outside pointer, Tab, and item selection conforms to the contract",
+    "Preserve existing id and ARIA attributes, and ensure generated ids do not collide within the same document",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report macOS + Safari + VoiceOver role, menu-item, focus, open/close, and selection-notification checks as unverified when not performed",
+    "The context configuration supports every operation through right-click, long press, keyboard, and a persistent button click/tap. It does not move focus with a timer",
+    "Verify long-press gesture conditions, native-menu preservation, coordinates, context detail, focus return, before/after reentrancy, and cleanup in all three engines",
+    "Treat real-device touch and screen-reader checks as observations and retain them in the completion report when unverified"
+  ],
+  "testMatrix": [
+    {
+      "testId": "menu-context-after-focus-value",
+      "description": "Do not emit stale selection after a focus listener changes attributes"
+    },
+    {
+      "testId": "dropdown-menu-state-sync",
+      "description": "Native semantics, relationships, state, and authored attributes"
+    },
+    {
+      "testId": "dropdown-menu-name-preservation",
+      "description": "Preservation of authored role, ARIA, and id"
+    },
+    {
+      "testId": "dropdown-menu-initial-open",
+      "description": "Initial open from open value without moving focus"
+    },
+    {
+      "testId": "dropdown-menu-programmatic-silence",
+      "description": "No events from show/hide/toggle/open/select"
+    },
+    {
+      "testId": "dropdown-menu-beforeopen",
+      "description": "beforeopen cancellation and open-event order"
+    },
+    {
+      "testId": "dropdown-menu-trigger-keyboard",
+      "description": "Trigger Enter/Space/Arrow and initial focus"
+    },
+    {
+      "testId": "dropdown-menu-keyboard-navigation",
+      "description": "Keyboard focus with arrows, Home, End, and wrapping"
+    },
+    {
+      "testId": "dropdown-menu-selection",
+      "description": "Select event and detail after pointer selection closes"
+    },
+    {
+      "testId": "dropdown-menu-beforeclose",
+      "description": "beforeclose cancellation and selection suppression"
+    },
+    {
+      "testId": "dropdown-menu-cancel",
+      "description": "No-op for canceled close"
+    },
+    {
+      "testId": "dropdown-menu-outside-tab-escape",
+      "description": "Outside pointer, Escape, Tab, and focus return"
+    },
+    {
+      "testId": "dropdown-menu-disabled-guard",
+      "description": "No-op for disabled items and unknown/empty values"
+    },
+    {
+      "testId": "dropdown-menu-dynamic-targets",
+      "description": "Dynamic item addition, replacement, and removal"
+    },
+    {
+      "testId": "dropdown-menu-disconnect-cleanup",
+      "description": "State and listener cleanup after disconnect"
+    },
+    {
+      "testId": "dropdown-menu-semantic-validation",
+      "description": "Semantic validation, warnings, and disabled enhancement"
+    },
+    {
+      "testId": "dropdown-menu-role-conflict",
+      "description": "Detection of authored role/aria-haspopup conflicting with an action menu"
+    },
+    {
+      "testId": "dropdown-menu-nested-events",
+      "description": "target/currentTarget for nested menu events"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device macOS Safari and VoiceOver results",
+    {
+      "testId": "dropdown-menu-completion-warning",
+      "description": "Completion warnings for missing attributes, none for complete markup, and separation from invalid-markup warnings"
+    },
+    {
+      "testId": "menu-context-pointer",
+      "description": "Report the right-click target and viewport coordinates, then return focus on Escape"
+    },
+    {
+      "testId": "menu-context-keyboard",
+      "description": "Open Shift+F10 and ContextMenu at the focused target's logical-start bottom edge"
+    },
+    {
+      "testId": "menu-context-fallback",
+      "description": "Persistent button and API open below the button without context"
+    },
+    {
+      "testId": "menu-context-cancel",
+      "description": "beforeopen cancellation preserves the native menu and existing open state and coordinates"
+    },
+    {
+      "testId": "menu-context-retarget",
+      "description": "Retarget an open menu and pass the target in selection detail"
+    },
+    {
+      "testId": "menu-context-protected",
+      "description": "Do not interfere with editing context menus, IME, or modifiers"
+    },
+    {
+      "testId": "menu-context-synthetic",
+      "description": "Ignore synthetic contextmenu and pointer operations"
+    },
+    {
+      "testId": "menu-context-disabled",
+      "description": "Do not accept context operations when disabled is set during capture"
+    },
+    {
+      "testId": "menu-context-before",
+      "description": "Do not overwrite API, target, or connection changes during beforeopen with an old request"
+    },
+    {
+      "testId": "menu-context-after",
+      "description": "Preserve after-listener API changes and focus moved by before listeners"
+    },
+    {
+      "testId": "menu-context-longpress",
+      "description": "Open long press on release and suppress its compatibility click while preserving short taps"
+    },
+    {
+      "testId": "menu-context-longpress-cancel",
+      "description": "Cancel long press on movement, non-primary input, or region replacement"
+    },
+    {
+      "testId": "menu-context-names",
+      "description": "Supplement names and disable empty explicit names and invalid context configurations"
+    },
+    {
+      "testId": "menu-context-cleanup",
+      "description": "Restore coordinates and remove listeners when context is removed or disconnected"
+    },
+    {
+      "testId": "menu-context-native-priority",
+      "description": "Open only once when native contextmenu occurs during a long press"
+    },
+    {
+      "testId": "menu-context-markup",
+      "description": "Disable multiple-context markup and close an open menu on a dynamic violation"
+    },
+    {
+      "testId": "menu-context-shared-name",
+      "description": "Do not treat an item containing only hidden text as named"
+    },
+    {
+      "testId": "menu-context-motion",
+      "description": "Do not open after moving during long press and returning to the original position"
+    },
+    {
+      "testId": "menu-context-close-before",
+      "description": "Preserve an item value changed in beforeclose and state changed through the API"
+    },
+    {
+      "testId": "menu-context-shortcut-cancel",
+      "description": "Do not reopen through native contextmenu after canceling a shortcut once"
+    },
+    {
+      "testId": "menu-context-close-focus",
+      "description": "Outside and trigger toggle return to the trigger; Escape returns to the original context"
+    },
+    {
+      "testId": "menu-context-after-value",
+      "description": "Do not perform stale focus or selection after an after listener changes the open-value attribute"
+    },
+    {
+      "testId": "menu-context-press-targets",
+      "description": "Do not open when a valid trigger or menu is replaced during long press"
+    },
+    {
+      "testId": "menu-context-element",
+      "description": "Disable an SVG context target"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "dropdown-menu-semantic-validation-negative",
+      "guard": "semantic target validation",
+      "mutation": {
+        "description": "Disable semantic validation and allow enhancement for invalid markup",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-semantic-validation-negative fails. dropdown-menu-completion-warning, menu-context-names, menu-context-markup, and menu-context-shared-name also fail because they test the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-root-state-negative",
+      "guard": "root state output",
+      "mutation": {
+        "description": "Remove root data-state synchronization.",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-root-state-negative fails. dropdown-menu-click-trusted-negative, dropdown-menu-beforeopen, dropdown-menu-beforeclose, dropdown-menu-outside-tab-escape, dropdown-menu-disabled-guard, dropdown-menu-dynamic-targets, dropdown-menu-disconnect-cleanup, dropdown-menu-disconnect-combined-negative, and dropdown-menu-semantic-validation reproduce the declared catalog/dropdown-menu.html behavior and also fail because they test the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-trigger-expanded-negative",
+      "guard": "trigger aria-expanded state output",
+      "mutation": {
+        "description": "Remove trigger aria-expanded synchronization",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger.setAttribute(\"aria-expanded\", String(open));\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-trigger-expanded-negative fails. dropdown-menu-initial-open also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-menu-hidden-negative",
+      "guard": "menu hidden state output",
+      "mutation": {
+        "description": "Remove menu hidden synchronization",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tmenu.hidden = !open;\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-menu-hidden-negative fails. dropdown-menu-programmatic-silence, dropdown-menu-disconnect-cleanup, and menu-context-markup also fail because they test the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-item-tabindex-negative",
+      "guard": "item tabindex state output",
+      "mutation": {
+        "description": "Remove controller-owned tabindex synchronization for items",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\titem.tabIndex = -1;\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-item-tabindex-negative fails. dropdown-menu-dynamic-targets also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-item-disabled-state-negative",
+      "guard": "disabled item state priority",
+      "mutation": {
+        "description": "Remove the guard that outputs disabled state for disabled items",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (item.matches(\":disabled\")) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-item-disabled-state-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-trigger-has-popup-preservation-negative",
+      "guard": "trigger aria-haspopup preservation",
+      "mutation": {
+        "description": "Remove the hasAttribute guard that preserves authored aria-haspopup",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!trigger.hasAttribute(\"aria-haspopup\")) {\n\t\t\ttrigger.setAttribute(\"aria-haspopup\", \"menu\");\n\t\t}",
+            "replace": "\t\ttrigger.setAttribute(\"aria-haspopup\", \"menu\");"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-trigger-has-popup-preservation-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-trigger-controls-preservation-negative",
+      "guard": "trigger aria-controls preservation",
+      "mutation": {
+        "description": "Remove the hasAttribute guard that preserves authored aria-controls",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!trigger.hasAttribute(\"aria-controls\")) {\n\t\t\ttrigger.setAttribute(\"aria-controls\", menu.id);\n\t\t}",
+            "replace": "\t\ttrigger.setAttribute(\"aria-controls\", menu.id);"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-trigger-controls-preservation-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-click-trusted-negative",
+      "guard": "click isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from click",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleClick = (event: MouseEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted) {",
+            "replace": "\tprivate handleClick = (event: MouseEvent) => {\n\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-click-trusted-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-keydown-trusted-negative",
+      "guard": "keydown isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from keydown.",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleKeydown = (event: KeyboardEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted) {",
+            "replace": "\tprivate handleKeydown = (event: KeyboardEvent) => {\n\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-keydown-trusted-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-document-pointer-trusted-negative",
+      "guard": "document pointerdown isTrusted",
+      "mutation": {
+        "description": "Remove the synthetic-event guard from outside pointerdown",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.enhanced || !this.currentOpen || !event.isTrusted) {",
+            "replace": "\t\tif (!this.enhanced || !this.currentOpen) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-document-pointer-trusted-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-trigger-key-filter-negative",
+      "guard": "trigger keyboard key allowlist",
+      "mutation": {
+        "description": "Remove the allowlist of keys used for trigger activation",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (![\"Enter\", \" \", \"ArrowDown\", \"ArrowUp\"].includes(event.key)) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-trigger-key-filter-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-keyboard-wrap-negative",
+      "guard": "menu keyboard navigation wrap",
+      "mutation": {
+        "description": "Change navigation that wraps at menu-item ends to clamping",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst next = (index + delta + items.length) % items.length;",
+            "replace": "\t\tconst next = Math.max(0, Math.min(items.length - 1, index + delta));"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-keyboard-wrap-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-item-active-state-negative",
+      "guard": "active item state priority",
+      "mutation": {
+        "description": "Remove the guard that outputs active state for the focused item",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\titem.dataset.state = this.activeItem === item ? \"active\" : \"inactive\";",
+            "replace": "\t\t\t\titem.dataset.state = \"inactive\";"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-item-active-state-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior and dropdown-menu-beforeopen also fail because they test the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-disabled-items-negative",
+      "guard": "disabled item exclusion",
+      "mutation": {
+        "description": "Treat disabled items as enabled items",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate enabledItems = () => this.itemTargets.filter((item) => !item.matches(\":disabled\"));",
+            "replace": "\tprivate enabledItems = () => this.itemTargets;"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-disabled-items-negative fails. dropdown-menu-keyboard-navigation also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-empty-value-guard-negative",
+      "guard": "empty item value guard",
+      "mutation": {
+        "description": "Remove the item-selection guard for an empty value",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst context = this.contextDetail();\n\t\tif (value === \"\") {",
+            "replace": "\t\tconst context = this.contextDetail();\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-empty-value-guard-negative fails."
+    },
+    {
+      "testId": "dropdown-menu-disconnect-combined-negative",
+      "guard": "disconnect connected state and listener cleanup",
+      "mutation": {
+        "description": "Remove disconnect cleanup for inactive state and root-listener/observer/document-listener together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;",
+            "replace": "\tdisconnect = () => {\n\t\tthis.connected = true;"
+          },
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"click\", this.handleContextClick, true);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n\t\tthis.element.removeEventListener(\"contextmenu\", this.handleContextMenu);\n\t\tthis.element.removeEventListener(\"pointerdown\", this.handleContextPointerdown);\n\t\tthis.element.removeEventListener(\"pointermove\", this.handleContextPointermove);\n\t\tthis.element.removeEventListener(\"pointerup\", this.handleContextPointerup);\n\t\tthis.element.removeEventListener(\"pointercancel\", this.clearPress);\n\t\tthis.element.removeEventListener(\"pointerleave\", this.clearPress);\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = null;\n\t\tthis.unbindDocument();",
+            "replace": "\t\tvoid this.element;"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-disconnect-combined-negative fails. menu-context-cleanup also fails because it tests the same invariant"
+    },
+    {
+      "testId": "dropdown-menu-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "dropdown-menu-completion-warning-negative fails. dropdown-menu-semantic-validation and menu-context-names also fail because they test the same invariant"
+    },
+    {
+      "testId": "menu-context-pointer-negative",
+      "guard": "Execute open from contextmenu",
+      "mutation": {
+        "description": "Do not execute open from contextmenu",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "if (this.openFromUser(pointer ? \"pointer\" : \"keyboard\", false, { ...context, ...position })) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-pointer-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior and menu-context-cancel, menu-context-retarget, menu-context-before, menu-context-after, menu-context-native-priority, menu-context-markup, and menu-context-close-before also fail because they test the same invariant"
+    },
+    {
+      "testId": "menu-context-position-negative",
+      "guard": "Do not output the pointer y coordinate",
+      "mutation": {
+        "description": "Do not output the pointer y coordinate",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.style.setProperty(\"--dropdown-menu-y\", `${y}px`);",
+            "replace": "\t\tvoid y;"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-position-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior and menu-context-keyboard also fail because they test the same invariant"
+    },
+    {
+      "testId": "menu-context-keyboard-negative",
+      "guard": "Disable the keyboard shortcut for context actions",
+      "mutation": {
+        "description": "Disable the keyboard shortcut for context actions",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "if (shortcut && this.currentContextRegion() && !this.currentTrigger()?.matches(\":disabled\")) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-keyboard-negative fails. The check that reproduces the declared catalog/dropdown-menu.html behavior and menu-context-shortcut-cancel also fail because they test the same invariant"
+    },
+    {
+      "testId": "menu-context-anchor-negative",
+      "guard": "Use the left edge as the keyboard x coordinate even in RTL",
+      "mutation": {
+        "description": "Use the left edge as the keyboard x coordinate even in RTL",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "getComputedStyle(element).direction === \"rtl\" ? rect.right : rect.left",
+            "replace": "rect.left"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-anchor-negative fails."
+    },
+    {
+      "testId": "menu-context-protected-negative",
+      "guard": "Remove exclusion of native input editing",
+      "mutation": {
+        "description": "Remove exclusion of native input editing",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "this.currentMenu()?.contains(target) ||\n\t\t\ttarget.isContentEditable",
+            "replace": "this.currentMenu()?.contains(target)"
+          },
+          {
+            "find": "[\"input\", \"textarea\", \"select\"].includes(element.localName)",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-protected-negative fails."
+    },
+    {
+      "testId": "menu-context-trusted-negative",
+      "guard": "Remove the isTrusted guard from contextmenu",
+      "mutation": {
+        "description": "Remove the isTrusted guard from contextmenu",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "private handleContextMenu = (event: MouseEvent) => {\n\t\tif (!event.isTrusted || event.defaultPrevented || !this.ensureEnhanced()) {",
+            "replace": "private handleContextMenu = (event: MouseEvent) => {\n\t\tif (event.defaultPrevented || !this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-trusted-negative fails."
+    },
+    {
+      "testId": "menu-context-press-trusted-negative",
+      "guard": "Remove the independent isTrusted guards for long-press start and release together",
+      "mutation": {
+        "description": "Remove the independent isTrusted guards for long-press start and release together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "private handleContextPointerdown = (event: PointerEvent) => {\n\t\tif (!event.isTrusted) {",
+            "replace": "private handleContextPointerdown = (event: PointerEvent) => {\n\t\tif (false) {"
+          },
+          {
+            "find": "private handleContextPointerup = (event: PointerEvent) => {\n\t\tif (!event.isTrusted) {",
+            "replace": "private handleContextPointerup = (event: PointerEvent) => {\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-press-trusted-negative fails."
+    },
+    {
+      "testId": "menu-context-cancel-trusted-negative",
+      "guard": "Cancel long press even on synthetic pointercancel",
+      "mutation": {
+        "description": "Cancel long press even on synthetic pointercancel",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "private clearPress = (event: PointerEvent) => {\n\t\tif (event.isTrusted) {",
+            "replace": "private clearPress = (event: PointerEvent) => {\n\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-cancel-trusted-negative fails."
+    },
+    {
+      "testId": "menu-context-before-negative",
+      "guard": "Remove the independent post-before guards for revision, settings, targets, and connection together",
+      "mutation": {
+        "description": "Remove the independent post-before guards for revision, settings, targets, and connection together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (\n\t\t\t!this.ensureEnhanced() ||\n\t\t\trevision !== this.revision ||\n\t\t\tthis.currentOpen !== wasOpen ||\n\t\t\tthis.currentTrigger() !== trigger ||\n\t\t\tthis.currentMenu() !== menu ||\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") !== openValue ||\n\t\t\ttrigger.matches(\":disabled\") ||\n\t\t\t(context && !this.isContextRequestCurrent(context))\n\t\t) {\n\t\t\treturn false;\n\t\t}",
+            "replace": "\t\tif (false) {\n\t\t\treturn false;\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-before-negative fails."
+    },
+    {
+      "testId": "menu-context-close-before-negative",
+      "guard": "Remove the independent post-before guards for revision, settings, targets, and connection together",
+      "mutation": {
+        "description": "Remove the independent post-before guards for revision, settings, targets, and connection together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (\n\t\t\t!this.ensureEnhanced() ||\n\t\t\trevision !== this.revision ||\n\t\t\t!this.currentOpen ||\n\t\t\tthis.currentTrigger() !== trigger ||\n\t\t\tthis.currentMenu() !== menu ||\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") !== openValue ||\n\t\t\t(item &&\n\t\t\t\t(!this.itemTargets.includes(item) ||\n\t\t\t\t\titem.matches(\":disabled\") ||\n\t\t\t\t\tthis.itemValue(item) !== value))\n\t\t) {\n\t\t\treturn false;\n\t\t}",
+            "replace": "\t\tif (false) {\n\t\t\treturn false;\n\t\t}"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-close-before-negative fails."
+    },
+    {
+      "testId": "menu-context-after-negative",
+      "guard": "Remove independent post-after state, revision, and focus guards together",
+      "mutation": {
+        "description": "Remove independent post-after state, revision, and focus guards together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (\n\t\t\tthis.ensureEnhanced() &&\n\t\t\tthis.revision === committedRevision &&\n\t\t\tthis.currentOpen &&\n\t\t\tthis.currentTrigger() === trigger &&\n\t\t\tthis.currentMenu() === menu &&\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") === openValue &&\n\t\t\tthis.element.ownerDocument.activeElement === active\n\t\t) {",
+            "replace": "\t\tif (true) {"
+          },
+          {
+            "find": "\t\tif (\n\t\t\t!this.ensureEnhanced() ||\n\t\t\tthis.revision !== committedRevision ||\n\t\t\tthis.currentOpen ||\n\t\t\tthis.currentTrigger() !== trigger ||\n\t\t\tthis.currentMenu() !== menu ||\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") !== openValue\n\t\t) {\n\t\t\treturn false;\n\t\t}",
+            "replace": "\t\tif (false) {\n\t\t\treturn false;\n\t\t}"
+          },
+          {
+            "find": "\t\treturn (\n\t\t\tthis.ensureEnhanced() &&\n\t\t\tthis.revision === committedRevision &&\n\t\t\t!this.currentOpen &&\n\t\t\tthis.currentTrigger() === trigger &&\n\t\t\tthis.currentMenu() === menu &&\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") === openValue\n\t\t);",
+            "replace": "\t\treturn true;"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-after-negative fails. menu-context-after-value and menu-context-after-focus-value also fail because they test the same invariant"
+    },
+    {
+      "testId": "menu-context-longpress-negative",
+      "guard": "Do not require a 600ms long-press duration",
+      "mutation": {
+        "description": "Do not require a 600ms long-press duration",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "event.timeStamp - press.time < 600",
+            "replace": "event.timeStamp - press.time < 0"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-longpress-negative fails."
+    },
+    {
+      "testId": "menu-context-click-negative",
+      "guard": "Deliver the compatibility click after long press to user listeners",
+      "mutation": {
+        "description": "Deliver the compatibility click after long press to user listeners",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.stopImmediatePropagation();",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-click-negative fails."
+    },
+    {
+      "testId": "menu-context-distance-negative",
+      "guard": "Remove independent movement-distance guards during movement and release together",
+      "mutation": {
+        "description": "Remove independent movement-distance guards during movement and release together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > 8",
+            "replace": "false"
+          },
+          {
+            "find": "Math.hypot(event.clientX - press.x, event.clientY - press.y) > 8",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-distance-negative fails. menu-context-motion also fails because it tests the same invariant"
+    },
+    {
+      "testId": "menu-context-motion-negative",
+      "guard": "Remove the movement-distance guard and allow a gesture that returns to its start",
+      "mutation": {
+        "description": "Remove the movement-distance guard and allow a gesture that returns to its start",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "Math.hypot(event.clientX - this.press.x, event.clientY - this.press.y) > 8",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-motion-negative fails."
+    },
+    {
+      "testId": "menu-context-names-negative",
+      "guard": "Remove menu-name completion",
+      "mutation": {
+        "description": "Remove menu-name completion",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "menu.setAttribute(\"aria-labelledby\", ensureElementId(trigger, \"dropdown-menu-trigger\"));",
+            "replace": "void trigger;"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-names-negative fails."
+    },
+    {
+      "testId": "menu-context-markup-negative",
+      "guard": "Remove context-count validation",
+      "mutation": {
+        "description": "Remove context-count validation",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "this.contextTargets.length <= 1",
+            "replace": "true"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-markup-negative fails."
+    },
+    {
+      "testId": "menu-context-cleanup-negative",
+      "guard": "Remove restoration of authored coordinate custom properties",
+      "mutation": {
+        "description": "Remove restoration of authored coordinate custom properties",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "for (const { name, value, priority } of this.originalPosition ?? []) {",
+            "replace": "for (const { name, value, priority } of []) {"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-cleanup-negative fails."
+    },
+    {
+      "testId": "menu-context-native-priority-negative",
+      "guard": "Do not discard long-press tracking on native contextmenu",
+      "mutation": {
+        "description": "Do not discard long-press tracking on native contextmenu",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.press = null;\n\t\tconst pointer =",
+            "replace": "\t\tconst pointer ="
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-native-priority-negative fails."
+    },
+    {
+      "testId": "menu-context-shortcut-cancel-negative",
+      "guard": "Reopen from native contextmenu without preventing shortcut default behavior",
+      "mutation": {
+        "description": "Reopen from native contextmenu without preventing shortcut default behavior",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "if (context) {\n\t\t\t\tevent.preventDefault();\n\t\t\t\tthis.openFromUser(\"keyboard\", false",
+            "replace": "if (context) {\n\t\t\t\tthis.openFromUser(\"keyboard\", false"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-shortcut-cancel-negative fails. menu-context-after-value also fails because it tests the same invariant"
+    },
+    {
+      "testId": "menu-context-close-focus-negative",
+      "guard": "Return focus to the original context for outside and trigger toggle too",
+      "mutation": {
+        "description": "Return focus to the original context for outside and trigger toggle too",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "const returnFocus = restoreFocus === \"context\" ? this.returnFocus : null;",
+            "replace": "const returnFocus = this.returnFocus;"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-close-focus-negative fails."
+    },
+    {
+      "testId": "menu-context-after-value-negative",
+      "guard": "Remove independent raw open-value guards after the after event and focus together",
+      "mutation": {
+        "description": "Remove independent raw open-value guards after the after event and focus together",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "this.currentMenu() === menu &&\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") === openValue &&\n\t\t\tthis.element.ownerDocument.activeElement === active",
+            "replace": "this.currentMenu() === menu &&\n\t\t\tthis.element.ownerDocument.activeElement === active"
+          },
+          {
+            "find": "this.currentMenu() !== menu ||\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") !== openValue\n\t\t)",
+            "replace": "this.currentMenu() !== menu\n\t\t)"
+          },
+          {
+            "find": "this.currentMenu() === menu &&\n\t\t\tthis.element.getAttribute(\"data-dropdown-menu-open-value\") === openValue\n\t\t);",
+            "replace": "this.currentMenu() === menu\n\t\t);"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-after-value-negative fails."
+    },
+    {
+      "testId": "menu-context-press-targets-negative",
+      "guard": "Ignore trigger and menu replacement during long press",
+      "mutation": {
+        "description": "Ignore trigger and menu replacement during long press",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "this.isContextRequestCurrent(press) &&\n\t\tpress.trigger === this.currentTrigger() &&\n\t\tpress.menu === this.currentMenu()",
+            "replace": "this.isContextRequestCurrent(press)"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-press-targets-negative fails."
+    },
+    {
+      "testId": "menu-context-element-negative",
+      "guard": "Remove HTMLElement validation for context",
+      "mutation": {
+        "description": "Remove HTMLElement validation for context",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "context instanceof HTMLElement &&\n\t\t\t\t\tcontext !== this.element",
+            "replace": "context !== this.element"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-element-negative fails."
+    },
+    {
+      "testId": "menu-context-closed-items-negative",
+      "guard": "Do not clear the active item when context is removed or becomes invalid",
+      "mutation": {
+        "description": "Do not clear the active item when context is removed or becomes invalid",
+        "file": "src/dropdown_menu_controller.ts",
+        "replacements": [
+          {
+            "find": "this.currentOpen = false;\n\t\t\tthis.activeItem = null;\n\t\t\tthis.currentContext = null;",
+            "replace": "this.currentOpen = false;\n\t\t\tthis.currentContext = null;"
+          },
+          {
+            "find": "this.currentOpen = false;\n\t\t\tthis.activeItem = null;\n\t\t\tif (this.enhanced)",
+            "replace": "this.currentOpen = false;\n\t\t\tif (this.enhanced)"
+          }
+        ]
+      },
+      "expectedFailure": "menu-context-closed-items-negative fails. menu-context-markup also fails because it tests the same invariant"
+    }
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Real-device touch on iOS / Android",
+        "item": "Interaction between native contextmenu and OS selection. Cancel custom long press on pointercancel and use a tap on the persistent button",
+        "status": "unverified",
+        "impact": "The public specification is defined by delivered native events and Pointer Events conditions; the persistent button opens the same menu in environments without long-press support"
+      },
+      {
+        "environment": "Safari + VoiceOver",
+        "item": "Announcements for context actions and returning to the original operation target",
+        "status": "unverified",
+        "impact": "The contract is based on menu/button semantics and DOM focus and does not depend on announcement wording"
+      }
+    ]
+  }
+}

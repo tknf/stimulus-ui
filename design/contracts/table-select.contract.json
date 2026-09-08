@@ -1,0 +1,250 @@
+{
+  "name": "table-select",
+  "controller": "table-select",
+  "pattern": "A headless row-selection controller adding tri-state master synchronization, Shift range selection, and cancelable changes to native table-row checkboxes",
+  "responsibility": "Provides master checked/indeterminate synchronization, anchor-based range selection, one-operation selection-set events, the selected public API, and semantic markup validation. Native checkboxes retain state, focus, and form submission semantics. No state outputs or ARIA are added; appearance and content are not generated.",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/input.html#checkbox-state-(type=checkbox)",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <table> with data-controller=\"table-select\"",
+    "targets": {
+      "item": "Native <input type=\"checkbox\"> elements with data-table-select-target=\"item\", inside root <tr> elements, at most one per row, each with a unique nonempty data-table-select-value",
+      "all": "Optional: at most one native <input type=\"checkbox\"> with data-table-select-target=\"all\", outside item rows, for example in thead"
+    },
+    "label": "The consumer supplies each checkbox accessible name through label, aria-label, or aria-labelledby.",
+    "initial": "Specify initial selection with the native checked attribute.",
+    "content": "The controller generates no elements or content. Consumers style selected rows through tr:has(input:checked) and partial master selection through :indeterminate."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root must be a native <table>.",
+      "At least one item target is required, and each must be a native <input type=\"checkbox\"> within a root <tr>.",
+      "Each <tr> may contain at most one item target.",
+      "data-table-select-value must be nonempty and unique among items.",
+      "At most one native <input type=\"checkbox\"> all target is allowed, distinct from items and outside every item <tr>."
+    ],
+    "invalidMarkup": "Validate on connection and target changes. Invalid markup prevents listeners, master synchronization, range selection, and public API operations and warns once per connection. Reapply enhancement when valid without warning again. Do not throw.",
+    "warning": "Use the standard English disabling warning describing a native table root, native checkbox items with unique values inside rows, and a master outside item rows."
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "selected": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Checked item data-table-select-value values in DOM order. Assignment ignores unknown values and synchronizes items and master without custom events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "table-select:beforechange": {
+        "when": "Before a trusted individual toggle, Shift range, or master bulk operation changes the selection set",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "selected": "The proposed selection set, as values in DOM order",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), restore every affected checkbox, including those toggled by pre-click activation, and do not emit table-select:change."
+      },
+      "table-select:change": {
+        "when": "After a trusted selection-set change is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "selected": "The committed selection set",
+          "previousSelected": "The selection set before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "gesture": "Emit one event pair per operation, not per checkbox, including range and master bulk selection.",
+      "reason": "Native checkbox Space activation arrives as click detail=0. Use keyboard for detail=0 and pointer otherwise.",
+      "programmatic": "selected assignment, initialization, and reconnection emit no custom events.",
+      "synthetic": "Clicks/changes with isTrusted=false only synchronize the master and emit no custom events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for table-select:change and table-select:beforechange on the root or ancestors. The controller does not stop propagation.",
+    "cancelableHook": "Cancel changes with event.preventDefault() in a table-select:beforechange listener.",
+    "directMutation": "Do not track consumer JS assignments to checkbox.checked, which emit no native events. As with input.value, the caller knows the result. The next trusted operation or selected assignment resynchronizes the master.",
+    "nested": "Use :self or event.target === event.currentTarget when listening outside nested table-select roots."
+  },
+  "behavior": {
+    "scope": "Coordinate row selection only. Consumers and other components, such as table-sort, handle sorting, filtering, and actions on selected rows.",
+    "anchor": "The range anchor is the most recently trusted-operated item. Without an anchor, Shift acts as an individual toggle. Retain the anchor only while connected and discard it when its item disappears.",
+    "range": "On a trusted Shift-click, set every item between anchor and target in DOM order to the operated checkbox's new checked value.",
+    "master": "On trusted master click, set items to the master's new checked value. Synchronize master to checked for all, indeterminate for some, or unchecked for none. The controller sets indeterminate because it is only a JS property. Count enabled items only, matching bulk operations excluding disabled items.",
+    "disabled": "Exclude disabled items from range and master bulk operations, matching native suppression of individual clicks. Do not add disabled data-* attributes.",
+    "form": "Delegate checkbox name, value, form submission, and reset to native semantics. Resynchronize the master after form reset."
+  },
+  "managedMarkup": {
+    "aria": "Do not write or complete ARIA. AT reads native checkbox checked state; do not write aria-selected on plain table rows, since that attribute is for grid/treegrid contexts.",
+    "stateOutputs": "No state outputs. CSS derives row selection through tr:has(input:checked) and partial master selection through :indeterminate. Do not output states CSS can derive.",
+    "indeterminate": "Set the master indeterminate JS property, not an attribute; CSS can read it through :indeterminate.",
+    "preservation": "Preserve authored attributes. Change checkbox checked only through selection operations and the selected setter."
+  },
+  "stateOutputs": {
+    "ownership": "No state outputs; see managedMarkup.stateOutputs."
+  },
+  "lifecycle": [
+    "Register root click and item-form reset listeners in connect(); remove them in disconnect().",
+    "Track item/all target changes through targetConnected/targetDisconnected and resynchronize the master.",
+    "Discard the anchor on disconnect() without changing checkbox state.",
+    "Synchronize the master from current checkbox state on reconnection.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Master checkbox mixed state and range-selection announcements",
+        "status": "unverified",
+        "impact": "Native table/checkbox semantics and selected-row state are fixed independently of announcement wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Shift-click and Shift-Space (click detail=0) produce equivalent range selection, satisfying 2.1.3.",
+    "Master checked/indeterminate/unchecked must match all/some/none of the participating items selected.",
+    "One trusted operation emits one cancelable beforechange and one committed change; cancellation restores every affected checkbox.",
+    "selected assignment and synthetic operations do not emit custom events.",
+    "Exclude disabled items from range and bulk selection.",
+    "Do not write ARIA or state outputs; preserve authored attributes.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit, including preservation of shiftKey through label clicks.",
+    "Report real-device screen reader announcements of master mixed state and range selection as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "table-select-master-sync",
+      "description": "Master all/some/none synchronization and resynchronization after item changes and form reset"
+    },
+    {
+      "testId": "table-select-range",
+      "description": "Anchor-based ranges: Shift-click/Shift-Space, reverse direction, individual toggle without an anchor, and disabled-item exclusion"
+    },
+    {
+      "testId": "table-select-beforechange-cancel",
+      "description": "Restoring checkboxes on cancellation for individual/range/master operations; committed detail, order, bubbling, and reason"
+    },
+    {
+      "testId": "table-select-programmatic-silence",
+      "description": "No events from selected assignment or synthetic click/change, with master synchronization"
+    },
+    {
+      "testId": "table-select-semantic-validation",
+      "description": "One warning and disabled enhancement for non-table roots, items outside rows, multiple items per row, duplicate/empty values, duplicate masters, or masters also used as items"
+    },
+    {
+      "testId": "table-select-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and anchor disposal"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "table-select-semantic-validation-negative",
+      "guard": "semantic markup validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid markup",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Disable semantic validation and enhance invalid markup.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-semantic-validation-negative fails."
+    },
+    {
+      "testId": "table-select-master-sync-negative",
+      "guard": "Tri-state master synchronization",
+      "plannedMutation": "Remove indeterminate assignment.",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Remove master indeterminate synchronization.",
+        "replacements": [
+          {
+            "find": "\t\tmaster.indeterminate = selectedCount > 0 && selectedCount < items.length;",
+            "replace": "\t\tmaster.indeterminate = false;"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-master-sync-negative fails."
+    },
+    {
+      "testId": "table-select-range-negative",
+      "guard": "Range selection",
+      "plannedMutation": "Remove the Shift check and always perform an individual toggle.",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Remove Shift range detection and always perform an individual toggle.",
+        "replacements": [
+          {
+            "find": "\t\t\tconst isRange =\n\t\t\t\t(event.shiftKey || this.shiftKeyDown) &&\n\t\t\t\tthis.anchor !== undefined &&\n\t\t\t\titems.includes(this.anchor);",
+            "replace": "\t\t\tconst isRange = false;"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-range-negative fails."
+    },
+    {
+      "testId": "table-select-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Disable beforechange cancellation and always commit selection.",
+        "replacements": [
+          {
+            "find": "\t\tif (!accepted) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-beforechange-cancel-negative fails."
+    },
+    {
+      "testId": "table-select-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit table-select:change from the selected setter.",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Emit table-select:change from the selected setter.",
+        "replacements": [
+          {
+            "find": "\t\tthis.commitSelected(values);",
+            "replace": "\t\tthis.commitSelected(values);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"table-select:change\"));"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "table-select-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave listeners active after disconnect.",
+      "mutation": {
+        "file": "src/table_select_controller.ts",
+        "description": "Remove click-listener cleanup from disconnect.",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.element.removeEventListener(\"click\", this.handleClick);",
+            "replace": "\t\t\t// click listener は解除しない"
+          }
+        ]
+      },
+      "expectedFailure": "table-select-disconnect-cleanup-negative fails."
+    }
+  ]
+}

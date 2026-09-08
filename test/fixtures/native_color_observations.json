@@ -1,0 +1,98 @@
+{
+  "chromium": [
+    {
+      "attributes": {},
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1a689d", "#000000"],
+      "alpha": null,
+      "colorSpace": null
+    },
+    {
+      "attributes": {
+        "alpha": ""
+      },
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1a689d", "#000000"],
+      "alpha": null,
+      "colorSpace": null
+    },
+    {
+      "attributes": {
+        "alpha": "",
+        "colorspace": "display-p3"
+      },
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1a689d", "#000000"],
+      "alpha": null,
+      "colorSpace": null
+    }
+  ],
+  "webkit": [
+    {
+      "attributes": {},
+      "alpha": false,
+      "colorSpace": "limited-srgb",
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1b689d", "#000000"]
+    },
+    {
+      "attributes": {
+        "alpha": ""
+      },
+      "alpha": true,
+      "colorSpace": "limited-srgb",
+      "results": [
+        "color(srgb 0.070588 0.670588 0.937255)",
+        "color(srgb 1 0 0)",
+        "color(srgb 0.039216 0.078431 0.117647)",
+        "color(srgb 0.2 0.4 0.6 / 0.501961)",
+        "color(srgb 0.105882 0.407843 0.615686 / 0.501961)",
+        "color(srgb 0 0 0)"
+      ]
+    },
+    {
+      "attributes": {
+        "alpha": "",
+        "colorspace": "display-p3"
+      },
+      "alpha": true,
+      "colorSpace": "display-p3",
+      "results": [
+        "color(display-p3 0.308025 0.660606 0.914053)",
+        "color(display-p3 0.917488 0.200287 0.138561)",
+        "color(display-p3 0.047771 0.077381 0.114257)",
+        "color(display-p3 0.249851 0.39524 0.584034 / 0.501961)",
+        "color(display-p3 0.2 0.4 0.6 / 0.5)",
+        "color(display-p3 0 0 0)"
+      ]
+    }
+  ],
+  "firefox": [
+    {
+      "attributes": {},
+      "colorSpace": "limited-srgb",
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1b689d", "#000000"],
+      "alpha": null
+    },
+    {
+      "attributes": {
+        "alpha": ""
+      },
+      "colorSpace": "limited-srgb",
+      "results": ["#12abef", "#ff0000", "#0a141e", "#336699", "#1b689d", "#000000"],
+      "alpha": null
+    },
+    {
+      "attributes": {
+        "alpha": "",
+        "colorspace": "display-p3"
+      },
+      "colorSpace": "display-p3",
+      "results": [
+        "color(display-p3 0.308025 0.660606 0.914053)",
+        "color(display-p3 0.917488 0.200287 0.138561)",
+        "color(display-p3 0.0477706 0.0773809 0.114257)",
+        "color(display-p3 0.249851 0.39524 0.584034)",
+        "color(display-p3 0.2 0.4 0.6)",
+        "color(display-p3 0 0 0)"
+      ],
+      "alpha": null
+    }
+  ]
+}

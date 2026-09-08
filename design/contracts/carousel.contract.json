@@ -1,0 +1,353 @@
+{
+  "name": "carousel",
+  "controller": "carousel",
+  "pattern": "Slide navigation and automatic rotation following the APG Carousel Pattern",
+  "responsibility": "Switches slides through consumer-authored buttons and provides roledescription, hidden, data-state, cancelable change events, and automatic rotation. Does not generate positioning, transitions, or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/carousel/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide.html",
+    "https://www.w3.org/TR/wai-aria-1.2/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Any element with data-controller=\"carousel\", named through aria-label or aria-labelledby. The consumer chooses a role determining whether it is a landmark.",
+    "slide": "At least two data-carousel-target=\"slide\" elements, each named through aria-label or aria-labelledby. A positional name such as \"3 / 10\" is acceptable when no unique descriptive name exists.",
+    "previous": "Optional native <button type=\"button\"> with data-carousel-target=\"previous\"",
+    "next": "Optional native <button type=\"button\"> with data-carousel-target=\"next\"",
+    "play": "A native <button type=\"button\"> with data-carousel-target=\"play\", toggling rotation with one button rather than separate start/stop buttons. Required when interval > 0.",
+    "label": "Consumers supply button labels and update play-button wording from data-state. APG requires wording to reflect state, but the library cannot infer the wording.",
+    "content": "The controller generates no elements or content. Consumer CSS controls positioning, transitions, and stacking."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "At least two slide targets are required.",
+      "previous, next, and play targets must be HTMLButtonElement elements with type=\"button\".",
+      "At most one previous, next, and play target is allowed for each kind.",
+      "The root must have an accessible name.",
+      "Every slide must have an accessible name.",
+      "interval must be finite and >= 0.",
+      "Exactly one play target is required when interval > 0."
+    ],
+    "invalidMarkup": "Validate markup and values on connection. Invalid configuration prevents ARIA, listeners, timers, state outputs, and slide operations and warns once per connection. Do not throw.",
+    "warning": "Warnings identify carousel controller and the invalid element type or value name.",
+    "completion": {
+      "attributes": [
+        "role=\"group\" on the root",
+        "aria-roledescription=\"carousel\" on the root",
+        "role=\"group\" on slides",
+        "aria-roledescription=\"slide\" on slides"
+      ],
+      "warning": "The completion warning lists the added attributes: \"Added <attributes>. Include them in your markup.\" It is emitted once while connected, using a separate flag from the enhancement-disabled warning"
+    }
+  },
+  "api": {
+    "values": {
+      "index": {
+        "type": "Number",
+        "htmlAttribute": "data-carousel-index-value",
+        "default": 0,
+        "description": "Index of the slide to display"
+      },
+      "interval": {
+        "type": "Number",
+        "htmlAttribute": "data-carousel-interval-value",
+        "default": 0,
+        "description": "Automatic rotation interval in milliseconds. Zero disables rotation. A positive interval requires a play target to provide a WCAG 2.2.2 stop control."
+      }
+    },
+    "properties": {
+      "index": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Index of the visible slide. Assignment changes visibility and state outputs without custom events."
+      },
+      "playing": {
+        "type": "boolean",
+        "access": "getter",
+        "description": "Whether automatic rotation is running"
+      }
+    },
+    "methods": {
+      "next()": {
+        "returns": "void",
+        "description": "Show the next slide, wrapping last to first, without custom events."
+      },
+      "previous()": {
+        "returns": "void",
+        "description": "Show the previous slide, wrapping first to last, without custom events."
+      },
+      "play()": {
+        "returns": "void",
+        "description": "Start automatic rotation without emitting a custom event for the call."
+      },
+      "pause()": {
+        "returns": "void",
+        "description": "Stop automatic rotation without custom events."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "carousel:beforechange": {
+        "when": "Before a slide change from trusted interaction or automatic rotation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "index": "The proposed index",
+          "previousIndex": "The previous index",
+          "reason": "pointer | keyboard | timer"
+        },
+        "effect": "On preventDefault(), leave visibility and state outputs unchanged and do not emit carousel:change."
+      },
+      "carousel:change": {
+        "when": "After a slide change from trusted interaction or automatic rotation is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "index": "The committed index",
+          "previousIndex": "The previous index",
+          "reason": "pointer | keyboard | timer"
+        }
+      },
+      "timerReason": "Automatic rotation uses reason=\"timer\". Although not directly initiated by user input, it emits events so consumers can observe visible-slide changes.",
+      "programmatic": "index assignment, next(), previous(), play(), pause(), initialization, and reconnection emit no custom events.",
+      "sameIndex": "Do not emit beforechange/change when the index is unchanged.",
+      "synthetic": "Clicks with isTrusted=false change visibility/state outputs without custom events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for carousel:change and carousel:beforechange on the root or ancestors. The controller does not stop propagation.",
+    "cancelableHook": "Cancel switching with event.preventDefault() in a carousel:beforechange listener.",
+    "programmatic": "Other controllers may use index, next(), previous(), play(), and pause() through a Stimulus controller reference or outlets. Programmatic calls emit no events.",
+    "nested": "Use :self or event.target === event.currentTarget to restrict events to the root when listening outside nested carousels."
+  },
+  "behavior": {
+    "autoplay": "Rotate only when interval > 0. The default is zero, with rotation stopped.",
+    "focusPause": "Stop rotation when focus enters any element inside the root. Do not resume when focus leaves; users resume through the play target.",
+    "reducedMotion": "Do not inspect prefers-reduced-motion. Consumers decide whether to rotate through interval and play().",
+    "keyboard": "Use native previous/next/play button activation; do not implement carousel-specific arrow keys.",
+    "swipe": "Pointer swiping is outside scope.",
+    "tabbed": "The APG tabbed-carousel variant is outside scope. Consumers apply both controllers when composing with tabs.",
+    "wrap": "Next from the last slide wraps to the first; previous from the first wraps to the last.",
+    "indexClamp": "Normalize out-of-range, negative, fractional, or non-finite index values to zero and write the normalized index back to the Stimulus value.",
+    "indexFallback": "If slide changes leave the current index out of bounds, clamp to the final slide. When the visible slide is removed, show the slide now at the same index, or the last slide if none exists there. This correction emits no custom events.",
+    "playToggle": "Play-target activation stops running rotation or starts paused rotation; one button serves both actions."
+  },
+  "managedMarkup": {
+    "root": "Supply role=\"group\" and aria-roledescription=\"carousel\" on the root only when each attribute is absent.",
+    "slide": "Supply role=\"group\" and aria-roledescription=\"slide\" only when absent; synchronize hidden on nonvisible slides.",
+    "stateOnly": "Only root, slide, and play-target data-state are controller-managed state outputs.",
+    "preservation": "Preserve authored id, role, aria-roledescription, aria-label, and other attributes. The controller synchronizes hidden."
+  },
+  "stateOutputs": {
+    "ownership": "Only root/slide/play data-state are controller-owned visual state outputs; do not use ARIA for styling state.",
+    "root": "data-state=\"playing\" | \"paused\"",
+    "slide": "data-state=\"active\" | \"inactive\"",
+    "play": "data-state=\"playing\" or \"paused\"; consumers use it to update the rotation-control label."
+  },
+  "lifecycle": [
+    "Register previous/next/play click and root focusin listeners in connect(); remove them in disconnect().",
+    "Cancel the rotation timer on disconnect().",
+    "Track slide additions/removals through Stimulus TargetConnected/TargetDisconnected.",
+    "Leave generated ARIA, data-state, and hidden on disconnect().",
+    "Synchronize ARIA/state with current markup on reconnection without restarting rotation.",
+    "Do not duplicate listeners, timers, or custom events when reconnecting the same instance."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Slide and carousel aria-roledescription announcements",
+        "status": "unverified",
+        "impact": "The contract fixes slide semantics and user-controlled rotation; announcement wording does not determine the public API."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Trusted interaction and rotation emit one cancelable beforechange followed by one committed change, in that order.",
+    "Canceling beforechange preserves visibility/state and suppresses change.",
+    "Require the play target when interval > 0, guaranteeing a WCAG 2.2.2 stop control.",
+    "Focus inside the root stops rotation.",
+    "Public API calls, initialization, and reconnection synchronize visibility/state without custom events.",
+    "The controller does not own positioning, transitions, or stacking.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device screen reader announcements of aria-roledescription as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "carousel-state-sync",
+      "description": "Roles, aria-roledescription, hidden, data-state, and authored-attribute preservation"
+    },
+    {
+      "testId": "carousel-navigation",
+      "description": "Previous/next navigation, wrapping, and pointer reason"
+    },
+    {
+      "testId": "carousel-beforechange-cancel",
+      "description": "beforechange cancellation, change detail, ordering, and bubbling"
+    },
+    {
+      "testId": "carousel-autoplay",
+      "description": "Interval-driven rotation with reason=timer, and stopping/resuming through play"
+    },
+    {
+      "testId": "carousel-focus-pause",
+      "description": "Focus inside the root stops rotation."
+    },
+    {
+      "testId": "carousel-programmatic-silence",
+      "description": "No events from index assignment or next/previous/play/pause"
+    },
+    {
+      "testId": "carousel-dynamic-targets",
+      "description": "Tracking slide additions/removals"
+    },
+    {
+      "testId": "carousel-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener and timer cleanup"
+    },
+    {
+      "testId": "carousel-semantic-validation",
+      "description": "Warnings and disabled enhancement for insufficient slides, non-button controls, or interval/play-target mismatches"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)",
+    {
+      "testId": "carousel-completion-warning",
+      "description": "Completion warning for missing attributes, no warning for complete markup, and separation from the invalid-markup warning"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "carousel-semantic-validation-negative",
+      "guard": "Semantic markup and value validation",
+      "plannedMutation": "Disable markupViolations() and continue enhancement with insufficient slides, missing names, or interval/play-target mismatches.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable markup/value validation.",
+        "replacements": [
+          {
+            "find": "if (violations.length > 0) {",
+            "replace": "if (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-semantic-validation-negative fails."
+    },
+    {
+      "testId": "carousel-beforechange-cancel-negative",
+      "guard": "beforechange cancellation",
+      "plannedMutation": "Ignore dispatchEvent's return value and always commit switching.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable beforechange cancellation.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-beforechange-cancel-negative fails."
+    },
+    {
+      "testId": "carousel-focus-pause-negative",
+      "guard": "Pausing rotation when focus enters the root",
+      "plannedMutation": "Remove timer cancellation on focusin.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable focusin's pause guard.",
+        "replacements": [
+          {
+            "find": "\t\tif (this.playingState && this.enhanced) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-focus-pause-negative fails."
+    },
+    {
+      "testId": "carousel-timer-cleanup-negative",
+      "guard": "Timer cleanup on disconnect",
+      "plannedMutation": "Remove clearTimeout from disconnect().",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable timer cleanup on disconnect.",
+        "replacements": [
+          {
+            "find": "\t\tthis.unbindInteraction();\n\t\tthis.stopTimer();\n\t\tthis.playingState = false;",
+            "replace": "\t\tthis.unbindInteraction();\n\t\tthis.playingState = false;"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-timer-cleanup-negative fails."
+    },
+    {
+      "testId": "carousel-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "plannedMutation": "Emit beforechange/change from index assignment and next/previous/play/pause.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Emit change from the index setter.",
+        "replacements": [
+          {
+            "find": "\t\tconst index = this.normalizeRequestedIndex(value);\n\t\tthis.commitIndex(index);",
+            "replace": "\t\tconst index = this.normalizeRequestedIndex(value);\n\t\tthis.requestChange(index, \"pointer\", true);"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "carousel-index-fallback-negative",
+      "guard": "Index normalization and tracking slide changes",
+      "plannedMutation": "Remove out-of-range index normalization.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable clamping for dynamic-slide fallback.",
+        "replacements": [
+          {
+            "find": "this.currentIndex = Math.min(Math.max(this.currentIndex, 0), count - 1);",
+            "replace": "this.currentIndex = this.currentIndex;"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-index-fallback-negative fails."
+    },
+    {
+      "testId": "carousel-preservation-negative",
+      "guard": "Preserving authored role and aria-roledescription",
+      "plannedMutation": "Remove hasAttribute guards and write role/aria-roledescription unconditionally.",
+      "mutation": {
+        "file": "src/carousel_controller.ts",
+        "description": "Disable root-role preservation.",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"role\")) {\n\t\t\tthis.element.setAttribute(\"role\", \"group\");\n\t\t}",
+            "replace": "\t\tthis.element.setAttribute(\"role\", \"group\");"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-preservation-negative fails."
+    },
+    {
+      "testId": "carousel-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing attributes produce no warning",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/carousel_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "carousel-completion-warning-negative fails."
+    }
+  ]
+}

@@ -1,0 +1,725 @@
+{
+  "name": "list-reorder",
+  "controller": "list-reorder",
+  "pattern": "List reordering that preserves native ul/ol and li. Each item in a named group has a source-selection toggle button and native previous/next buttons. Do not use listbox selection or application roles.",
+  "responsibility": "Manage moving existing items within one list, keyboard/pointer grab-destination-drop interactions, equivalent non-drag pointer controls, ARIA/CSS states, and cancelable commitment. Generate no elements, item content, notification wording, or drag images.",
+  "references": [
+    "https://react-aria.adobe.com/blog/drag-and-drop",
+    "https://react-aria.adobe.com/dnd",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-pressed",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-live",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-relevant",
+    "https://www.w3.org/TR/wai-aria-1.2/#aria-grabbed",
+    "https://dom.spec.whatwg.org/#dom-parentnode-movebefore",
+    "https://dom.spec.whatwg.org/#dom-node-insertbefore",
+    "https://www.w3.org/TR/pointerevents3/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html",
+    "https://www.w3.org/TR/html-aria/",
+    "https://html.spec.whatwg.org/multipage/text-level-semantics.html#the-a-element"
+  ],
+  "relationship": "Unlike listbox option selection, state is the actual DOM order of a native list. This is distinct from file-drop intake. Move existing nodes without cloning or generating content.",
+  "authorMarkup": {
+    "root": "A native div with role=group and aria-label or aria-labelledby, placed where a flow-content container is valid, outside a/button/label/select/textarea ancestors",
+    "targets": {
+      "list": "One native ul/ol with explicit role=list, aria-live=polite, aria-atomic=false, and aria-relevant=additions. Respect authored assertive, atomic=true, and relevant=all or values including additions.",
+      "item": "All direct element children of the list are native li item targets, with zero or more items. DOM order is item order. Existing ids are public API keys; generate missing ids and require uniqueness among items.",
+      "handle": "One named native button[type=button] per item with a stable name identifying the item. It toggles source selection and is also the drag handle.",
+      "previous": "One named native button[type=button] per item to move it one position earlier in DOM order. Its name identifies the item and action.",
+      "next": "One named native button[type=button] per item to move it one position later in DOM order. Its name identifies the item and action.",
+      "instructions": "One nonempty HTMLElement inside the root but outside the list. Explain selecting a handle with Enter/Space, focusing destinations with arrows/Home/End, committing at that position with Enter/Space, canceling with Escape, canceling and navigating normally with Tab, and using previous/next buttons."
+    },
+    "composition": "Root/list/instructions/items and the three button types are distinct elements. Do not put operation buttons inside a/button/label/select/textarea. Each button descends from its own item; do not mix nested same-controller scopes. Keep items visible and do not hide previous/next controls with CSS or aria-hidden. To disable all operations originating from an item, match native disabled state across all three buttons.",
+    "names": "Name the root through aria-label or aria-labelledby with accessible text. Buttons may also use accessible descendant text. Text only within hidden/script/style/template content must not name a nonhidden label/button. Directly referenced hidden label text counts. Consumers author item content and instructions.",
+    "css": "Use horizontal-tb writing mode and a single DOM-ordered row/column along orientation, with horizontal layouts following RTL. Do not use CSS order, wrapping, rotation, skew, or reflecting transforms. Set handle touch-action:none and provide clickable/tappable button areas and focus indicators. Distinguish candidates through data-state/data-drop-position. The controller does not prescribe appearance."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Validate native div root/name/role, native list/item/button elements, target counts, direct containment, and a/button/label/select/textarea ancestors.",
+      "Each item has exactly one named handle/previous/next button, with matching :disabled states across all three.",
+      "List live attributes must enable notifications. Explicit roles are limited to list on lists, listitem on items, and button on buttons.",
+      "orientation is vertical or horizontal; list writing-mode is horizontal-tb. Validate initially and on target/configuration changes, and check current membership/settings immediately before operations."
+    ],
+    "invalidMarkup": "Invalid markup disables enhancement with one standard warning per connection, without partial completion. Discard candidates, reset former target outputs to idle/none/pressed=false, and remove listeners. Initially invalid markup receives no state outputs. Revalidate repaired targets/settings.",
+    "completion": {
+      "attributes": [
+        "role=group on the root",
+        "role=list, aria-live=polite, aria-atomic=false, and aria-relevant=additions on the list"
+      ],
+      "warning": "List completed attributes in one warning per connection using the standard added-attributes/include-in-markup wording."
+    },
+    "completionExempt": [
+      "Generate missing item/instructions ids.",
+      "Supply missing item tabindex=-1.",
+      "Append the instructions id to item/handle aria-describedby.",
+      "Synchronize handle aria-pressed, item aria-posinset/aria-setsize, and state outputs."
+    ],
+    "preservation": "Preserve authored ids, tabindex, static attributes, and existing description references. Do not change disabled. Do not clone/regenerate nodes, content, or consumer listeners."
+  },
+  "api": {
+    "values": {
+      "orientation": {
+        "type": "String",
+        "default": "vertical",
+        "htmlAttribute": "data-list-reorder-orientation-value",
+        "description": "vertical or horizontal, determining keyboard direction and the pointer axis. Changes cancel the current candidate."
+      }
+    },
+    "properties": {
+      "order": {
+        "type": "readonly string[]",
+        "access": "getter",
+        "description": "A copy of the last synchronized valid item ids in DOM order, empty before the first valid connection. External DOM edits appear after target-callback reconciliation."
+      },
+      "pickedItem": {
+        "type": "string | null",
+        "access": "getter",
+        "description": "Source item id, or null when idle"
+      },
+      "targetIndex": {
+        "type": "number | null",
+        "access": "getter",
+        "description": "Proposed zero-based destination index. DOM order is unchanged until commitment. null when idle."
+      }
+    },
+    "methods": {
+      "move(itemId: string, index: number)": "Synchronously move an existing item to a finite integer index from 0 through item count minus 1. Unknown ids, invalid indices, disconnection, or invalid markup are no-ops. Cancel pending candidates and honor programmatic instructions even when disabled. Emit no custom events.",
+      "cancel()": "Discard the candidate and pointer capture without changing DOM order, emitting events, or moving focus."
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "list-reorder:beforechange": {
+        "when": "Immediately before changing DOM order from trusted pointerup, keyboard drop, or previous/next click. Do not emit for the same position.",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "ListReorderChangeDetail = { item: string; from: number; to: number; order: readonly string[]; previousOrder: readonly string[]; reason: pointer | keyboard }",
+        "effect": "preventDefault() prevents DOM movement and change. Prioritize listener changes to API/configuration/targets/DOM order/disabled/connection, never applying stale candidates."
+      },
+      "list-reorder:change": {
+        "when": "After DOM movement and ARIA/state synchronization",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "Same type as beforechange. Before/after/internal arrays are not shared."
+      },
+      "reason": "Direct drag and native clicks with detail>0 use pointer; keyboard drop and trusted activation with detail=0 use keyboard. Ignore synthetic events. APIs, cancellation, reconnection, and external DOM changes emit no custom events."
+    }
+  },
+  "behavior": {
+    "scope": "Move one item at a time within one linear list. Exclude multiple selection, cross-list transfers, file/external-app drops, autoscroll, generated drag images, persistence, and restoring order on form reset.",
+    "keyboard": "Trusted Enter/Space/AT activation on an idle handle picks that item and focuses its native li. Arrows/Home/End select a destination index and focus its li; disabled items can be destinations. Enter/Space moves the source to that index and returns focus to its handle. Candidate navigation does not change DOM order.",
+    "stepButtons": "previous/next directly move the item one position earlier/later, with same-position no-ops at boundaries. Cancel any active grab and prioritize the button operation. Keyboard and clicks/taps can reach the same complete set of permutations.",
+    "pointer": "Primary left-button pointerdown on an enabled handle captures the pointer, focuses the source handle, and starts dragging. Snapshot list/item rectangles; pointermove proposes the index by counting crossed centers of other items, reversing horizontal RTL. Commit using final pointerup coordinates. Release outside the list cancels. Do not start on capture failure, zero dimensions, or invalid linear layout. Keep pointers separate and do not treat follow-up pointer clicks as keyboard activation.",
+    "cancel": "Cancel candidates on Escape, Tab, pointercancel, unexpected lostpointercapture, window blur, external focus, target/configuration/disabled changes, pointer-time geometry/direction changes, APIs, or disconnect. Escape prevents default only while active and restores the source handle. Tab neither prevents default nor restores focus, preserving native navigation. Other cancellations do not move focus.",
+    "dom": "Move existing li nodes within the same list using insertBefore, not moveBefore, which can misupdate native ol numbering in measured environments. Moves may disconnect/reconnect custom elements/Stimulus and lose iframe or other native state; the controller neither clones nor saves that state. If movement loses focus that was inside the moved item, restore that same element only. Consumer focus/API reentrancy takes priority.",
+    "notifications": "Use the list itself as a live region, exposing additions of moved consumer content to AT without generated wording/nodes. The source handle has aria-pressed=true; the candidate is conveyed by focused native li name, aria-posinset/setsize, and instructions. Do not use deprecated aria-grabbed/aria-dropeffect.",
+    "disabled": "Read native :disabled on all three buttons, including fieldset inheritance, to prevent operations originating from that item. Other items may move across it, changing its position; disabled does not fix position. Programmatic moves remain available.",
+    "dynamic": "Track target additions/removals/replacements and external DOM reordering. Do not treat a moved existing node as a new item; preserve its id and current order. Detect external before-listener changes synchronously. Keep nested same-controller targets/events isolated."
+  },
+  "keyboard": {
+    "activation": {
+      "Enter": "Start on the handle and commit on the candidate item.",
+      "Space": "Start on the handle and commit on the candidate item.",
+      "repeat": "Suppress immediate drops caused by Enter/Space autorepeat."
+    },
+    "vertical": {
+      "ArrowUp": "Decrease the candidate index by one.",
+      "ArrowDown": "Increase the candidate index by one."
+    },
+    "horizontal": {
+      "ArrowLeft": "Move the candidate visually left; in RTL, increase the index.",
+      "ArrowRight": "Move the candidate visually right; in RTL, decrease the index."
+    },
+    "navigation": {
+      "Home": "First candidate",
+      "End": "Last candidate",
+      "Escape": "Cancel only while active and focus the source handle.",
+      "Tab": "Cancel and preserve native navigation.",
+      "Shift+Tab": "Cancel and preserve reverse native navigation.",
+      "Control": "No custom key handling",
+      "Alt": "No custom key handling",
+      "Meta": "No custom key handling",
+      "IME": "Exclude isComposing/keyCode 229."
+    }
+  },
+  "stateOutputs": {
+    "items": "All items output data-state=idle/picked. The candidate-position item outputs data-drop-position=before/after; others output none. Same-origin candidates output none everywhere. For to<from, indicate before the original items[to]; for to>from, after items[to].",
+    "root": "Do not aggregate item state on the root or add root data-state/classes.",
+    "properties": "Expose no continuous values or CSS custom properties. Do not write dimensional/positioning styles.",
+    "aria": "Synchronize source-handle aria-pressed. Every item's aria-posinset is its one-based current DOM position and aria-setsize the item count. Before commitment, express the candidate through focus/data-drop-position without rewriting these order attributes."
+  },
+  "lifecycle": [
+    "Pre-connect target callbacks do not write listeners or outputs.",
+    "disconnect removes all root/document/window listeners, observers, and pointer capture and discards candidates. Leave generated ids, static completions, and idle outputs.",
+    "On reconnection, revalidate current DOM order and markup without duplicate listeners. Never move focus with timers."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Safari + VoiceOver, Firefox + NVDA, and touch devices",
+        "item": "Pressed state, list item name/position/instructions, live movement notifications, touch use, and consumer custom-element/iframe/media state during DOM moves",
+        "status": "unverified",
+        "impact": "Native previous/next controls and list/button semantics are fixed; compatibility observations do not choose a different public role or reorder API."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 Level AA for every configuration, preserving native list/listitem/button semantics and names.",
+    "AAA 2.1.3 Keyboard (No Exception): keyboard reaches every pointer-achievable order and can cancel. AAA 3.2.5 Change on Request: focus moves only through user actions or consumer JS calls.",
+    "AA 2.5.7: directly test previous/next non-drag clicks/taps in Chromium/Firefox/WebKit. Keyboard tests alone are insufficient.",
+    "Test drag, grab/move/drop, non-drag operations, RTL, before cancellation/reentrancy, dynamic targets, reconnection, disabled/synthetic guards, and DOM node/input value/focus preservation in all three engines.",
+    "Negative controls break each invariant, fail the intended checks, and restore source.",
+    "Unverified observations: Safari+VoiceOver, Firefox+NVDA, and other AT announcements of aria-pressed, focused listitem name/position/instructions, and live-region movement. Always provide native previous/next controls; public roles/APIs do not depend on these observations. Real-device touch and consumer custom-element/iframe/media internal state during moves remain compatibility observations."
+  ],
+  "testMatrix": [
+    {
+      "testId": "list-reorder-markup",
+      "description": "Native structure, static completion, names, and invalid configurations"
+    },
+    {
+      "testId": "list-reorder-api",
+      "description": "Existing-node movement API, order copies, same-position and invalid values"
+    },
+    {
+      "testId": "list-reorder-keyboard",
+      "description": "Grab/move/drop, RTL, modifiers, IME, cancellation, and Tab"
+    },
+    {
+      "testId": "list-reorder-pointer",
+      "description": "Dragging, final coordinates, capture, geometry changes, and out-of-bounds cancellation"
+    },
+    {
+      "testId": "list-reorder-step",
+      "description": "Previous/next non-drag pointer and native keyboard operations"
+    },
+    {
+      "testId": "list-reorder-reentrant",
+      "description": "Before cancellation and API/DOM-change reentrancy"
+    },
+    {
+      "testId": "list-reorder-dynamic",
+      "description": "Target addition/removal/replacement, external reorder, and same-controller nesting"
+    },
+    {
+      "testId": "list-reorder-lifecycle",
+      "description": "Disconnect with retained DOM, reconnection, and exclusion of old listeners"
+    },
+    {
+      "testId": "list-reorder-focus",
+      "description": "DOM movement updating native ol numbering while preserving nodes/input values/focus"
+    },
+    {
+      "testId": "list-reorder-trusted",
+      "description": "Synthetic-event and disabled guards"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "list-reorder-state-negative",
+      "guard": "Aggregate item state on the root",
+      "plannedMutation": "Aggregate item state on the root",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Aggregate item state on the root",
+        "replacements": [
+          {
+            "find": "\tprivate syncState = () => {",
+            "replace": "\tprivate syncState = () => {\n\t\tthis.element.dataset.state = \"idle\";"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-state-negative fails."
+    },
+    {
+      "testId": "list-reorder-node-negative",
+      "guard": "Replace existing nodes with clones",
+      "plannedMutation": "Replace existing nodes with clones",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Replace existing nodes with clones",
+        "replacements": [
+          {
+            "find": "\t\tmarkup.list.insertBefore(entry.item, reference);",
+            "replace": "\t\tmarkup.list.insertBefore(entry.item.cloneNode(true), reference);\n\t\tentry.item.remove();"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-node-negative fails. Existing-node preservation also fails catalog/list-reorder.html behavior, list-reorder-keyboard/list-reorder-preview-negative, list-reorder-pointer/list-reorder-pointer-negative, list-reorder-lifecycle/list-reorder-cleanup-negative, list-reorder-focus/list-reorder-focus-negative, list-reorder-reentrant/list-reorder-detail-negative, and list-reorder-focus/list-reorder-focus-reentry-negative."
+    },
+    {
+      "testId": "list-reorder-api-negative",
+      "guard": "Remove copying from the order getter",
+      "plannedMutation": "Remove copying from the order getter",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Remove copying from the order getter",
+        "replacements": [
+          {
+            "find": "return [...this.currentOrder];",
+            "replace": "return this.currentOrder;"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-api-negative fails."
+    },
+    {
+      "testId": "list-reorder-preview-negative",
+      "guard": "Commit DOM order while selecting a candidate",
+      "plannedMutation": "Commit DOM order while selecting a candidate",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Commit DOM order while selecting a candidate",
+        "replacements": [
+          {
+            "find": "\t\tthis.syncState();\n\t\tthis.focusCandidate();\n\t};\n\tprivate rect",
+            "replace": "\t\tthis.commitMove(interaction.source, interaction.index, null);\n\t\tthis.syncState();\n\t\tthis.focusCandidate();\n\t};\n\tprivate rect"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-preview-negative fails. Separation of preview and DOM commitment also fails list-reorder-keyboard/list-reorder-rtl-negative, list-reorder-keyboard/list-reorder-cancel-negative, list-reorder-reentrant/list-reorder-before-negative, list-reorder-keyboard/list-reorder-repeat-negative, list-reorder-keyboard disabled-destination navigation, and list-reorder-focus/list-reorder-focus-reentry-negative."
+    },
+    {
+      "testId": "list-reorder-rtl-negative",
+      "guard": "Remove RTL reversal for horizontal arrows",
+      "plannedMutation": "Remove RTL reversal for horizontal arrows",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Remove RTL reversal for horizontal arrows",
+        "replacements": [
+          {
+            "find": "(event.key === \"ArrowRight\" ? 1 : event.key === \"ArrowLeft\" ? -1 : 0) * (rtl ? -1 : 1)",
+            "replace": "(event.key === \"ArrowRight\" ? 1 : event.key === \"ArrowLeft\" ? -1 : 0)"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-rtl-negative fails."
+    },
+    {
+      "testId": "list-reorder-cancel-negative",
+      "guard": "Prevent Escape defaults even while idle",
+      "plannedMutation": "Prevent Escape defaults even while idle",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Prevent Escape defaults even while idle",
+        "replacements": [
+          {
+            "find": "\t\tconst interaction = this.currentInteraction();\n\t\tif (interaction === null) {",
+            "replace": "\t\tif (event.key === \"Escape\") event.preventDefault();\n\t\tconst interaction = this.currentInteraction();\n\t\tif (interaction === null) {"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-cancel-negative fails."
+    },
+    {
+      "testId": "list-reorder-step-negative",
+      "guard": "Reverse previous/next movement direction",
+      "plannedMutation": "Reverse previous/next movement direction",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Reverse previous/next movement direction",
+        "replacements": [
+          {
+            "find": "const to = from + (button.kind === \"previous\" ? -1 : 1);",
+            "replace": "const to = from + (button.kind === \"previous\" ? 1 : -1);"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-step-negative fails. Button commitment direction also fails catalog/list-reorder.html behavior, list-reorder-reentrant/list-reorder-before-negative, list-reorder-reentrant/list-reorder-reentrant-negative, list-reorder-reentrant/list-reorder-id-negative, list-reorder-reentrant controller-token removal, list-reorder-dynamic/list-reorder-membership-negative, list-reorder-lifecycle/list-reorder-cleanup-negative, list-reorder-dynamic nested/multiple-root/empty-list isolation, list-reorder-reentrant/list-reorder-detail-negative, list-reorder-dynamic/list-reorder-binding-negative, and list-reorder-markup/list-reorder-name-negative."
+    },
+    {
+      "testId": "list-reorder-pointer-negative",
+      "guard": "Do not commit DOM movement on pointerup",
+      "plannedMutation": "Do not commit DOM movement on pointerup",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not commit DOM movement on pointerup",
+        "replacements": [
+          {
+            "find": "if (inside) {",
+            "replace": "if (false && inside) {"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-pointer-negative and catalog/list-reorder.html behavior fail on pointerup commitment."
+    },
+    {
+      "testId": "list-reorder-geometry-negative",
+      "guard": "Do not detect rectangle changes during dragging",
+      "plannedMutation": "Do not detect rectangle changes during dragging",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not detect rectangle changes during dragging",
+        "replacements": [
+          {
+            "find": "geometry === null || JSON.stringify(geometry) !== JSON.stringify(interaction.geometry)",
+            "replace": "geometry === null"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-geometry-negative fails."
+    },
+    {
+      "testId": "list-reorder-capture-negative",
+      "guard": "Ignore pointercancel and lost pointer capture",
+      "plannedMutation": "Ignore pointercancel and lost pointer capture",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Ignore pointercancel and lost pointer capture",
+        "replacements": [
+          {
+            "find": "\tprivate handlePointercancel = (event: PointerEvent) => {\n\t\tif (\n\t\t\tevent.isTrusted &&\n\t\t\tthis.interaction?.kind === \"pointer\" &&\n\t\t\tthis.interaction.pointerId === event.pointerId\n\t\t) {\n\t\t\tthis.cancel();\n\t\t}\n\t};\n",
+            "replace": "\tprivate handlePointercancel = (_event: PointerEvent) => {};\n"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-capture-negative fails."
+    },
+    {
+      "testId": "list-reorder-before-negative",
+      "guard": "Ignore beforechange cancellation",
+      "plannedMutation": "Ignore beforechange cancellation",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Ignore beforechange cancellation",
+        "replacements": [
+          {
+            "find": "\t\t\t!accepted ||",
+            "replace": "\t\t\tfalse ||"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-before-negative fails."
+    },
+    {
+      "testId": "list-reorder-reentrant-negative",
+      "guard": "Do not detect API reentrancy inside before listeners",
+      "plannedMutation": "Do not detect API reentrancy inside before listeners",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not detect API reentrancy inside before listeners",
+        "replacements": [
+          {
+            "find": "\t\t\t!accepted ||\n\t\t\trevision !== this.revision ||",
+            "replace": "\t\t\t!accepted ||"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-reentrant-negative fails."
+    },
+    {
+      "testId": "list-reorder-membership-negative",
+      "guard": "Do not resynchronize through target callbacks",
+      "plannedMutation": "Do not resynchronize through target callbacks",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not resynchronize through target callbacks",
+        "replacements": [
+          {
+            "find": "\tprivate scheduleReconcile = () => {\n\t\tif (!this.connected) {\n\t\t\treturn;\n\t\t}\n\t\tthis.cancel();\n\t\tif (this.reconcileQueued) {\n\t\t\treturn;\n\t\t}\n\t\tthis.reconcileQueued = true;\n\t\tqueueMicrotask(() => {\n\t\t\tthis.reconcileQueued = false;\n\t\t\tif (this.connected) {\n\t\t\t\tthis.reconcile();\n\t\t\t}\n\t\t});\n\t};\n",
+            "replace": "\tprivate scheduleReconcile = () => {};\n"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-membership-negative and list-reorder-reentrant/list-reorder-reentrant-negative fail on resynchronization after external DOM changes."
+    },
+    {
+      "testId": "list-reorder-cleanup-negative",
+      "guard": "Simultaneously omit disconnect cleanup and connection-flag updates",
+      "plannedMutation": "Simultaneously omit disconnect cleanup and connection-flag updates",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously omit disconnect cleanup and connection-flag updates",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.cancel();\n\t\tthis.connected = false;\n\t\tthis.enhanced = false;\n\t\tthis.unbind();\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = null;\n\t\tthis.reconcileQueued = false;\n\t};\n",
+            "replace": "\tdisconnect = () => {};\n"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-cleanup-negative and list-reorder-markup/list-reorder-element-negative fail on old-controller disconnection and listener cleanup."
+    },
+    {
+      "testId": "list-reorder-focus-negative",
+      "guard": "Do not restore focus after DOM movement",
+      "plannedMutation": "Do not restore focus after DOM movement",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not restore focus after DOM movement",
+        "replacements": [
+          {
+            "find": "\t\t\trestore.focus();",
+            "replace": "\t\t\tvoid restore;"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-focus-negative, list-reorder-keyboard/list-reorder-preview-negative, and list-reorder-focus/list-reorder-focus-reentry-negative fail on post-move focus preservation."
+    },
+    {
+      "testId": "list-reorder-validation-negative",
+      "guard": "Remove the root-name requirement",
+      "plannedMutation": "Remove the root-name requirement",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Remove the root-name requirement",
+        "replacements": [
+          {
+            "find": "!hasAccessibleTextName(this.element, false) ||",
+            "replace": "false ||"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-validation-negative and list-reorder-markup/list-reorder-name-negative fail on invalidation of unnamed markup."
+    },
+    {
+      "testId": "list-reorder-preservation-negative",
+      "guard": "Overwrite authored static attributes",
+      "plannedMutation": "Overwrite authored static attributes",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Overwrite authored static attributes",
+        "replacements": [
+          {
+            "find": "if (!element.hasAttribute(name)) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-preservation-negative fails. Authored static-attribute preservation and suppression of unnecessary completion warnings also fail catalog/list-reorder.html connection/behavior, list-reorder-markup/list-reorder-state-negative, list-reorder-markup/list-reorder-ancestor-negative, list-reorder-markup/list-reorder-name-negative, list-reorder-markup/list-reorder-container-negative, and list-reorder-markup/list-reorder-element-negative."
+    },
+    {
+      "testId": "list-reorder-trusted-negative",
+      "guard": "Simultaneously remove click and keydown trusted-event guards",
+      "plannedMutation": "Simultaneously remove click and keydown trusted-event guards",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously remove click and keydown trusted-event guards",
+        "replacements": [
+          {
+            "find": "private handleClick = (event: MouseEvent) => {\n\t\tif (\n\t\t\t!event.isTrusted ||",
+            "replace": "private handleClick = (event: MouseEvent) => {\n\t\tif ("
+          },
+          {
+            "find": "private handleKeydown = (event: KeyboardEvent) => {\n\t\tif (\n\t\t\t!event.isTrusted ||",
+            "replace": "private handleKeydown = (event: KeyboardEvent) => {\n\t\tif ("
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-trusted-negative fails."
+    },
+    {
+      "testId": "list-reorder-disabled-negative",
+      "guard": "Simultaneously remove multiple click disabled checks and the pre-commit disabled check",
+      "plannedMutation": "Simultaneously remove multiple click disabled checks and the pre-commit disabled check",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously remove multiple click disabled checks and the pre-commit disabled check",
+        "replacements": [
+          {
+            "find": "button === null ||\n\t\t\tbutton.entry[button.kind].matches(\":disabled\") ||\n\t\t\tbutton.entry.handle.matches(\":disabled\")",
+            "replace": "button === null"
+          },
+          {
+            "find": "this.boundMarkup === null ||\n\t\t\tentry.handle.matches(\":disabled\")",
+            "replace": "this.boundMarkup === null"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-disabled-negative fails."
+    },
+    {
+      "testId": "list-reorder-detail-negative",
+      "guard": "Share order arrays between before and change events",
+      "plannedMutation": "Share order arrays between before and change events",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Share order arrays between before and change events",
+        "replacements": [
+          {
+            "find": "previousOrder: [...previousOrder],\n\t\t\torder: [...order],",
+            "replace": "previousOrder,\n\t\t\torder,"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-detail-negative fails."
+    },
+    {
+      "testId": "list-reorder-repeat-negative",
+      "guard": "Disable Enter/Space repeat suppression",
+      "plannedMutation": "Disable Enter/Space repeat suppression",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Disable Enter/Space repeat suppression",
+        "replacements": [
+          {
+            "find": "\t\t\tevent.repeat &&",
+            "replace": "\t\t\tfalse && event.repeat &&"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-repeat-negative fails."
+    },
+    {
+      "testId": "list-reorder-binding-negative",
+      "guard": "Simultaneously remove membership rechecks after before and at commit entry",
+      "plannedMutation": "Simultaneously remove membership rechecks after before and at commit entry",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously remove membership rechecks after before and at commit entry",
+        "replacements": [
+          {
+            "find": "!this.bindingCurrent() ||\n\t\t\tdisabled !== this.disabledSignature()",
+            "replace": "false"
+          },
+          {
+            "find": "if (markup === null || !this.bindingCurrent()) {",
+            "replace": "if (markup === null) {"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-binding-negative, list-reorder-reentrant/list-reorder-id-negative, and list-reorder-reentrant controller-token removal fail on post-before membership/configuration validation."
+    },
+    {
+      "testId": "list-reorder-ancestor-negative",
+      "guard": "Remove rejection of button ancestors",
+      "plannedMutation": "Remove rejection of button ancestors",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Remove rejection of button ancestors",
+        "replacements": [
+          {
+            "find": "\tprivate hasInteractiveAncestor = (element: HTMLElement) => {\n\t\tfor (\n\t\t\tlet ancestor = element.parentElement;\n\t\t\tancestor !== null;\n\t\t\tancestor = ancestor.parentElement\n\t\t) {\n\t\t\tif (\n\t\t\t\tancestor instanceof HTMLButtonElement ||\n\t\t\t\tancestor instanceof HTMLAnchorElement ||\n\t\t\t\tancestor instanceof HTMLLabelElement ||\n\t\t\t\tancestor instanceof HTMLSelectElement ||\n\t\t\t\tancestor instanceof HTMLTextAreaElement\n\t\t\t) {\n\t\t\t\treturn true;\n\t\t\t}\n\t\t}\n\t\treturn false;\n\t};\n",
+            "replace": "\tprivate hasInteractiveAncestor = (_element: HTMLElement) => false;\n"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-ancestor-negative and list-reorder-markup/list-reorder-container-negative fail on rejection of ancestors that cannot contain operation buttons."
+    },
+    {
+      "testId": "list-reorder-focus-reentry-negative",
+      "guard": "Simultaneously remove revision and item-order rechecks after focus",
+      "plannedMutation": "Simultaneously remove revision and item-order rechecks after focus",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously remove revision and item-order rechecks after focus",
+        "replacements": [
+          {
+            "find": "revision === this.revision &&\n\t\t\tthis.bindingCurrent() &&\n\t\t\tthis.boundMarkup !== null &&\n\t\t\tsameEntries(this.boundMarkup.entries, expected)",
+            "replace": "this.bindingCurrent() && this.boundMarkup !== null"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-focus-reentry-negative fails."
+    },
+    {
+      "testId": "list-reorder-external-focus-negative",
+      "guard": "Omit candidate cancellation on external focus",
+      "plannedMutation": "Omit candidate cancellation on external focus",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Omit candidate cancellation on external focus",
+        "replacements": [
+          {
+            "find": "if (event.target !== expected) {",
+            "replace": "if (false && event.target !== expected) {"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-external-focus-negative fails."
+    },
+    {
+      "testId": "list-reorder-name-negative",
+      "guard": "Replace accessible-text validation with raw textContent",
+      "plannedMutation": "Replace accessible-text validation with raw textContent",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Replace accessible-text validation with raw textContent",
+        "replacements": [
+          {
+            "find": "hasAccessibleTextName(button, true)",
+            "replace": "Boolean(button.textContent?.trim())"
+          },
+          {
+            "find": "hasAccessibleTextName(instructions, true)",
+            "replace": "Boolean(instructions.textContent?.trim())"
+          },
+          {
+            "find": "hasAccessibleTextName(this.element, false)",
+            "replace": "Boolean(this.element.getAttribute(\"aria-label\") || this.element.ownerDocument.getElementById(this.element.getAttribute(\"aria-labelledby\") ?? \"\")?.textContent?.trim())"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-name-negative fails."
+    },
+    {
+      "testId": "list-reorder-element-negative",
+      "guard": "Simultaneously omit root/instructions HTMLElement checks",
+      "plannedMutation": "Simultaneously omit root/instructions HTMLElement checks",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously omit root/instructions HTMLElement checks",
+        "replacements": [
+          {
+            "find": "!(this.element instanceof HTMLDivElement) ||",
+            "replace": "false ||"
+          },
+          {
+            "find": "!(instructions instanceof HTMLElement)",
+            "replace": "instructions === undefined"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-element-negative fails."
+    },
+    {
+      "testId": "list-reorder-id-negative",
+      "guard": "Do not detect item-id changes inside before listeners",
+      "plannedMutation": "Do not detect item-id changes inside before listeners",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Do not detect item-id changes inside before listeners",
+        "replacements": [
+          {
+            "find": "markup.entries.every(({ item }, index) => item.id === this.currentOrder[index]) &&",
+            "replace": "true &&"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-id-negative fails."
+    },
+    {
+      "testId": "list-reorder-container-negative",
+      "guard": "Simultaneously remove the native div root constraint and link-ancestor rejection",
+      "plannedMutation": "Simultaneously remove the native div root constraint and link-ancestor rejection",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Simultaneously remove the native div root constraint and link-ancestor rejection",
+        "replacements": [
+          {
+            "find": "!(this.element instanceof HTMLDivElement) ||",
+            "replace": "!(this.element instanceof HTMLElement) ||"
+          },
+          {
+            "find": "ancestor instanceof HTMLAnchorElement ||",
+            "replace": "false ||"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-container-negative fails."
+    },
+    {
+      "testId": "list-reorder-native-move-negative",
+      "guard": "Replace movement with moveBefore, which misupdates native ol numbering in measured environments",
+      "plannedMutation": "Replace movement with moveBefore, which misupdates native ol numbering in measured environments",
+      "mutation": {
+        "file": "src/list_reorder_controller.ts",
+        "description": "Replace movement with moveBefore, which misupdates native ol numbering in measured environments",
+        "replacements": [
+          {
+            "find": "\t\tmarkup.list.insertBefore(entry.item, reference);",
+            "replace": "\t\tmarkup.list.moveBefore(entry.item, reference);"
+          }
+        ]
+      },
+      "expectedFailure": "list-reorder-native-move-negative fails."
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>accordion | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="open closed"
+      data-catalog-properties=""
+      data-catalog-events="accordion:beforetoggle accordion:toggle"
+    >
+      <h1>accordion</h1>
+      <section>
+        <h2>multiple false</h2>
+        <div class="catalog-component" data-controller="accordion" data-accordion-open-value="[0]">
+          <h3>
+            <button
+              type="button"
+              data-accordion-target="trigger"
+              aria-controls="accordion-single-panel-one"
+            >
+              Item 1
+            </button>
+          </h3>
+          <h3>
+            <button
+              type="button"
+              data-accordion-target="trigger"
+              aria-controls="accordion-single-panel-two"
+            >
+              Item 2
+            </button>
+          </h3>
+          <div id="accordion-single-panel-one" data-accordion-target="panel">Content 1</div>
+          <div id="accordion-single-panel-two" data-accordion-target="panel">Content 2</div>
+        </div>
+      </section>
+      <section>
+        <h2>multiple true</h2>
+        <div
+          class="catalog-component"
+          data-controller="accordion"
+          data-accordion-multiple-value="true"
+          data-accordion-open-value="[0, 1]"
+        >
+          <h3>
+            <button
+              type="button"
+              data-accordion-target="trigger"
+              aria-controls="accordion-multiple-panel-one"
+            >
+              Item 1
+            </button>
+          </h3>
+          <h3>
+            <button
+              type="button"
+              data-accordion-target="trigger"
+              aria-controls="accordion-multiple-panel-two"
+            >
+              Item 2
+            </button>
+          </h3>
+          <div id="accordion-multiple-panel-one" data-accordion-target="panel">Content 1</div>
+          <div id="accordion-multiple-panel-two" data-accordion-target="panel">Content 2</div>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>checkbox-group | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states=""
+      data-catalog-properties=""
+      data-catalog-events="checkbox-group:beforechange checkbox-group:change"
+    >
+      <h1>checkbox-group</h1>
+      <section>
+        <h2>Master and items</h2>
+        <fieldset class="catalog-component" data-controller="checkbox-group">
+          <legend>Notification methods</legend>
+          <div>
+            <input id="checkbox-group-all" type="checkbox" data-checkbox-group-target="all" />
+            <label for="checkbox-group-all">Select all</label>
+          </div>
+          <div>
+            <input
+              id="checkbox-group-email"
+              type="checkbox"
+              data-checkbox-group-target="item"
+              data-checkbox-group-value="email"
+            />
+            <label for="checkbox-group-email">Email</label>
+          </div>
+          <div>
+            <input
+              id="checkbox-group-sms"
+              type="checkbox"
+              data-checkbox-group-target="item"
+              data-checkbox-group-value="sms"
+            />
+            <label for="checkbox-group-sms">SMS</label>
+          </div>
+        </fieldset>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

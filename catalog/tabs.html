@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tabs | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="active inactive"
+      data-catalog-properties=""
+      data-catalog-events="tabs:beforechange tabs:change"
+    >
+      <h1>tabs</h1>
+      <section>
+        <h2>horizontal automatic</h2>
+        <div class="catalog-component" data-controller="tabs" data-tabs-value-value="account">
+          <div data-tabs-target="tablist" role="tablist" aria-label="Settings">
+            <button
+              id="tabs-horizontal-account"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="account"
+              role="tab"
+              aria-controls="tabs-horizontal-account-panel"
+            >
+              Account
+            </button>
+            <button
+              id="tabs-horizontal-security"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="security"
+              role="tab"
+              aria-controls="tabs-horizontal-security-panel"
+            >
+              Security
+            </button>
+          </div>
+          <section
+            id="tabs-horizontal-account-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="account"
+            role="tabpanel"
+            aria-labelledby="tabs-horizontal-account"
+          >
+            Account content
+          </section>
+          <section
+            id="tabs-horizontal-security-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="security"
+            role="tabpanel"
+            aria-labelledby="tabs-horizontal-security"
+          >
+            Security content
+          </section>
+        </div>
+      </section>
+      <section>
+        <h2>orientation vertical</h2>
+        <div
+          class="catalog-component"
+          data-controller="tabs"
+          data-tabs-orientation-value="vertical"
+          data-tabs-value-value="profile"
+        >
+          <div
+            data-tabs-target="tablist"
+            role="tablist"
+            aria-label="Profile"
+            aria-orientation="vertical"
+          >
+            <button
+              id="tabs-vertical-profile"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="profile"
+              role="tab"
+              aria-controls="tabs-vertical-profile-panel"
+            >
+              Profile
+            </button>
+            <button
+              id="tabs-vertical-preferences"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="preferences"
+              role="tab"
+              aria-controls="tabs-vertical-preferences-panel"
+            >
+              Settings
+            </button>
+          </div>
+          <section
+            id="tabs-vertical-profile-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="profile"
+            role="tabpanel"
+            aria-labelledby="tabs-vertical-profile"
+          >
+            Profile content
+          </section>
+          <section
+            id="tabs-vertical-preferences-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="preferences"
+            role="tabpanel"
+            aria-labelledby="tabs-vertical-preferences"
+          >
+            Settings content
+          </section>
+        </div>
+      </section>
+      <section>
+        <h2>activation manual</h2>
+        <div
+          class="catalog-component"
+          data-controller="tabs"
+          data-tabs-activation-value="manual"
+          data-tabs-value-value="overview"
+        >
+          <div data-tabs-target="tablist" role="tablist" aria-label="Reports">
+            <button
+              id="tabs-manual-overview"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="overview"
+              role="tab"
+              aria-controls="tabs-manual-overview-panel"
+            >
+              Overview
+            </button>
+            <button
+              id="tabs-manual-detail"
+              type="button"
+              data-tabs-target="tab"
+              data-tabs-value="detail"
+              role="tab"
+              aria-controls="tabs-manual-detail-panel"
+            >
+              Details
+            </button>
+          </div>
+          <section
+            id="tabs-manual-overview-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="overview"
+            role="tabpanel"
+            aria-labelledby="tabs-manual-overview"
+          >
+            Overview content
+          </section>
+          <section
+            id="tabs-manual-detail-panel"
+            data-tabs-target="tabpanel"
+            data-tabs-value="detail"
+            role="tabpanel"
+            aria-labelledby="tabs-manual-detail"
+          >
+            Details content
+          </section>
+        </div>
+      </section>
+      <section>
+        <h2>rtl</h2>
+        <div dir="rtl">
+          <div class="catalog-component" data-controller="tabs" data-tabs-value-value="first">
+            <div data-tabs-target="tablist" role="tablist" aria-label="Direction">
+              <button
+                id="tabs-rtl-first"
+                type="button"
+                data-tabs-target="tab"
+                data-tabs-value="first"
+                role="tab"
+                aria-controls="tabs-rtl-first-panel"
+              >
+                First
+              </button>
+              <button
+                id="tabs-rtl-second"
+                type="button"
+                data-tabs-target="tab"
+                data-tabs-value="second"
+                role="tab"
+                aria-controls="tabs-rtl-second-panel"
+              >
+                Next
+              </button>
+            </div>
+            <section
+              id="tabs-rtl-first-panel"
+              data-tabs-target="tabpanel"
+              data-tabs-value="first"
+              role="tabpanel"
+              aria-labelledby="tabs-rtl-first"
+            >
+              First content
+            </section>
+            <section
+              id="tabs-rtl-second-panel"
+              data-tabs-target="tabpanel"
+              data-tabs-value="second"
+              role="tabpanel"
+              aria-labelledby="tabs-rtl-second"
+            >
+              Next content
+            </section>
+          </div>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

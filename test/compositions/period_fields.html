@@ -1,0 +1,72 @@
+<form
+  id="date-period"
+  data-controller="period-validation"
+  data-action="input->period-validation#sync change->period-validation#sync reset->period-validation#reset"
+>
+  <fieldset>
+    <legend>日付の期間</legend>
+    <label for="period-start-date">開始日</label>
+    <input
+      id="period-start-date"
+      type="date"
+      name="start"
+      value="2026-09-01"
+      required
+      data-controller="date-field"
+      data-period-validation-target="start"
+    />
+    <label for="period-end-date">終了日</label>
+    <input
+      id="period-end-date"
+      type="date"
+      name="end"
+      value="2026-09-02"
+      required
+      data-controller="date-field"
+      data-period-validation-target="end"
+      aria-describedby="date-period-order"
+    />
+    <p id="date-period-order" data-period-validation-target="message">
+      終了日は開始日以降にしてください。
+    </p>
+    <button type="submit">日付を送信</button>
+    <button type="reset">日付をリセット</button>
+  </fieldset>
+</form>
+<form
+  id="time-period"
+  data-controller="period-validation"
+  data-action="input->period-validation#sync change->period-validation#sync reset->period-validation#reset"
+>
+  <fieldset>
+    <legend>同じ日の時刻の期間</legend>
+    <label for="period-start-time">開始時刻</label>
+    <input
+      id="period-start-time"
+      type="time"
+      name="start"
+      value="10:00"
+      step="any"
+      required
+      data-controller="time-field"
+      data-period-validation-target="start"
+    />
+    <label for="period-end-time">終了時刻</label>
+    <input
+      id="period-end-time"
+      type="time"
+      name="end"
+      value="11:00"
+      step="any"
+      required
+      data-controller="time-field"
+      data-period-validation-target="end"
+      aria-describedby="time-period-order"
+    />
+    <p id="time-period-order" data-period-validation-target="message">
+      終了時刻は同じ日の開始時刻以降にしてください。
+    </p>
+    <button type="submit">時刻を送信</button>
+    <button type="reset">時刻をリセット</button>
+  </fieldset>
+</form>

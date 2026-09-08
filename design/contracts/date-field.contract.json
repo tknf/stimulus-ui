@@ -1,0 +1,282 @@
+{
+  "name": "date-field",
+  "controller": "date-field",
+  "pattern": "A headless date field adding cancelable change events and state outputs to native input[type=date]",
+  "responsibility": "Preserves native date value, min, max, step, segment editing, picker UI, and form semantics. Adds user-originated change events, data-state, and semantic markup validation that native input lacks. Does not generate appearance or content.",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/input.html#date-state-(type=date)",
+    "https://www.w3.org/TR/html-aam-1.0/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A native <input type=\"date\"> with data-controller=\"date-field\"",
+    "label": "The consumer provides an accessible name through <label>, aria-label, or aria-labelledby.",
+    "range": "The consumer supplies min, max, step, and value as native attributes.",
+    "form": "The consumer supplies name and uses native date-input form submission.",
+    "content": "The controller does not generate elements or content."
+  },
+  "contractValidation": {
+    "semanticElements": ["The root must be an HTMLInputElement with type=date."],
+    "invalidMarkup": "Validate the root on connection. Invalid markup prevents listener registration, state output, and value operations and issues console.warn once per connection. Do not throw.",
+    "warning": "Use the standard English disabling warning, including the required native input[type=date] root."
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "value": {
+        "type": "string",
+        "access": "getter/setter",
+        "description": "Current native input.value in YYYY-MM-DD format, or an empty string for missing/invalid input. Assignment changes value and data-state without custom events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "date-field:beforechange": {
+        "when": "Before a value change from trusted pointer or keyboard interaction (native change from segment editing or picker UI)",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "The proposed value (YYYY-MM-DD or an empty string)",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        },
+        "effect": "On preventDefault(), restore the previous native value and data-state and suppress date-field:change."
+      },
+      "date-field:change": {
+        "when": "After a trusted value change is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "The committed value",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "The value setter, initialization, form reset, and reconnection do not emit custom events.",
+      "sameValue": "Do not emit beforechange/change when the value has not changed.",
+      "synthetic": "input/change with isTrusted=false only synchronize native value and state outputs; they do not emit custom events. The controller does not dispatch synthetic native input/change events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Listen for date-field:change and date-field:beforechange on the root or an ancestor. The controller does not stop propagation.",
+    "cancelableHook": "Cancel a change by calling event.preventDefault() in a date-field:beforechange listener.",
+    "programmatic": "Other controllers may read/write value through a Stimulus controller reference or outlets. Programmatic API changes emit no events.",
+    "nested": "Use :self or event.target === event.currentTarget to restrict events to the root when listening outside nested date-field controllers."
+  },
+  "behavior": {
+    "scope": "Use one native input[type=date] as the root; there are no targets.",
+    "initial": "Use the native value attribute as the initial value. The controller has no separate initial value.",
+    "native": "Delegate segment navigation, increment/decrement, digit entry, deletion, picker UI, and form semantics to the browser. The controller neither validates nor corrects values.",
+    "disabled": "Do not add data-* attributes for disabled state. Public API changes are allowed regardless of disabled state."
+  },
+  "keyboard": {
+    "native": "Do not implement keyboard handling. All three engines provide native segment editing; the controller adds no keyboard operations.",
+    "pageKeys": "Do not implement PageUp/PageDown. Firefox handles them per segment (three months or seven days), while Chromium and WebKit do not respond; see docs/notes/browser-engine-differences.md. Whole-value day navigation would overlap Firefox segment editing and produce inconsistent results. The controller cannot determine segment focus, so it does not normalize this engine difference."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Use native input[type=date] value, min, max, step, keyboard handling, and form semantics. There is no implicit role (MDN), and accessibility-tree exposure is engine-dependent.",
+    "aria": "Do not write role or aria-* attributes. Do not overwrite or remove authored ARIA.",
+    "stateOnly": "Only root data-state is a controller-managed state output. Do not output CSS custom properties.",
+    "preservation": "Preserve authored id, name, value, min, max, step, disabled, ARIA, and other attributes."
+  },
+  "stateOutputs": {
+    "ownership": "Only root data-state is controller-owned; do not use ARIA as a visual state output.",
+    "min": "data-state=\"min\" when value equals min. This state cannot occur without min.",
+    "max": "data-state=\"max\" when value equals max. This state cannot occur without max.",
+    "between": "data-state=\"between\" otherwise, including when value is empty."
+  },
+  "lifecycle": [
+    "Register root keydown, pointerdown, input, and change listeners and the associated-form reset listener in connect(); remove them in disconnect().",
+    "Leave generated data-state on disconnect().",
+    "Synchronize state output from the current native value on reconnection.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Native browser pickers and screen readers on real devices",
+        "item": "Picker opening/closing, accessibility-tree exposure, and announcements",
+        "status": "unverified",
+        "impact": "The controller retains native date input semantics and does not implement the picker or an alternative AT mapping."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Conforming input[type=date] preserves native value, min, max, step, segment editing, and form semantics; the controller does not intercept keyboard operations.",
+    "Only trusted value changes emit one cancelable beforechange followed by one committed change, in that order. Cancellation preserves value and state.",
+    "Public API calls, initialization, form reset, and reconnection synchronize state outputs without custom events.",
+    "The controller adds neither role nor aria-* attributes and preserves authored attributes.",
+    "Invalid markup disables enhancement with one warning",
+    "Pass automated tests in Chromium, Firefox, and WebKit. Tests must not depend on WebKit delaying change until blur; see docs/notes/browser-engine-differences.md.",
+    "Report picker opening/closing, accessibility-tree exposure, and real-device screen reader announcements as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "form-reset-counter",
+      "description": "Synchronize character count after the trusted reset button's default action."
+    },
+    {
+      "testId": "form-reset-master",
+      "description": "Synchronize checkbox-group/table-select master state after the trusted reset button's default action."
+    },
+    {
+      "testId": "form-reset-cancel",
+      "description": "Preserve editable/password-field state when a later listener cancels reset."
+    },
+    {
+      "testId": "form-reset-editable-value",
+      "description": "Start editable viewing with the value after native reset."
+    },
+    {
+      "testId": "form-reset-cropper-controls",
+      "description": "Output the image-cropper initial snapshot to controls after native reset."
+    },
+    {
+      "testId": "date-field-state-sync",
+      "description": "data-state min/max/between, missing min/max, empty values, and authored-attribute preservation"
+    },
+    {
+      "testId": "date-field-beforechange-cancel",
+      "description": "beforechange cancellation and restoration; change detail, order, and bubbling"
+    },
+    {
+      "testId": "date-field-native-change",
+      "description": "Trusted native change from segment editing and its reason"
+    },
+    {
+      "testId": "date-field-programmatic-silence",
+      "description": "No events from value assignment or synthetic input/change, with state synchronization"
+    },
+    {
+      "testId": "date-field-semantic-validation",
+      "description": "One warning and disabled enhancement for invalid roots"
+    },
+    {
+      "testId": "date-field-disconnect-cleanup",
+      "description": "Disconnect/reconnect listener cleanup and state"
+    },
+    "No controller handling of PageUp/PageDown (covered by date-field-native-change)",
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "form-reset-native-state",
+      "guard": "Synchronize shared callers in a task after native reset finishes.",
+      "mutation": {
+        "description": "Move the callback to a microtask while preserving cancellation.",
+        "file": "src/internal/form_reset_tasks.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tcallback();",
+            "replace": "\t\t\t// callback は microtask で実行する。"
+          },
+          {
+            "find": "\t\ttimers.add(timer);",
+            "replace": "\t\ttimers.add(timer);\n\t\tqueueMicrotask(() => { if (timers.has(timer)) callback(); });"
+          }
+        ]
+      },
+      "expectedFailure": "Four form-reset-native-state tests, one form-reset-counter, two form-reset-master, two form-reset-cancel, and one form-reset-cropper-controls fail. Ten caller types share execution after the default action."
+    },
+    {
+      "testId": "form-reset-tasks-cancel",
+      "guard": "Cancel all scheduled tasks when unsubscribing.",
+      "mutation": {
+        "description": "Leave timers active and run callbacks scheduled before unsubscription.",
+        "file": "src/internal/form_reset_tasks.ts",
+        "replacements": [
+          {
+            "find": "clearTimeout(timer);",
+            "replace": "void timer;"
+          }
+        ]
+      },
+      "expectedFailure": "Only form-reset-tasks-cancel fails."
+    },
+    {
+      "testId": "date-field-semantic-validation-negative",
+      "guard": "Semantic root validation",
+      "plannedMutation": "Disable validation and allow enhancement for invalid roots.",
+      "mutation": {
+        "description": "Remove reconcile()'s semantic validation guard and continue enhancement for invalid markup",
+        "file": "src/date_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "date-field-semantic-validation-negative fails."
+    },
+    {
+      "testId": "date-field-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and value restoration",
+      "plannedMutation": "Ignore cancellation and always commit.",
+      "mutation": {
+        "description": "Ignore beforechange cancellation and always commit.",
+        "file": "src/date_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "date-field-beforechange-cancel-negative and date-field-native-change fail because native change commitment shares the beforechange cancellation invariant."
+    },
+    {
+      "testId": "date-field-programmatic-silence-negative",
+      "guard": "No events from the public API",
+      "plannedMutation": "Emit date-field:change from the value setter.",
+      "mutation": {
+        "description": "Emit date-field:change from the value setter.",
+        "file": "src/date_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.value = value;\n\t\tthis.syncState(input);",
+            "replace": "\t\tinput.value = value;\n\t\tthis.syncState(input);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"date-field:change\", { bubbles: true }));"
+          }
+        ]
+      },
+      "expectedFailure": "date-field-programmatic-silence-negative fails."
+    },
+    {
+      "testId": "date-field-state-sync-negative",
+      "guard": "data-state synchronization",
+      "plannedMutation": "Remove data-state writes.",
+      "mutation": {
+        "description": "Remove data-state writes so state outputs are not synchronized.",
+        "file": "src/date_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;",
+            "replace": "\t\tvoid state;"
+          }
+        ]
+      },
+      "expectedFailure": "date-field-state-sync-negative, date-field-beforechange-cancel, date-field-programmatic-silence, and date-field-disconnect-cleanup fail. Changes, cancellation restoration, public API calls, and reconnection share data-state output, so failure is not limited to one test."
+    },
+    {
+      "testId": "date-field-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "plannedMutation": "Leave connected state and listeners active after disconnect.",
+      "mutation": {
+        "description": "Leave connected state and listeners active after disconnect.",
+        "file": "src/date_field_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "date-field-disconnect-cleanup-negative fails."
+    }
+  ]
+}

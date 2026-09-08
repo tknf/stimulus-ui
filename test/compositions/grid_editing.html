@@ -1,0 +1,40 @@
+<table
+  data-controller="grid"
+  role="grid"
+  data-treegrid-expanded-value='["parent"]'
+  aria-label="編集の検証"
+>
+  <tbody>
+    <tr data-treegrid-target="row" data-treegrid-level="1" data-treegrid-value="parent">
+      <th scope="row">
+        <button type="button" data-treegrid-target="toggle">親項目</button>
+      </th>
+      <td
+        id="editable-cell"
+        data-controller="cell-edit-demo"
+        data-cell-edit-demo-editable-outlet="#cell-editor"
+        data-action="keydown->cell-edit-demo#keydown editable:commit->cell-edit-demo#finish editable:cancel->cell-edit-demo#finish"
+      >
+        <div id="cell-editor" data-controller="editable">
+          <div data-editable-target="preview">
+            <span data-cell-edit-demo-target="text">原稿</span>
+            <button type="button" data-editable-target="edit" aria-controls="cell-input-panel">
+              名前を編集
+            </button>
+          </div>
+          <div id="cell-input-panel" data-editable-target="editor" hidden>
+            <label for="cell-name">名前</label>
+            <input id="cell-name" type="text" data-editable-target="input" value="原稿" required />
+            <button type="button" data-editable-target="save">保存</button>
+            <button type="button" data-editable-target="cancel">取消</button>
+          </div>
+        </div>
+      </td>
+    </tr>
+    <tr data-treegrid-target="row" data-treegrid-level="2" data-treegrid-value="child">
+      <th scope="row">子項目</th>
+      <td>参照</td>
+    </tr>
+  </tbody>
+</table>
+<button type="button" id="editing-outside">表の外</button>

@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  ci:
+    name: Check, test, package
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
+        with:
+          node-version: "24"
+          cache: true
+          run-install: false
+      - name: Install dependencies
+        run: vp install --frozen-lockfile
+      - name: Check format, lint, and types
+        run: vp run check
+      - name: Check contracts and workflow
+        run: |
+          vp run check:contracts
+          vp run check:workflow-safety
+          vp run check:release-readiness --schema-only
+          vp run test:release-readiness
+      - name: Install browsers
+        run: vp run browsers:install --with-deps
+      - name: Test Chromium, Firefox, and WebKit
+        run: vp run test:log
+      - name: Build
+        run: vp run pack
+      - name: Inspect the npm package
+        run: vp run check:package
+      - name: Check public API documentation
+        run: |
+          vp run check:api-docs
+          vp run test:api-docs
+      - name: Save test diagnostics
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-results
+          path: |
+            test-results/console.log
+            test-results/results.json
+            test-results/engine-results.json
+            test/__screenshots__/
+          if-no-files-found: ignore

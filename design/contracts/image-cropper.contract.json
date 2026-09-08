@@ -1,0 +1,594 @@
+{
+  "name": "image-cropper",
+  "controller": "image-cropper",
+  "pattern": "A headless image cropper that operates rectangle movement, resizing, and image zoom with native buttons and native ranges. Do not use a two-dimensional slider role or application role",
+  "responsibility": "Manages the selection rectangle, image zoom, and image position and provides CSS custom properties, native-control values, a crop range in the source image, and a cancelable commit event. Does not fetch, generate, or render images, generate elements, or specify layout",
+  "references": [
+    "https://html.spec.whatwg.org/multipage/input.html#range-state-(type=range)",
+    "https://html.spec.whatwg.org/multipage/input.html#common-input-element-events",
+    "https://html.spec.whatwg.org/multipage/interactive-elements.html#the-details-element",
+    "https://www.w3.org/TR/pointerevents3/#implicit-release-of-pointer-capture",
+    "https://stimulus.hotwired.dev/reference/targets",
+    "https://stimulus.hotwired.dev/reference/lifecycle-callbacks",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/button/",
+    "https://www.w3.org/TR/wai-aria-1.2/#group",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html",
+    "https://www.w3.org/WAI/WCAG22/Understanding/pointer-cancellation.html",
+    "https://ark-ui.com/docs/components/image-cropper",
+    "https://github.com/chakra-ui/zag/blob/36489f13b355437bc862b58a5b09e53f979deca2/packages/machines/image-cropper/src/image-cropper.machine.ts#L529"
+  ],
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"image-cropper\" and role=\"group\". Name its purpose with aria-label or aria-labelledby. Do not use a button or input itself as root",
+    "targets": {
+      "viewport": "Exactly one HTMLElement that is the basis for selection operations, parent of image, selection, and resize, with an authored id",
+      "image": "Exactly one native img inside viewport. The user supplies src, optional srcset / sizes, non-empty alt, and draggable=\"false\". Do not make it a child of selection / resize",
+      "selection": "Exactly one native button[type=button] inside viewport, an operable element overlapping the selection rectangle for movement. Give it a name explaining that activation focuses position controls and reference xControl and yControl ids with aria-controls",
+      "resize": "Exactly one native button[type=button] inside viewport at the rectangle block-end / inline-end corner. Make it a sibling of selection, give it a name explaining that activation focuses size controls, and write aria-controls referencing widthControl / heightControl",
+      "xControl": "Exactly one named input[type=range] for adjusting distance from inline-start, with an id and aria-controls referencing viewport",
+      "yControl": "Exactly one named input[type=range] for adjusting distance from the top edge, with an id and aria-controls referencing viewport",
+      "widthControl": "Exactly one named input[type=range] for adjusting selection width, with an id and aria-controls referencing viewport",
+      "heightControl": "Exactly one named input[type=range] for adjusting selection height, with an id and aria-controls referencing viewport",
+      "zoomControl": "Exactly one named input[type=range] for adjusting image zoom, with an id and aria-controls referencing viewport",
+      "instructions": "Exactly one non-empty HTMLElement whose user-authored text explains selection / resize arrows, Shift+arrows, +/-, Escape, and Enter / Space. Do not generate operation instructions"
+    },
+    "controls": "The five ranges are required non-drag pointer / keyboard paths for all features. Number / text inputs are not required. Make the full range track clickable/tappable and do not disable pointer-events outside the thumb. Controls may be grouped in native details inside root. Use a structure where summary opens to reach every control and button activation opens ancestors in behavior.activation order before focusing. Do not nest mutually exclusive details such that a focus target's ancestors cannot be opened together. Do not put ranges inside viewport. All five ranges must share one form owner or all have null form owners",
+    "labels": "Name each range with label, aria-label, or aria-labelledby. Convey in the label or user description that position/dimension units are percentages of viewport and zoom is a multiplier. Name buttons with text, aria-label, or aria-labelledby. The controller does not infer labels, descriptions, or image content",
+    "cssGeometry": "Write user CSS so zoom=1 and offsetX=offsetY=0 make the full source image coincide with viewport. Match viewport and image aspect ratios, omit border / padding, and do not crop the image with object-fit:cover. Rotation, skew, and flip transforms on viewport or ancestors are outside the scope. Use horizontal writing-mode for viewport and support LTR / RTL. Do not mirror the image itself in RTL. Position selection / resize from computed results. The user CSS owns decoration, dimensions, position, overflow, and touch-action",
+    "resources": "The user and browser own image loading, failure messaging, and candidate selection. The controller does not use naturalWidth, naturalHeight, image URL, or pixel data as state. Preserve normalized values when the image changes. The user assigns value to return to a new image's initial range"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "Every target exists exactly once as a distinct element belonging to the same root, with viewport / image / selection / resize containment following authorMarkup.targets",
+      "image is an img with non-empty alt and no tabindex / contenteditable, selection / resize are native buttons, and the five controls are native input[type=range]",
+      "root, buttons, and ranges have names from authorMarkup.labels, and instructions is non-empty. Every aria-labelledby id resolves in the same ownerDocument to non-empty text",
+      "Authored roles agree with group on root, button on buttons, and slider on ranges; controls are not permanently excluded with aria-hidden=true / hidden. Native buttons / ranges do not require authored role",
+      "Authored button type is button and image draggable is false. Missing values are handled by completion",
+      "step and zoomStep are positive finite numbers; minWidth / minHeight are finite numbers greater than 0 and at most 100; maxZoom is at least 1 and 100 * maxZoom is finite",
+      "value is an object with seven finite numbers: x, y, width, height, zoom, offsetX, and offsetY. Ignore unknown keys; missing or non-numeric required keys are invalid. Stimulus Object value attributes contain valid JSON",
+      "The five ranges have the same form owner. Do not mix targets from a nested separate image-cropper on one image"
+    ],
+    "timing": "Validate on connect, target addition/removal, Stimulus value changes, and immediately before operations / public setters. Do not warn about CSS load order or a temporarily zero-sized viewport as markup violations",
+    "invalidMarkup": "For initially invalid markup, do not set output, completion, or operation listeners and issue one enhancement-disabled warning while connected. When valid markup becomes invalid, restore an in-progress preview to the last committed value, release capture, remove operation listeners, and disable enhancement. Keep already synchronized attributes and values. Revalidate after target/value repair or reconnection. Do not throw. Do not replace Stimulus's handling of its own JSON syntax errors",
+    "completion": {
+      "attributes": [
+        "root role=group",
+        "selection / resize type=button",
+        "image draggable=false",
+        "selection / resize / five-range aria-controls"
+      ],
+      "warning": "Supplement only missing static attributes and list them in the standard English wording. Issue one completion warning while connected using a separate flag from the enhancement-disabled warning. Do not warn for complete markup. Do not overwrite authored ids, names, or relationship attributes"
+    },
+    "completionExempt": "Assign operation ids without collisions. Compose the instructions id into selection / resize aria-describedby while preserving existing tokens. Do not warn for range value, min, max, or step=any because they synchronize state/settings. details.open=true used to reveal a focus target on button activation is behavioral and does not warn. Do not duplicate native range values in ARIA value attributes. Read disabled from native attributes rather than outputting synchronized state"
+  },
+  "api": {
+    "values": {
+      "value": {
+        "type": "Object",
+        "htmlAttribute": "data-image-cropper-value-value",
+        "default": {
+          "x": 25,
+          "y": 25,
+          "width": 50,
+          "height": 50,
+          "zoom": 1,
+          "offsetX": 0,
+          "offsetY": 0
+        },
+        "description": "ImageCropperValue. Rectangle and image position use viewport axes where 100 is the full axis; zoom is a multiplier. The HTML attribute is an initial value and external assignment path; do not write operation results back to it"
+      },
+      "step": {
+        "type": "Number",
+        "htmlAttribute": "data-image-cropper-step-value",
+        "default": 1,
+        "description": "Change for one selection / resize arrow operation (viewport %). Delegate native range key increments to the browser"
+      },
+      "zoomStep": {
+        "type": "Number",
+        "htmlAttribute": "data-image-cropper-zoom-step-value",
+        "default": 0.1,
+        "description": "Zoom difference for one + / - operation on selection / resize"
+      },
+      "minWidth": {
+        "type": "Number",
+        "htmlAttribute": "data-image-cropper-min-width-value",
+        "default": 1,
+        "description": "Minimum selection width (viewport %)"
+      },
+      "minHeight": {
+        "type": "Number",
+        "htmlAttribute": "data-image-cropper-min-height-value",
+        "default": 1,
+        "description": "Minimum selection height (viewport %)"
+      },
+      "maxZoom": {
+        "type": "Number",
+        "htmlAttribute": "data-image-cropper-max-zoom-value",
+        "default": 5,
+        "description": "Maximum image zoom. The minimum is fixed at 1"
+      }
+    },
+    "types": {
+      "ImageCropperValue": "{ x: number; y: number; width: number; height: number; zoom: number; offsetX: number; offsetY: number }. x / offsetX use inline-start; y / offsetY use the top edge",
+      "ImageCropperSourceRect": "{ x: number; y: number; width: number; height: number }. The full source image is width 1 and height 1; x / y always use the physical top-left. Do not round pixels to integers",
+      "ImageCropperChangeDetail": "{ value: ImageCropperValue; previousValue: ImageCropperValue; sourceRect: ImageCropperSourceRect; previousSourceRect: ImageCropperSourceRect; reason: 'pointer' | 'keyboard' }. Export all three types from src/index.ts"
+    },
+    "properties": {
+      "value": {
+        "type": "getter: ImageCropperValue | null; setter: ImageCropperValue",
+        "access": "getter/setter",
+        "description": "Null until the first valid connection. Thereafter return a copy of the current value, including the preview during an operation. The setter normalizes and commits all seven values together without dispatching an event or moving focus. It is a no-op while disconnected or when markup / settings are invalid. An invalid object preserves the last committed value and interrupts an in-progress preview"
+      },
+      "sourceRect": {
+        "type": "ImageCropperSourceRect | null",
+        "access": "getter",
+        "description": "A copy of the source-image range calculated from the current value and direction. Null until the first valid connection. Includes the preview"
+      },
+      "zoom": {
+        "type": "getter: number | null; setter: number",
+        "access": "getter/setter",
+        "description": "Current zoom. Null until the first valid connection. The setter interrupts pending operations, applies behavior.zoom from the last committed value, leaves the rectangle unchanged, and synchronizes only zoom and offsets. It is a no-op while disconnected or when markup / settings are invalid. Non-finite numbers preserve the last committed value. Do not dispatch an event or move focus"
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "image-cropper:beforechange": {
+        "when": "Immediately before committing a trusted operation. If a preview exists, first restore the pre-operation committed value before notifying",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "ImageCropperChangeDetail",
+        "effect": "When preventDefault() is called, do not apply the candidate; keep value, sourceRect, all ranges, and custom properties at pre-operation values and do not dispatch change"
+      },
+      "image-cropper:change": {
+        "when": "After beforechange allows the candidate and it is synchronized to every output",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "ImageCropperChangeDetail"
+      },
+      "preview": "Pointermove over the image and continuous native-range input update only the preview. Commit once on image pointerup or native-range change. Dispatch neither event for equal operations at range boundaries",
+      "programmatic": "Public setters, Stimulus value changes, initialization, settings changes, form reset, reconnection, and preview interruption do not dispatch custom events",
+      "reason": "Operations beginning with image drag or range pointerdown use pointer. Operations beginning with keydown use keyboard. Trusted native adjustments without pointerdown / keydown (such as AT) are classified as keyboard. This API does not infer hardware type",
+      "synthetic": "Operation events with isTrusted=false do not commit state. When synthetic input / change changes only a native value, restore it to the controller's current value without dispatching a custom event",
+      "snapshot": "Input objects, getters, beforechange detail, and change detail do not share objects with internal state. Mutating beforechange detail cannot change the candidate. A public setter / disconnect / target change inside a beforechange listener takes precedence over the candidate; do not overwrite with the old candidate or dispatch change"
+    }
+  },
+  "behavior": {
+    "stateOwner": "Use the controller's committed value as the state source. An in-progress operation has an independent start snapshot and preview. Native ranges and CSS are projections of that state. Derive sourceRect rather than storing it",
+    "configuration": "On the first valid connection, normalize the latest value attribute or default using current settings. A value-attribute change is a new batch input; a settings-only change re-normalizes the last committed value. Handle simultaneous attribute changes using the latest settings and value together. For invalid settings / value attributes, preserve the last committed value and disable enhancement. On repair, use new value-attribute input when present; otherwise resume from the preserved committed value. Do not update the initial snapshot on form reset",
+    "direction": "Use viewport computed direction. x / offsetX use its inline-start; preserve all seven values when direction changes and derive sourceRect from the new direction. Direction changes alone dispatch no custom event or focus movement. Delegate native range behavior to each element's browser default",
+    "normalization": "For batch assignment, clamp width / height from each minimum to 100, then x to 0..100-width, y to 0..100-height, zoom to 1..maxZoom, and offsetX / offsetY to 100-100*zoom..0. Correct finite out-of-range numbers and do not commit non-finite inputs or results. Do not round pointer fractions",
+    "singleField": "A single-control change does not move other rectangle values. Clamp x to 0..100-width, y to 0..100-height, width to minWidth..100-x, and height to minHeight..100-y. Do not move position automatically to increase size",
+    "zoom": "A zoom-only operation preserves selection x/y/width/height. With center p=(x+width/2,y+height/2), current zoom z, and new zoom z', calculate offsetX'=p.x-((p.x-offsetX)/z)*z' and offsetY' likewise. Clamp each to 100-100*z'..0. Preserve the image point at the center as far as possible while covering the whole viewport. When edge correction is needed, prioritize coverage over center preservation. Both offsets are 0 at zoom=1",
+    "sourceCoordinates": "LTR: sourceRect.x=(x-offsetX)/(100*zoom). RTL: sourceRect.x=1-(x+width-offsetX)/(100*zoom). In both directions y=(y-offsetY)/(100*zoom), width=width/(100*zoom), and height=height/(100*zoom). Keep each edge within source-image 0..1 without floating-point escape. Do not mirror the image itself",
+    "directPointer": "Accept only the primary pointer's left button on selection / resize. Save start position, current seven values, viewport rectangle, direction, and disabled state, and capture the pointer on the start element. No-op when capture cannot be obtained. Change selection x/y from the start delta and resize width/height from the delta. Convert viewport rendered width/height deltas to percentages and reverse horizontal delta sign in RTL. Keep resize inline-start / top fixed. Do not jump to the grabbed point. Do not mix another pointer into an existing operation",
+    "directCompletion": "Apply through the final pointerup coordinates, release capture, and commit once when start and final candidates differ. Discard preview and restore start values on pointercancel, unexpected lostpointercapture, Escape, window blur, or geometry / direction / disabled changes. Ordinary lostpointercapture after pointerup does not cancel commitment. Allow subsequent click activation only when the pointer did not move from its start. If pointer coordinates moved even once, do not move focus on that operation's subsequent click, including when the value stayed at a boundary or returned to its original position. Suppress exactly one click in that pointer sequence and do not carry it to the next trusted pointerdown / button keydown. Direct pointer operations do not prevent native focus and the controller does not focus itself",
+    "range": "Synchronize the five range value / min / max and step=any properties with controller state. Do not replace native range keyboard, pointer, or AT value changes. Take a start snapshot from the primary pointer's left button or a keydown listed in nativeControls, preview the corresponding value on trusted input, and commit on trusted change. Do not retake the snapshot for key repeats within one range operation. If pointerup / keyup arrives before native change, do not commit; when equal, return to idle while retaining only the origin classification. This prevents adjusting from lingering on a boundary operation without change. A trusted input / change without an origin commits immediately as one native adjustment; do not notify again for an equal later change. Treat Escape, pointercancel, and blur / window blur before completion as interruption. A blur after native change has completed is a no-op. Discard a completed origin on the next operation, blur, or invalidation",
+    "rangeBounds": "xControl is 0..100-width, yControl is 0..100-height, widthControl is minWidth..100-x, heightControl is minHeight..100-y, and zoomControl is 1..maxZoom. Keep the value when min equals max. Set range attributes before synchronizing value and do not treat temporary native sanitization as a separate state change. Do not add aria-valuenow / min / max / valuetext",
+    "activation": "On a trusted click without drag (including native click from Enter / Space), focus enabled xControl for selection or yControl if unavailable; focus enabled widthControl for resize or heightControl if unavailable. No-op when no corresponding enabled control exists. Walk ancestors from the focus target to root, open closed native details with open=true from outermost inward, then focus during the same activation. Do not add open/close-only targets, ARIA, or custom events and do not prevent native toggle. Keep details opened by activation open; do not close them on disconnect / reset. This operation does not change crop values and interrupts any pending preview first",
+    "disabled": "Read native disabled state from disabled attributes and fieldset through :disabled. Ignore disabled origins. When xControl / yControl / widthControl / heightControl / zoomControl is disabled, image operations do not change that field. A disabled selection / resize stops only that operation element. Do not stop operations from enabled ranges or the public API. Interrupt the entire operation if disabled during operation. The controller does not overwrite disabled",
+    "interruptions": "Interrupt a pending preview before accepting another operation. Ignore another pointer during direct drag rather than treating it as a new operation. Public setters, settings / target changes, and uncanceled form reset invalidate old operations. Exclude old capture / deferred callbacks by revision. While a stale range's physical operation continues and on its ending change, restore the native value to the current committed value and consume it without a custom event. After physical-operation cleanup, a new native adjustment without an origin follows normal range rules. New trusted pointerdown / keydown does not inherit stale records. After beforechange, directly revalidate target identity/containment, settings, connection, direction, and disabled state; discard candidate application and change if any changed. Do not use MutationObserver delivery alone for reentrancy detection",
+    "interruptionTiming": "Re-read disabled and direction involved in an operation before each operation event and after dispatching beforechange. For direct pointer operations, also compare viewport left / top / width / height with the start snapshot. Interrupt on difference for that event and do not apply an old delta to new geometry. Continuous geometry polling and image-load subscription are unnecessary. Invalidate on target / value changes from Stimulus callbacks too",
+    "formReset": "Keep the initial snapshot committed on the first valid connection. For associated-form reset, check defaultPrevented after delivery; when canceled, change nothing including preview. When not canceled, normalize the initial snapshot with current settings after native reset and commit it. Do not dispatch an event or move focus. If a public setter / settings change / target replacement / disconnect occurs before post-reset synchronization, it takes precedence and delayed work must not restore the initial value",
+    "geometryUnavailable": "Do not start direct pointer operations when viewport width or height is 0, non-finite, or the document window cannot be obtained. Interrupt an active operation. Normalized values and range / keyboard / public API operations do not depend on viewport pixel dimensions",
+    "exclusions": "Do not select, fetch, decode, or upload image files; create canvas, Blob, or Data URLs; rotate / flip the source image; provide fixed crop-frame mode, aspect-ratio lock, independent image pan, or wheel / pinch interpretation. Do not suppress browser default wheel / pinch behavior"
+  },
+  "keyboard": {
+    "selection": "On focused selection, unmodified ArrowLeft / ArrowRight move horizontally and ArrowUp / ArrowDown move vertically by step. In LTR, Right increases x and Left decreases it; Down increases y and Up decreases it. Reverse horizontal numeric changes in RTL. Shift with the same arrows changes width/height by the same sign while fixing inline-start / top",
+    "resize": "On focused resize, unmodified ArrowLeft / ArrowRight change width and ArrowUp / ArrowDown change height by step. In LTR, Right and Down increase while Left and Up decrease. Reverse width changes in RTL. Ignore Shift combinations",
+    "zoom": "On selection / resize, + or = adds zoomStep and - subtracts it. Allow only Shift needed to type +. No-op when zoomControl is disabled",
+    "nativeControls": "Delegate range ArrowLeft / ArrowRight / ArrowUp / ArrowDown / Home / End / PageUp / PageDown to the browser. Do not double-correct step=any increments or engine differences in RTL. Native button Enter / Space performs activation",
+    "navigationAndCancel": "Preserve DOM-order native focus movement for Tab / Shift+Tab; do not add a trap or roving model. Escape discards only its own in-progress preview. Receive Escape during direct drag from the ownerDocument window without depending on button focus. Call preventDefault only for handled direct-operation arrow/zoom keys and Escape and do not stop propagation. Do not process a key for a disabled axis. Suppress scrolling when an enabled axis reaches an equal boundary and do not dispatch a custom event",
+    "excluded": "For IME (isComposing or keyCode=229), Alt / Control / Meta modifiers, and other keys, do not perform controller-specific direct operations or preventDefault. Do not interfere with native control operation; its trusted input / change follows behavior.range"
+  },
+  "managedMarkup": {
+    "static": "Supplement only attributes in contractValidation.completion / completionExempt. Preserve authored names, descriptions, alt, ids, and aria-controls",
+    "native": "Synchronize the five range min / max / step / value properties. Do not rewrite value content attribute, name, form, disabled, or tabindex. Set details open only for behavior.activation. Do not add unknown two-dimensional ARIA roles or value attributes to root / buttons / ranges",
+    "customProperties": "Output --image-cropper-x, --image-cropper-y, --image-cropper-width, --image-cropper-height, --image-cropper-zoom, --image-cropper-offset-x, and --image-cropper-offset-y as unitless finite numbers on root. The user determines CSS placement, conversion to dimension units, and image rendering",
+    "content": "Do not generate innerHTML / textContent / output content. Write only the seven custom properties to style. Do not write position, width, height, transform, overflow, touch-action, or class"
+  },
+  "stateOutputs": {
+    "root": "data-state=idle when there is no preview, moving during selection pointer operation, resizing during resize pointer operation, and adjusting during a pending range operation. This is the component's single operation state",
+    "ownership": "Only root data-state and the seven managedMarkup.customProperties values are controller-owned CSS output. Do not add per-target data-state, data-disabled, or image loading state"
+  },
+  "lifecycle": [
+    "Reset warningIssued / completionWarningIssued on each connection and register listeners after validation. Do not start operations when TargetConnected / TargetDisconnected runs before connect",
+    "Track target additions and removals with Stimulus callbacks and coalesce multiple changes in reconcile. Clean up old-element listeners / capture before adopting new elements",
+    "Subscribe to pointer, keydown / keyup, click, input / change, blur, and form reset only while connected. Global listeners use ownerDocument / its window and do not capture operations from another root",
+    "Even when root remains in the DOM, disconnect disables all listeners and deferred work, releases capture, and restores the last committed value. Set root data-state to idle. Retain generated ids / ARIA / custom properties / range values",
+    "On reconnection of the same instance, do not repeat initialization and preserve the last committed value. If the value attribute changes while disconnected, use its latest value on reconnection. Do not duplicate listeners or custom events",
+    "Check connection and operation revisions for each capture / deferred callback / beforechange so stale work cannot commit another operation. Do not move focus with a timer"
+  ],
+  "consumerIntegration": {
+    "imageGeneration": "Multiply sourceRect x / width by source-image width and y / height by source-image height to produce the source rectangle for image generation. For an 800x600 image, sourceRect={x:0.375,y:0.375,width:0.25,height:0.25} yields source x=300,y=225,width=200,height=150. The user JS obtains natural size, checks loading success, rounds integers, chooses output size, and handles canvas and CORS",
+    "css": "Use each % output for selection inline-start / top / width / height. Start the image from offset percentages and make its width/height zoom times viewport. On zoom changes, keep the selection's visual position/dimensions and enlarge the image beneath it",
+    "externalControls": "Additional number inputs or custom UI are optional. User JS can read/write value / zoom. Because the programmatic API dispatches no event, the caller handles custom UI notifications. Required native ranges cannot simply be removed",
+    "nested": "Events bubble. When receiving them outside a nested same-type controller, limit the root with :self or event.target === event.currentTarget"
+  },
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver, Windows Firefox + NVDA, iOS Safari + VoiceOver, and Android Chrome",
+        "item": "Native range names/values, navigation between controls, touch scrolling, and track-tap ergonomics",
+        "status": "unverified",
+        "impact": "Five named native ranges, geometry, keyboard behavior, and pointercancel restoration are fixed. Inoperable controls or missing values are defects, not successful observations; headless tests do not verify real-device speech."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Require WCAG 2.2 AA and verify that controller-owned name/role/value synchronization, keyboard paths for all operations, pointer cancellation, non-drag pointer paths, and focus visibility are not obstructed. The user owns image alternative content, descriptions, contrast, target size, focus indicators, and placement according to authorMarkup",
+    "AAA 2.1.3 Keyboard (No Exception): movement, resizing, and zoom each have a named native range and a direct keyboard equivalent. No pointer-only feature exists",
+    "AAA 3.2.5 Change on Request: only explicit selection / resize button activation moves focus. Connection, synchronization, reconnection, reset, and timers do not move focus",
+    "WCAG 2.5.7: clicking/tapping the five range tracks alone changes position, width, height, and zoom. Numeric inputs are optional, but no non-drag control may be omitted. The catalog and three-engine tests verify this independently of direct drag",
+    "WCAG 2.5.2: direct drag commits on pointerup and restores start values on Escape / pointercancel. Native ranges commit on native change. Do not dispatch change from a canceled preview",
+    "Verify normalization, image coverage, center-based zoom, and LTR / RTL conversion to physical top-left source coordinates with fixed expected values. Keep source rectangles inside the image and do not write CSS output directly to user layout properties",
+    "Verify beforechange → value/range/CSS synchronization → change order, cancellation, equal values, synthetic events, public API, disabled state, reentrant setters, target replacement, disconnect / reconnect, and form reset",
+    "Run component tests and catalog scenarios in Chromium, Firefox, and WebKit. Check direct pointer capture and native-range event order in all three engines; do not replace failures with unverified observations",
+    "observation / image-cropper-native-at: observe native range name/value announcements in the catalog, guidance when moving from buttons to ranges, and distinguishing five controls using macOS Safari + VoiceOver, Windows Firefox + NVDA, and iOS Safari + VoiceOver. Unverified. Native button/range roles, five required controls, native min/max/value, and equivalent paths for all features are fixed; do not revisit them based on announcement wording, duplication, or timing. Treat inoperable controls or missing values as implementation defects or needs_replan, not successful observation",
+    "observation / image-cropper-touch: observe touch-action and page-scrolling ergonomics from user CSS and range-track taps on real-device iOS Safari and Android Chrome. Unverified. Public geometry, keyboard, ARIA, required markup, and pointercancel restoration are independent of the result. Do not introduce gestures or suppress wheel / pinch based on this observation"
+  ],
+  "testMatrix": [
+    {
+      "testId": "image-cropper-semantic-validation",
+      "description": "Disable invalid target counts/types/containment, accessible names, instructions, settings/value, and missing native ranges"
+    },
+    {
+      "testId": "image-cropper-state-sync",
+      "description": "Initial values, seven custom properties, range bounds/value, authored-attribute preservation, and no CSS/content generation"
+    },
+    {
+      "testId": "image-cropper-completion-warning",
+      "description": "Completion warning for static attributes, behavioral-attribute exemptions, no warning for complete markup, and reconnection"
+    },
+    {
+      "testId": "image-cropper-geometry",
+      "description": "min/max, single-field and batch-setter clamping, zoom center, image coverage, source conversion, and fractions"
+    },
+    {
+      "testId": "image-cropper-direction",
+      "description": "Logical direction for direct key/pointer, physical RTL sourceRect coordinates, and native-range default behavior preservation"
+    },
+    {
+      "testId": "image-cropper-keyboard",
+      "description": "Movement, Shift resize, resize handle, +/-, IME/modifier exclusion, and Tab/Enter/Space/Escape. Open closed details before focusing an enabled range without changing values or custom events"
+    },
+    {
+      "testId": "image-cropper-non-drag",
+      "description": "Operate five ranges with trusted clicks without drag and verify each state and sourceRect change; reach the same features with native keyboard operation"
+    },
+    {
+      "testId": "image-cropper-pointer",
+      "description": "Trusted selection/resize drag, grab offset, pointer capture, final position, preview, pointercancel/Escape/lost capture. A drag returning to its original pointer coordinates leaves values/events unchanged. Distinguish focus results for boundary no-change drag and ordinary click"
+    },
+    {
+      "testId": "image-cropper-events",
+      "description": "Commit order, detail, cancellation, equal values, bubbling, and event suppression during preview"
+    },
+    {
+      "testId": "image-cropper-native-range",
+      "description": "Native range input/change, pointer and keyboard origins, originless native adjustment, and synthetic-event value restoration. Return to idle on equal track click/boundary key and do not carry the prior preview into the next snapshot"
+    },
+    {
+      "testId": "image-cropper-disabled",
+      "description": "Native/fieldset disabled, direct-operation suppression for affected axes, invalidation during operation, and public API independence"
+    },
+    {
+      "testId": "image-cropper-interruption",
+      "description": "Invalidation from setter/settings/target/direction/geometry changes, changes inside beforechange, and delayed native events. Accept a new native adjustment after stale physical operation cleanup"
+    },
+    {
+      "testId": "image-cropper-lifecycle",
+      "description": "Disconnect with DOM retained, capture/listener cleanup, reconnection, target replacement, reset cancellation/race, nested instances, and multiple instances"
+    },
+    {
+      "testId": "image-cropper-public-api",
+      "description": "value / zoom / sourceRect, copy isolation, invalid setters, programmatic silence, and range preservation when replacing an image"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "image-cropper-reset-negative",
+      "guard": "Restore the initial snapshot on form reset",
+      "mutation": {
+        "description": "Omit restoration of the initial snapshot on form reset",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.committedValue = this.normalizeValue(this.initialValue);",
+            "replace": "\t\t\tvoid this.initialValue;"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-reset-negative fails."
+    },
+    {
+      "testId": "image-cropper-semantic-negative",
+      "guard": "Required native controls and semantic validation",
+      "plannedMutation": "Remove validation of the five ranges' presence, type, and meaning and continue enhancement with incomplete operation paths",
+      "mutation": {
+        "description": "Remove reconcile() semantic validation and allow enhancement for invalid markup",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tmarkup === null ||\n\t\t\t!this.isValidMarkup() ||\n\t\t\t!this.isValidConfiguration() ||\n\t\t\t!isImageCropperValue(this.valueValue)",
+            "replace": "\t\t\tmarkup === null ||\n\t\t\tfalse ||\n\t\t\t!this.isValidConfiguration() ||\n\t\t\t!isImageCropperValue(this.valueValue)"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-semantic-negative fails."
+    },
+    {
+      "testId": "image-cropper-completion-negative",
+      "guard": "Completion warning and authored-attribute preservation",
+      "plannedMutation": "Suppress the completion warning and remove the existence guard for authored aria-controls. Detect the preservation violation with an authored attribute referencing a different target",
+      "mutation": {
+        "description": "Remove completion warning and authored aria-controls preservation guards",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.warnCompletion(completionAttributes);",
+            "replace": "\t\tvoid completionAttributes;"
+          },
+          {
+            "find": "\t\t\tif (control.hasAttribute(\"aria-controls\")) {",
+            "replace": "\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-completion-warning and image-cropper-state-sync fail"
+    },
+    {
+      "testId": "image-cropper-bounds-negative",
+      "guard": "Bounds for rectangle, zoom, and image offsets",
+      "plannedMutation": "Remove the shared clamp and produce an out-of-image sourceRect or out-of-range value rather than a crash",
+      "mutation": {
+        "description": "Disable the shared clamp and allow out-of-range values",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));",
+            "replace": "const clamp = (value: number, _min: number, _max: number) => value;"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-geometry, image-cropper-pointer, image-cropper-events, image-cropper-disabled, and image-cropper-interruption fail"
+    },
+    {
+      "testId": "image-cropper-zoom-negative",
+      "guard": "Center-based zoom preserving the selection frame",
+      "plannedMutation": "Fix offset on zoom change and stop preserving the image point at the center",
+      "mutation": {
+        "description": "Fix offset on zoom change and remove center-based correspondence",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tvalue.offsetX = clamp(\n\t\t\tcenterX - ((centerX - base.offsetX) / base.zoom) * zoom,\n\t\t\t100 - 100 * zoom,\n\t\t\t0,\n\t\t);",
+            "replace": "\t\tvalue.offsetX = base.offsetX;"
+          },
+          {
+            "find": "\t\tvalue.offsetY = clamp(\n\t\t\tcenterY - ((centerY - base.offsetY) / base.zoom) * zoom,\n\t\t\t100 - 100 * zoom,\n\t\t\t0,\n\t\t);",
+            "replace": "\t\tvalue.offsetY = base.offsetY;"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-geometry fails."
+    },
+    {
+      "testId": "image-cropper-direction-negative",
+      "guard": "Conversion from logical direction to physical source-image direction",
+      "plannedMutation": "Disable RTL horizontal-delta reversal and physical-coordinate conversion for sourceRect",
+      "mutation": {
+        "description": "Disable RTL horizontal-delta reversal and physical-coordinate conversion for sourceRect",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst horizontalDelta = direction === \"rtl\" ? -this.stepValue : this.stepValue;",
+            "replace": "\t\tconst horizontalDelta = this.stepValue;"
+          },
+          {
+            "find": "\t\tconst rawX =\n\t\t\tdirection === \"rtl\"\n\t\t\t\t? 1 - (value.x + value.width - value.offsetX) / denominator\n\t\t\t\t: (value.x - value.offsetX) / denominator;",
+            "replace": "\t\tconst rawX = (value.x - value.offsetX) / denominator;"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-direction fails."
+    },
+    {
+      "testId": "image-cropper-cancel-negative",
+      "guard": "beforechange rejection and preservation of start values",
+      "plannedMutation": "Ignore the beforechange dispatchEvent return value and apply the candidate",
+      "mutation": {
+        "description": "Disable beforechange cancellation detection",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!allowed) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-events fails."
+    },
+    {
+      "testId": "image-cropper-preview-negative",
+      "guard": "Do not dispatch committed events during preview",
+      "plannedMutation": "Replace pointermove / native input preview with a commit notification",
+      "mutation": {
+        "description": "Replace direct-pointer preview with a commit operation",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.previewValue = candidate;\n\t\tthis.syncState();",
+            "replace": "\t\tthis.requestUserChange(candidate, interaction.origin, \"pointer\", interaction.context, this.revision);"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-pointer fails."
+    },
+    {
+      "testId": "image-cropper-trusted-negative",
+      "guard": "Reject synthetic operations, secondary pointers, and other-pointer mixing",
+      "plannedMutation": "Remove keydown / click / pointer / input / change isTrusted guards and pointer isPrimary / pointerId guards together. Detect each guard with an independent test",
+      "mutation": {
+        "description": "Remove trusted, primary, and pointerId guards together",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleClick = (event: MouseEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted) {",
+            "replace": "\tprivate handleClick = (event: MouseEvent) => {\n\t\tif (!this.ensureEnhanced()) {"
+          },
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted || isImeKeydown(event)) {",
+            "replace": "\t\tif (!this.ensureEnhanced() || isImeKeydown(event)) {"
+          },
+          {
+            "find": "\tprivate handleDirectPointerdown = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary || event.button !== 0) {",
+            "replace": "\tprivate handleDirectPointerdown = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || event.button !== 0) {"
+          },
+          {
+            "find": "\tprivate handleRangeInput = (event: Event) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst control = event.currentTarget;\n\t\tif (!(control instanceof HTMLInputElement)) {\n\t\t\treturn;\n\t\t}\n\t\tconst field = this.rangeFieldFor(control);\n\t\tif (field === null) {\n\t\t\treturn;\n\t\t}\n\t\tif (!event.isTrusted) {\n\t\t\tthis.syncState();\n\t\t\treturn;\n\t\t}\n\t\tif (this.isDisabled(control)) {",
+            "replace": "\tprivate handleRangeInput = (event: Event) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst control = event.currentTarget;\n\t\tif (!(control instanceof HTMLInputElement)) {\n\t\t\treturn;\n\t\t}\n\t\tconst field = this.rangeFieldFor(control);\n\t\tif (field === null) {\n\t\t\treturn;\n\t\t}\n\t\tif (this.isDisabled(control)) {"
+          },
+          {
+            "find": "\tprivate handleRangeChange = (event: Event) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst control = event.currentTarget;\n\t\tif (!(control instanceof HTMLInputElement)) {\n\t\t\treturn;\n\t\t}\n\t\tconst field = this.rangeFieldFor(control);\n\t\tif (field === null) {\n\t\t\treturn;\n\t\t}\n\t\tif (!event.isTrusted) {\n\t\t\tthis.syncState();\n\t\t\treturn;\n\t\t}\n\t\tif (this.isDisabled(control)) {",
+            "replace": "\tprivate handleRangeChange = (event: Event) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst control = event.currentTarget;\n\t\tif (!(control instanceof HTMLInputElement)) {\n\t\t\treturn;\n\t\t}\n\t\tconst field = this.rangeFieldFor(control);\n\t\tif (field === null) {\n\t\t\treturn;\n\t\t}\n\t\tif (this.isDisabled(control)) {"
+          },
+          {
+            "find": "\tprivate handleDirectPointermove = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\" || interaction.pointerId !== event.pointerId) {",
+            "replace": "\tprivate handleDirectPointermove = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\") {"
+          },
+          {
+            "find": "\tprivate handleDirectPointerup = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\" || interaction.pointerId !== event.pointerId) {",
+            "replace": "\tprivate handleDirectPointerup = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\") {"
+          },
+          {
+            "find": "\tprivate handleDirectPointercancel = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\" || interaction.pointerId !== event.pointerId) {",
+            "replace": "\tprivate handleDirectPointercancel = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced()) {\n\t\t\treturn;\n\t\t}\n\t\tconst interaction = this.interaction;\n\t\tif (interaction?.type !== \"direct\") {"
+          },
+          {
+            "find": "\tprivate handleLostPointerCapture = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary) {",
+            "replace": "\tprivate handleLostPointerCapture = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced()) {"
+          },
+          {
+            "find": "\tprivate handleRangePointerdown = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || !event.isTrusted || !event.isPrimary || event.button !== 0) {",
+            "replace": "\tprivate handleRangePointerdown = (event: PointerEvent) => {\n\t\tif (!this.ensureEnhanced() || event.button !== 0) {"
+          },
+          {
+            "find": "\t\t\tinteraction.button !== event.currentTarget ||\n\t\t\tinteraction.pointerId !== event.pointerId ||",
+            "replace": "\t\t\tinteraction.button !== event.currentTarget ||"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-pointer, image-cropper-keyboard, and image-cropper-native-range fail"
+    },
+    {
+      "testId": "image-cropper-disabled-negative",
+      "guard": "Native disabled and affected-axis exclusion",
+      "plannedMutation": "Remove disabled guards for affected controls and origins together. Set disabled during capture to avoid browser delivery suppression",
+      "mutation": {
+        "description": "Remove disabled guards for affected controls, origins, and selection",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate isRangeFieldDisabled = (markup: Markup, field: RangeField) =>\n\t\tthis.isDisabled(this.controlFor(markup, field));",
+            "replace": "\tprivate isRangeFieldDisabled = (_markup: Markup, _field: RangeField) => false;"
+          },
+          {
+            "find": "\t\tif (this.isDisabled(button)) {",
+            "replace": "\t\tif (false) {"
+          },
+          {
+            "find": "\t\t\tif (!interaction.context.disabled.x) {\n\t\t\t\tcandidate.x = clamp(base.x + deltaX, 0, 100 - base.width);\n\t\t\t}",
+            "replace": "\t\t\tcandidate.x = clamp(base.x + deltaX, 0, 100 - base.width);"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-disabled fails."
+    },
+    {
+      "testId": "image-cropper-programmatic-negative",
+      "guard": "Suppress events from the public API",
+      "plannedMutation": "Replace value / zoom setter commitment with a user change",
+      "mutation": {
+        "description": "Dispatch a change event from value / zoom setters",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.committedValue = this.normalizeValue(value);\n\t\tthis.syncState();",
+            "replace": "\t\tthis.committedValue = this.normalizeValue(value);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"image-cropper:change\", { bubbles: true }));\n\t\tthis.syncState();"
+          },
+          {
+            "find": "\t\tthis.committedValue = this.zoomValue(this.committedValue, value);\n\t\tthis.syncState();",
+            "replace": "\t\tthis.committedValue = this.zoomValue(this.committedValue, value);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"image-cropper:change\", { bubbles: true }));\n\t\tthis.syncState();"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-public-api, image-cropper-geometry, image-cropper-events, and image-cropper-interruption fail"
+    },
+    {
+      "testId": "image-cropper-stale-negative",
+      "guard": "Stale operations must not overwrite new values",
+      "plannedMutation": "Remove revision / pending guards that reject stale beforechange and native-range operations together",
+      "mutation": {
+        "description": "Remove post-beforechange revision and native-range stale-operation guards together",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (revision !== this.revision || !this.contextStillValid(context)) {",
+            "replace": "\t\tif (!this.contextStillValid(context)) {"
+          },
+          {
+            "find": "\t\t\tif (stale !== undefined && !stale.physicalEnded) {",
+            "replace": "\t\t\tif (false) {"
+          },
+          {
+            "find": "\t\t\tconst stale = this.staleRanges.get(control);\n\t\t\tif (stale !== undefined) {",
+            "replace": "\t\t\tconst stale = this.staleRanges.get(control);\n\t\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-interruption fails."
+    },
+    {
+      "testId": "image-cropper-cleanup-negative",
+      "guard": "Release listeners and capture on disconnect",
+      "plannedMutation": "Remove listener removal and capture release together. Call disconnect directly with DOM retained and test the cleanup and subsequent behavior",
+      "mutation": {
+        "description": "Remove disconnect listener removal and direct pointer-capture release",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.invalidateInteraction(true);\n\t\tthis.connected = false;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.invalidateInteraction(true);\n\t\tthis.connected = false;\n\t\tvoid this.boundMarkup;"
+          },
+          {
+            "find": "\t\tif (interaction?.type === \"direct\") {\n\t\t\tthis.releaseDirectCapture(interaction);\n\t\t}",
+            "replace": "\t\tvoid interaction;"
+          }
+        ]
+      },
+      "expectedFailure": "The image-cropper-lifecycle listener-removal and capture-release tests fail independently"
+    },
+    {
+      "testId": "image-cropper-snapshot-negative",
+      "guard": "Separate public objects from internal state",
+      "plannedMutation": "Return internal value objects directly from the value getter and beforechange detail instead of copying them",
+      "mutation": {
+        "description": "Return internal objects directly as public value getter and event-detail values",
+        "file": "src/image_cropper_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn value === null ? null : cloneValue(value);",
+            "replace": "\t\treturn value;"
+          },
+          {
+            "find": "\t\tvalue: cloneValue(value),",
+            "replace": "\t\tvalue,"
+          }
+        ]
+      },
+      "expectedFailure": "image-cropper-public-api and image-cropper-events fail"
+    }
+  ]
+}

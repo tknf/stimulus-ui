@@ -1,0 +1,472 @@
+{
+  "name": "toast",
+  "controller": "toast",
+  "pattern": "A toast using WAI-ARIA Status Messages and a consumer-provided live region",
+  "responsibility": "Provides visibility, ARIA, dismissal, timers, and state outputs for an existing live region. Does not create the toast element or notification content.",
+  "references": [
+    "https://www.w3.org/TR/wai-aria-1.3/#status",
+    "https://www.w3.org/TR/wai-aria-1.3/#alert",
+    "https://html.spec.whatwg.org/multipage/popover.html",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "A consumer-provided HTMLElement with data-controller=\"toast\"; the root is both the live region and toast content.",
+    "dismiss": "An optional native <button type=\"button\"> with data-toast-target=\"dismiss\"; consumers supply its wording and accessible name.",
+    "content": "The controller creates no toast element, live region, notification text, or buttons.",
+    "position": "Consumer CSS and markup determine placement, stacking, z-index, and queuing."
+  },
+  "contractValidation": {
+    "root": [
+      "The root must be an HTMLElement",
+      "Zero or one dismiss target is allowed.",
+      "The dismiss target must be a native <button type=\"button\"> inside the root."
+    ],
+    "values": ["duration must be a finite number >= 0.", "live must be polite or assertive."],
+    "popover": "A root with a popover attribute must support showPopover()/hidePopover().",
+    "invalidMarkup": "Invalid configuration warns once per connection and disables ARIA, listeners, timers, state outputs, and visibility operations. Do not throw.",
+    "warning": "Warnings identify toast controller and invalid markup/values.",
+    "completionExempt": "Role and aria-live reflect the live configuration and are not subject to completion warnings."
+  },
+  "api": {
+    "values": {
+      "duration": {
+        "type": "Number",
+        "htmlAttribute": "data-toast-duration-value",
+        "default": 0,
+        "description": "Milliseconds from becoming visible until automatic hiding; zero disables automatic hiding."
+      },
+      "live": {
+        "type": "String",
+        "htmlAttribute": "data-toast-live-value",
+        "allowed": ["polite", "assertive"],
+        "default": "polite",
+        "description": "Value supplied when root aria-live is absent. Preserve authored aria-live."
+      }
+    },
+    "properties": {
+      "visible": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current visibility. Assignment synchronizes visibility/data-state without events."
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Show programmatically without moving focus or emitting custom events. Only a trusted Event supplied through a Stimulus action uses the user-originated show event path."
+      },
+      "hide()": {
+        "returns": "void",
+        "description": "Hide programmatically without moving focus or emitting custom events. Only a trusted dismiss-button or Stimulus-action Event uses the user-originated hide event path."
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "toast:beforeshow": {
+        "when": "Before a show action receiving a trusted user Event changes hidden to visible",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard"
+        },
+        "effect": "preventDefault() leaves visibility/timer unchanged and suppresses toast:show."
+      },
+      "toast:show": {
+        "when": "After the user show action commits without toast:beforeshow cancellation",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard"
+        }
+      },
+      "toast:beforehide": {
+        "when": "Before a trusted dismiss-button or user hide action changes visible to hidden",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard"
+        },
+        "effect": "preventDefault() prevents hiding, leaves the timer unchanged, and suppresses toast:hide."
+      },
+      "toast:hide": {
+        "when": "After the user hide action commits without toast:beforehide cancellation",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard"
+        }
+      },
+      "programmatic": "visible assignment, show(), hide(), initialization, reconnection, timeout, external popover toggle, and disconnect emit no custom events. Timeout does not emit an event with reason=timeout.",
+      "sameState": "User operations requesting the current visibility emit no before/after events."
+    }
+  },
+  "managedMarkup": {
+    "role": "Supply role=status for live=polite or role=alert for live=assertive only when root role is absent. Preserve authored role.",
+    "ariaLive": "Supply the live value as aria-live only when absent. Preserve authored aria-live.",
+    "popover": "Respect authored popover. In popover mode, use Popover API visibility rather than changing hidden for visibility state.",
+    "hidden": "Synchronize hidden for visibility only without popover.",
+    "stateOnly": "The sole controller-managed CSS hook is root data-state=\"visible\" or \"hidden\".",
+    "preservation": "Preserve authored id, role, aria-live, aria-atomic, popover, hidden, and other attributes except required state outputs."
+  },
+  "behavior": {
+    "initial": "Initial visibility comes from hidden when not a popover, or :popover-open when it is.",
+    "show": "show() does not move focus and starts a timeout after becoming visible when duration > 0.",
+    "hide": "hide() does not move focus and cancels the timer.",
+    "dismiss": "Trusted clicks on enabled dismiss buttons use pointer for click.detail>0 or keyboard for detail=0, then close through beforehide.",
+    "timing": "duration=0 disables automatic hiding. Do not hide on the duration timer while focus is inside the root; restart the full duration when focus leaves. Measurements in Chromium, Firefox, and WebKit show hiding a root containing focus drops focus to body in both hidden/popover modes. Consumers decide how to make automatically hidden information available elsewhere.",
+    "focus": "Never move focus or add the toast root to the tab sequence. Timers do not move focus because automatic hiding is postponed while focus remains inside."
+  },
+  "lifecycle": [
+    "Register listeners in connect() and remove them in disconnect(); do not duplicate them during Turbo reconnection.",
+    "Cancel/reschedule timers as needed on connect(), show(), hide(), disconnect(), and focus entering/leaving the root.",
+    "Target/value callbacks do not change visibility before connect(); coalesce reconciliation during connection.",
+    "Do not remove generated role, aria-live, data-state, or hidden on disconnect()."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices and browser focus behavior",
+        "item": "Live-region announcement order, pre-existing regions, repeated notifications, Popover interaction, and timer resumption when a focused element disappears without focusout",
+        "status": "unverified",
+        "impact": "Consumer-authored live regions and the no-timer-focus rule are fixed. Failure to resume the timer leaves the toast visible and preserves its information; this outcome is not reported as verified."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Conforming consumer-provided live regions must support WCAG 2.2 Level AA Status Messages (4.1.3), announcing state without moving focus.",
+    "Automated tests cannot fully verify implicit live behavior of status/alert/log roles, Popover focus/stacking, pre-existing live regions, or repeated announcements. Report real-device screen reader verification as unverified.",
+    "If a focused element disappears without focusout, such as removing a focused dismiss button, timer resumption remains unverified. Failure to resume leaves the toast visible, preserving the information.",
+    "Only trusted user actions emit one cancelable before event and one committed event, in order.",
+    "Programmatic API calls, initialization, timeout, and external popover toggles synchronize state without events.",
+    "duration=0 does not auto-hide; duration>0 timers are canceled on disconnect.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Report real-device screen reader checks of announcement order, pre-existing regions, repeated notifications, and Popover behavior as unverified."
+  ],
+  "testMatrix": [
+    {
+      "testId": "toast-state-sync",
+      "description": "Synchronizing role, aria-live, data-state, and authored attributes"
+    },
+    {
+      "testId": "toast-initial-state",
+      "description": "Initial hidden state and visible/hide API synchronization"
+    },
+    {
+      "testId": "toast-dismiss-events",
+      "description": "Dismiss beforehide cancellation, hide event, and pointer/keyboard reason"
+    },
+    {
+      "testId": "toast-programmatic-silence",
+      "description": "No events from visible assignment, show/hide API, or synthetic operations"
+    },
+    {
+      "testId": "toast-timeout",
+      "description": "Duration timeout, duration=0, and timer cleanup on disconnect"
+    },
+    {
+      "testId": "toast-focus-hold",
+      "description": "Pause timers while focus is inside, then restart duration and auto-hide after focus leaves"
+    },
+    {
+      "testId": "toast-popover-mode",
+      "description": "Popover showPopover/hidePopover without changing hidden"
+    },
+    {
+      "testId": "toast-disconnect-cleanup",
+      "description": "Preventing duplicate listeners/timers on disconnect/reconnect"
+    },
+    {
+      "testId": "toast-semantic-validation",
+      "description": "Warnings and disabled enhancement for invalid dismiss targets or values"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "toast-semantic-validation-negative",
+      "guard": "semantic/value validation",
+      "mutation": {
+        "description": "Disable semantic/value validation and accept invalid toast configuration.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-semantic-validation-negative fails."
+    },
+    {
+      "testId": "toast-timeout-cleanup-negative",
+      "guard": "disconnect timer cleanup",
+      "mutation": {
+        "description": "Disable timer cleanup on disconnect, allowing stale timeouts after reconnection.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.clearTimer();\n\t\tthis.unbind();\n\t\tthis.connected = false;",
+            "replace": "\t\tthis.unbind();\n\t\tthis.connected = false;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-timeout-cleanup-negative fails."
+    },
+    {
+      "testId": "toast-root-state-negative",
+      "guard": "data-state output",
+      "mutation": {
+        "description": "Fix root data-state to a constant, losing visible/hidden synchronization.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = this.currentVisible ? \"visible\" : \"hidden\";",
+            "replace": "\t\tthis.element.dataset.state = \"hidden\";"
+          }
+        ]
+      },
+      "expectedFailure": "toast-root-state-negative fails."
+    },
+    {
+      "testId": "toast-role-preservation-negative",
+      "guard": "authored role preservation",
+      "mutation": {
+        "description": "Remove the role hasAttribute guard and overwrite authored role.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"role\")) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-role-preservation-negative fails."
+    },
+    {
+      "testId": "toast-aria-live-preservation-negative",
+      "guard": "authored aria-live preservation",
+      "mutation": {
+        "description": "Remove the aria-live hasAttribute guard and overwrite authored aria-live.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"aria-live\")) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-aria-live-preservation-negative fails."
+    },
+    {
+      "testId": "toast-hidden-state-negative",
+      "guard": "hidden state synchronization",
+      "mutation": {
+        "description": "Fix hidden synchronization to a constant on non-popover roots, breaking visibility after hide.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.element.hidden = !visible;",
+            "replace": "\t\t\tthis.element.hidden = false;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-hidden-state-negative fails."
+    },
+    {
+      "testId": "toast-same-state-guard-negative",
+      "guard": "hide same-state early return",
+      "mutation": {
+        "description": "Remove hide()'s same-currentVisible early return.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !this.currentVisible) {",
+            "replace": "\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-same-state-guard-negative fails."
+    },
+    {
+      "testId": "toast-disabled-dismiss-negative",
+      "guard": "disabled dismiss exclusion",
+      "mutation": {
+        "description": "Remove the dismiss disabled guard and accept disabled activation.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!dismiss || dismiss.disabled) {",
+            "replace": "\t\tif (!dismiss) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-disabled-dismiss-negative fails."
+    },
+    {
+      "testId": "toast-click-trusted-negative",
+      "guard": "dismiss click isTrusted",
+      "mutation": {
+        "description": "Remove dismiss-click isTrusted checking and treat synthetic clicks as user operations.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.ensureEnhanced() || !event.isTrusted) {",
+            "replace": "\t\tif (!this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-click-trusted-negative fails."
+    },
+    {
+      "testId": "toast-timer-schedule-negative",
+      "guard": "duration positive timer guard",
+      "mutation": {
+        "description": "Remove the duration > 0 timer condition and schedule timeouts for duration=0.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = this.currentVisible ? \"visible\" : \"hidden\";\n\t\tif (this.currentVisible && this.durationValue > 0) {",
+            "replace": "\t\tthis.element.dataset.state = this.currentVisible ? \"visible\" : \"hidden\";\n\t\tif (this.currentVisible) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-timer-schedule-negative, toast-state-sync, toast-dismiss-events, and toast-popover-mode fail on the shared timer/state invariant."
+    },
+    {
+      "testId": "toast-duration-change-reconcile-negative",
+      "guard": "duration value change reconciliation",
+      "mutation": {
+        "description": "Disable reconciliation after duration changes, losing dynamic timer configuration.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdurationValueChanged = () => this.scheduleReconcile();",
+            "replace": "\tdurationValueChanged = () => {};"
+          }
+        ]
+      },
+      "expectedFailure": "toast-duration-change-reconcile-negative fails."
+    },
+    {
+      "testId": "toast-focus-hold-negative",
+      "guard": "focus-held timer suspension",
+      "mutation": {
+        "description": "Disable timer cancellation on focusin, allowing automatic hiding while focus is inside.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleFocusIn = () => {\n\t\tthis.clearTimer();\n\t};",
+            "replace": "\tprivate handleFocusIn = () => {};"
+          }
+        ]
+      },
+      "expectedFailure": "toast-focus-hold-negative fails."
+    },
+    {
+      "testId": "toast-focus-hold-schedule-negative",
+      "guard": "scheduleTimer focus guard",
+      "mutation": {
+        "description": "Disable scheduleTimer's focus guard and schedule timers while focus is inside.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.element.contains(this.element.ownerDocument.activeElement)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-focus-hold-schedule-negative fails."
+    },
+    {
+      "testId": "toast-popover-toggle-listener-negative",
+      "guard": "external popover toggle listener",
+      "mutation": {
+        "description": "Disable the external Popover toggle listener so external visibility changes do not update state.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.addEventListener(\"click\", this.handleClick);\n\t\tif (this.popoverMode) {",
+            "replace": "\t\tthis.element.addEventListener(\"click\", this.handleClick);\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "toast-popover-toggle-listener-negative fails."
+    },
+    {
+      "testId": "toast-disconnect-listener-negative",
+      "guard": "disconnect listener cleanup",
+      "mutation": {
+        "description": "Remove both listener cleanup and connected reset on disconnect, allowing listeners to act afterward.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.unbind();\n\t\tthis.connected = false;",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-disconnect-listener-negative fails."
+    },
+    {
+      "testId": "toast-duration-validation-negative",
+      "guard": "duration validation",
+      "mutation": {
+        "description": "Always accept duration >= 0 validation.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst durationIsValid = Number.isFinite(this.durationValue) && this.durationValue >= 0;",
+            "replace": "\t\tconst durationIsValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-duration-validation-negative fails."
+    },
+    {
+      "testId": "toast-live-validation-negative",
+      "guard": "live validation",
+      "mutation": {
+        "description": "Always accept polite/assertive live validation.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst liveIsValid = this.liveValue === \"polite\" || this.liveValue === \"assertive\";",
+            "replace": "\t\tconst liveIsValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-live-validation-negative fails."
+    },
+    {
+      "testId": "toast-dismiss-target-validation-negative",
+      "guard": "dismiss target validation",
+      "mutation": {
+        "description": "Always accept dismiss-button element/type/containment validation.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst dismissIsValid = this.dismissTargets.every(\n\t\t\t(button) =>\n\t\t\t\tbutton instanceof HTMLButtonElement &&\n\t\t\t\tbutton.type === \"button\" &&\n\t\t\t\tthis.element.contains(button),\n\t\t);",
+            "replace": "\t\tconst dismissIsValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "toast-dismiss-target-validation-negative fails."
+    },
+    {
+      "testId": "toast-dismiss-count-validation-negative",
+      "guard": "dismiss target count validation",
+      "mutation": {
+        "description": "Remove the one-dismiss-target limit and accept multiple buttons.",
+        "file": "src/toast_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.dismissTargets.length <= 1 &&",
+            "replace": "\t\t\ttrue &&"
+          }
+        ]
+      },
+      "expectedFailure": "toast-dismiss-count-validation-negative fails."
+    }
+  ]
+}

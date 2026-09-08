@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>tooltip | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="open closed"
+      data-catalog-properties=""
+      data-catalog-events="tooltip:beforetoggle tooltip:toggle"
+    >
+      <h1>tooltip</h1>
+      <section>
+        <h2>tooltip</h2>
+        <div class="catalog-component" data-controller="tooltip" data-tooltip-delay-value="200">
+          <button
+            type="button"
+            data-tooltip-target="trigger"
+            aria-describedby="catalog-tooltip-content"
+          >
+            Details
+          </button>
+          <span
+            id="catalog-tooltip-content"
+            data-tooltip-target="content"
+            role="tooltip"
+            popover="manual"
+          >
+            Additional description
+          </span>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

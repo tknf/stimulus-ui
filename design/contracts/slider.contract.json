@@ -1,0 +1,378 @@
+{
+  "name": "slider",
+  "controller": "slider",
+  "pattern": "A headless slider adding state outputs and cancelable changes to one or two native input[type=range] elements. Two thumbs select a range.",
+  "responsibility": "Preserve native range values, keyboard behavior, and form semantics while providing thumb-position CSS custom properties, data-state, user-originated change events, and semantic markup validation. Enforce start <= end by writing back constrained values. Generate no appearance or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/slider/",
+    "https://www.w3.org/WAI/ARIA/apg/patterns/slider-multithumb/",
+    "https://html.spec.whatwg.org/multipage/input.html#range-state-(type=range)",
+    "https://www.w3.org/TR/html-aria/",
+    "https://www.w3.org/TR/wai-aria-1.2/",
+    "https://www.w3.org/TR/WCAG22/"
+  ],
+  "authorMarkup": {
+    "root": "Three valid forms: (1) a native <input type=\"range\"> root with data-controller=\"slider\" for single-value use; (2) a wrapper with one <input type=\"range\"> data-slider-target=\"input\" for single-value use; (3) a wrapper with two input targets for range selection, first=start and second=end in DOM order.",
+    "label": "Consumers provide accessible names with <label>, aria-label, or aria-labelledby. Name both range inputs individually, such as minimum and maximum.",
+    "range": "Consumers specify min, max, step, and value as native attributes. Both range inputs must have matching min/max so their values map to comparable relative thumb positions.",
+    "form": "Consumers provide name and use native range form submission. Both range inputs submit separately.",
+    "content": "The controller generates no elements or content. Consumer CSS determines thumb and track rendering.",
+    "rangeCss": "Both range inputs must remain independently operable by click or tap without dragging. Separate native tracks provide this route without extra controls. If consumers overlap the inputs, they must preserve an equivalent non-drag pointer path for both values; thumb-only pointer access is insufficient. Setting pointer-events:none on inputs and auto only on thumb pseudo-elements disables track clicks in Chromium, Firefox, and WebKit. The controller does not inspect computedStyle because stylesheets can load before or after connection. Layout and appearance remain consumer responsibilities."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "An HTMLInputElement root must have type=range for single-value use.",
+      "A non-input root requires one input target for single-value use or two for range selection. Zero or three or more targets are invalid.",
+      "Every input target must be an HTMLInputElement with type=range.",
+      "Range inputs must have numerically matching min/max, accounting for native defaults min=0 and max=100. Mismatched bounds are invalid because they map values to different relative positions."
+    ],
+    "invalidMarkup": "Validate the root and targets on connection. Invalid markup disables listeners, state outputs, custom properties, and value manipulation, with one console.warn per connection. Do not throw.",
+    "warning": "The standard warning includes the expected markup: a native input[type=range] root or a wrapper with one or two input targets, with matching range min/max."
+  },
+  "api": {
+    "values": {},
+    "properties": {
+      "value": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Single-value mode only: current native input.valueAsNumber. Assignment updates value, data-state, and the custom property without custom events. In range mode, the getter returns NaN and the setter does nothing."
+      },
+      "start": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Range mode only: start input valueAsNumber. Assignment emits no custom events and clamps values above end to end before commitment. In single-value mode, the getter returns NaN and the setter does nothing."
+      },
+      "end": {
+        "type": "number",
+        "access": "getter/setter",
+        "description": "Range mode only: end input valueAsNumber. Assignment emits no custom events and clamps values below start to start before commitment. In single-value mode, the getter returns NaN and the setter does nothing."
+      }
+    },
+    "methods": {},
+    "events": {
+      "dispatchTarget": "root element",
+      "slider:beforechange": {
+        "when": "Immediately before a trusted pointer or keyboard value change",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "value": "Proposed value after range constraint clamping, when applicable",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard",
+          "thumb": "Range mode only: \"start\" | \"end\" identifies the moved thumb. Absent in single-value mode."
+        },
+        "effect": "If prevented, restore the previous native value, data-state, and custom property, and do not emit slider:change."
+      },
+      "slider:change": {
+        "when": "After committing a native change from a trusted pointer or keyboard operation",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "value": "Committed value after range constraint clamping, when applicable",
+          "previousValue": "The value before the change",
+          "reason": "pointer | keyboard",
+          "thumb": "Range mode only: \"start\" | \"end\" identifies the moved thumb. Absent in single-value mode."
+        }
+      },
+      "drag": "Continuous pointer-drag changes emit no events. Consumer CSS can read custom-property updates to reflect the value.",
+      "programmatic": "The value setter, initialization, form reset, and reconnection do not emit custom events.",
+      "sameValue": "Do not emit beforechange/change when the value has not changed.",
+      "synthetic": "input/change with isTrusted=false only synchronize native values and state outputs; they emit no custom events."
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Receive slider:change and slider:beforechange on the root or ancestors. The controller does not stop event propagation.",
+    "cancelableHook": "Call event.preventDefault() in a slider:beforechange listener to prevent a change.",
+    "programmatic": "Other controllers may read/write value through a Stimulus controller reference or outlets. Programmatic API changes emit no events.",
+    "nested": "When receiving nested sliders' events, restrict handling to the root with :self or event.target === event.currentTarget."
+  },
+  "behavior": {
+    "scope": "Support one thumb for a single value and two thumbs for range selection. Both use the slider role, so they are configurations of the same controller. Three or more thumbs are out of scope.",
+    "mode": "Derive mode from markup: an input[type=range] root is single-value; a wrapper with one input target is single-value and with two is range. No value setting switches mode. Reconcile target-count changes and remove state outputs/custom properties belonging to the other mode.",
+    "constraint": "Range mode constrains start <= end. Trusted operations, synthetic synchronization, and public APIs clamp the changed side against the other value before commitment. On connection, clamp start to end when start > end, analogous to native value clamping above max. Do not rewrite min/max: measured in all three engines, changing bounds changes relative thumb positioning. This constraint is an explicit range-only exception to single-value mode's lack of controller validation/correction.",
+    "initial": "The native value attribute determines the initial value; the controller has no separate initial value.",
+    "pointer": "Native value changes from trusted pointer operations use reason=\"pointer\".",
+    "keyboard": "Delegate arrows, Home, End, PageUp, and PageDown to native range behavior. The controller implements neither keyboard handling nor preventDefault().",
+    "disabled": "Native input.disabled prevents activation. Add no disabled data-* attribute. Public APIs can change values regardless of disabled state.",
+    "direction": "Delegate RTL arrow direction to native range behavior without reversing it. Tabs and toolbar correct direction because they implement roving tabindex themselves; native range already handles direction, so an extra reversal would double-correct it. Measurements show ArrowRight decreases values in Chromium/Firefox but increases them in WebKit. This difference remains observable to consumers; see docs/notes/browser-engine-differences.md.",
+    "range": "Delegate missing/invalid min/max/step to native input[type=range] rules. Single-value mode performs no controller validation/correction; the HTML Standard defines cases such as min > max. Range mode alone validates matching input min/max and clamps values as defined in behavior.constraint.",
+    "form": "Delegate value, name, form submission, form reset, and :disabled to native input[type=range] semantics."
+  },
+  "managedMarkup": {
+    "nativeSemantics": "Use native input[type=range] roles, values, min/max/step, keyboard behavior, and form semantics.",
+    "aria": "Do not add aria-valuenow/min/max/text or aria-orientation; native range supplies semantics. Preserve authored aria-valuetext. In range mode, do not synchronize the other thumb's effective bound to aria-valuemin/max: ARIA in HTML advises against those attributes on input type=range (https://www.w3.org/TR/html-aria/). APG multithumb guidance targets custom widgets, not native inputs. Constraints are communicated through clamping behavior; AT receives native min/max.",
+    "customProperty": "For a single value, output root --slider-value as (value - min) / (max - min). For a range, output --slider-range-start using that formula for start and --slider-range-span as (end - start) / (max - min), without --slider-value. Values are between 0 and 1; stringify JS numbers without additional rounding. Use 0 when min equals max, never a division-by-zero result.",
+    "stateOnly": "Managed state outputs are limited to root data-state/custom properties and, in range mode, each input target's data-state.",
+    "preservation": "Preserve authored id, name, min, max, step, disabled, ARIA, and other attributes. Range constraint clamping may write the value as defined in behavior.constraint."
+  },
+  "stateOutputs": {
+    "ownership": "Controller-owned outputs are root data-state/custom properties and, in range mode, input-target data-state. CSS state is not expressed through ARIA attributes.",
+    "single": "Single-value root data-state is min when value equals min, max when it equals max, and between otherwise. For a wrapper configuration, write this on the wrapper root.",
+    "rangeRoot": "Range root data-state is empty when start equals end, full when start=min and end=max, and partial otherwise.",
+    "rangeThumb": "Each range input target also outputs thumb-specific data-state=min/max/between using the same values as single-value mode."
+  },
+  "lifecycle": [
+    "Register input/change listeners on controlled inputs and reset listeners on associated forms in connect(); remove them in disconnect().",
+    "Reconcile mode when input targets connect/disconnect. On mode changes, remove state outputs and custom properties belonging to the other mode.",
+    "Leave generated data-state and custom properties on disconnect().",
+    "On reconnection, synchronize outputs to current native values and establish range constraints from behavior.constraint.",
+    "Do not duplicate listeners or custom events when reconnecting the same instance"
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Single and range value announcements, distinction between thumbs, and communication of clamping",
+        "status": "unverified",
+        "impact": "Native range semantics and start/end clamping are fixed; native min/max remain the announced bounds, without introducing custom ARIA bounds."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "The behavior and accessibility implemented by this component must meet WCAG 2.2 Level AA.",
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Conforming input[type=range] markup preserves native value, min/max/step, keyboard behavior, and form semantics.",
+    "Only trusted value changes emit one cancelable beforechange followed by one committed change, in order.",
+    "Canceling beforechange preserves the previous value, data-state, and custom property, and prevents change.",
+    "Continuous drag changes update the custom property without emitting change.",
+    "Public API calls, initialization, form reset, and reconnection synchronize state outputs without custom events.",
+    "The controller does not add aria-valuenow and preserves authored attributes.",
+    "Invalid markup disables enhancement with one warning",
+    "Both single-value configurations, input root and single-input wrapper, retain the same single-value behavior and pass the single-value tests.",
+    "Range start <= end is preserved through trusted operations, connection, public APIs, and synthetic synchronization. Operations clamped to the same value emit no events.",
+    "WCAG 2.2 AA 2.5.7: both range values must be adjustable with clicks or taps without dragging. The catalog and its three-engine scenario directly exercise each native track independently of keyboard interaction. Thumb-only pointer CSS does not satisfy this requirement.",
+    "Changing native min/max changes thumb rendering positions in all three measured engines, so do not enforce constraints by rewriting those attributes.",
+    "Tab order remains DOM order even when values cross, as measured in all three engines. The controller does not touch tabindex.",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Native RTL arrows differ by engine: ArrowRight decreases values in Chromium/Firefox and increases them in WebKit. Delegate without reversal; measured results are recorded in docs/notes/browser-engine-differences.md.",
+    "Report real-device value announcements as unverified for both single and range modes, including distinction between thumbs and communication of clamping."
+  ],
+  "testMatrix": [
+    {
+      "testId": "slider-state-sync",
+      "description": "data-state, --slider-value, absence of controller-added aria-valuenow, and authored attribute preservation"
+    },
+    {
+      "testId": "slider-beforechange-cancel",
+      "description": "beforechange cancellation, change detail, ordering, and bubbling"
+    },
+    {
+      "testId": "slider-keyboard-reason",
+      "description": "Keyboard reason and native delegation for arrows and Home/End"
+    },
+    {
+      "testId": "slider-drag-silence",
+      "description": "Continuous drag updates the custom property without change events"
+    },
+    {
+      "testId": "slider-programmatic-silence",
+      "description": "Value-setter event suppression and state synchronization"
+    },
+    {
+      "testId": "slider-disabled-guard",
+      "description": "Native disabled no-op and public API operation"
+    },
+    {
+      "testId": "slider-form-semantics",
+      "description": "FormData and native value/data-state after form reset"
+    },
+    {
+      "testId": "slider-disconnect-cleanup",
+      "description": "Listener cleanup and state across disconnect/reconnect"
+    },
+    {
+      "testId": "slider-semantic-validation",
+      "description": "Warnings and disabled enhancement for invalid roots"
+    },
+    {
+      "testId": "slider-range-structure",
+      "description": "Detection of all three markup forms and invalid wrapper validation"
+    },
+    {
+      "testId": "slider-range-constraint",
+      "description": "Range start <= end clamping and event suppression for unchanged values"
+    },
+    {
+      "testId": "slider-range-state-sync",
+      "description": "Range root/thumb state, custom properties, and transition to single-value mode"
+    },
+    {
+      "testId": "slider-range-events",
+      "description": "Range event thumb/value/reason and restoration after cancellation"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Screen-reader results on a real device (unverified)"
+  ],
+  "negativeControls": [
+    {
+      "testId": "slider-semantic-validation-negative",
+      "guard": "semantic root validation",
+      "mutation": {
+        "description": "Disable semantic validation and enhance invalid roots.",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "slider-semantic-validation-negative fails."
+    },
+    {
+      "testId": "slider-beforechange-cancel-negative",
+      "guard": "beforechange cancellation and value restoration",
+      "mutation": {
+        "description": "Ignore beforechange cancellation and always commit.",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeChange)) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "slider-beforechange-cancel-negative fails."
+    },
+    {
+      "testId": "slider-drag-silence-negative",
+      "guard": "Event suppression during dragging",
+      "mutation": {
+        "description": "Emit slider:change on input events too",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\tthis.pendingInteraction = null;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(new CustomEvent(\"slider:change\", { bubbles: true }));"
+          }
+        ]
+      },
+      "expectedFailure": "slider-drag-silence-negative fails."
+    },
+    {
+      "testId": "slider-custom-property-negative",
+      "guard": "Normalization of --slider-value",
+      "mutation": {
+        "description": "Output the raw value without normalization by min/max",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst normalized = max === min ? 0 : (value - min) / (max - min);",
+            "replace": "\t\tconst normalized = value;"
+          }
+        ]
+      },
+      "expectedFailure": "slider-custom-property-negative and slider-state-sync fail because multiple tests share the custom-property invariant."
+    },
+    {
+      "testId": "slider-aria-untouched-negative",
+      "guard": "Absence of controller-added aria-valuenow",
+      "mutation": {
+        "description": "Make the controller add aria-valuenow",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;",
+            "replace": "\t\tthis.element.dataset.state = state;\n\t\tthis.element.setAttribute(\"aria-valuenow\", String(value));"
+          }
+        ]
+      },
+      "expectedFailure": "slider-aria-untouched-negative fails."
+    },
+    {
+      "testId": "slider-programmatic-silence-negative",
+      "guard": "Event suppression for the public API",
+      "mutation": {
+        "description": "Emit slider:change from the value setter too",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tinput.valueAsNumber = value;\n\t\tthis.synchronize(input);",
+            "replace": "\t\tinput.valueAsNumber = value;\n\t\tthis.synchronize(input);\n\t\tthis.element.dispatchEvent(new CustomEvent(\"slider:change\", { bubbles: true }));"
+          }
+        ]
+      },
+      "expectedFailure": "slider-programmatic-silence-negative and slider-disabled-guard fail because both inspect public API event suppression."
+    },
+    {
+      "testId": "slider-disconnect-cleanup-negative",
+      "guard": "Listener removal in disconnect",
+      "mutation": {
+        "description": "Leave connected state and listeners active after disconnect.",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.unbind();",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "slider-disconnect-cleanup-negative fails."
+    },
+    {
+      "testId": "slider-range-structure-negative",
+      "guard": "Range wrapper markup validation",
+      "plannedMutation": "Remove range wrapper target-count/type and matching min/max checks",
+      "mutation": {
+        "description": "Disable range wrapper validation to permit invalid markup",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidWrapperMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "slider-range-structure-negative and slider-semantic-validation fail because both inspect invalid-markup warnings and disabled enhancement."
+    },
+    {
+      "testId": "slider-range-constraint-negative",
+      "guard": "Range start <= end clamping",
+      "plannedMutation": "Remove value write-back when range values cross",
+      "mutation": {
+        "description": "Disable range crossing clamping",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (startValue > endValue) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "slider-range-constraint-negative fails."
+    },
+    {
+      "testId": "slider-range-state-sync-negative",
+      "guard": "Range state and custom-property outputs",
+      "plannedMutation": "Remove the range start-position custom-property write",
+      "mutation": {
+        "description": "Do not write --slider-range-start",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.style.setProperty(\"--slider-range-start\", String(startNormalized));",
+            "replace": "\t\tthis.element.style.removeProperty(\"--slider-range-start\");"
+          }
+        ]
+      },
+      "expectedFailure": "slider-range-state-sync-negative fails."
+    },
+    {
+      "testId": "slider-range-events-negative",
+      "guard": "The thumb field in range event detail",
+      "plannedMutation": "Remove assignment of thumb in range event detail",
+      "mutation": {
+        "description": "Do not set thumb in range event detail",
+        "file": "src/slider_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tdetail.thumb = thumb;",
+            "replace": "\t\t\tdetail.thumb = undefined;"
+          }
+        ]
+      },
+      "expectedFailure": "slider-range-events-negative fails."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+node_modules/
+.pnpm-store/
+/.vitest-attachments/
+test/__screenshots__/
+test-results/
+/*.tgz
+dist/
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+secrets/

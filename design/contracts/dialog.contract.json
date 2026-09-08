@@ -1,0 +1,1051 @@
+{
+  "name": "dialog",
+  "controller": "dialog",
+  "pattern": "A modal dialog using native HTMLDialogElement and a non-modal dialog that moves and resizes within a container",
+  "responsibility": "Provides dialog opening and closing, ARIA, focus return, keyboard operations, close reasons, and non-modal bounds and state output. The user manages elements, content, layout, and stacking order",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/",
+    "https://html.spec.whatwg.org/multipage/interactive-elements.html#the-dialog-element",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://www.w3.org/WAI/WCAG22/Understanding/dragging-movements.html",
+    "https://www.w3.org/TR/pointerevents3/"
+  ],
+  "authorMarkup": {
+    "root": "data-controller=\"dialog\"",
+    "targets": {
+      "dialog": "One native <dialog> with data-dialog-target=\"dialog\" inside the root",
+      "trigger": "At least one native <button type=\"button\"> with data-dialog-target=\"trigger\" inside the root",
+      "close": "Zero or more native <button type=\"button\"> elements with data-dialog-target=\"close\" inside the root",
+      "title": "A title displayed in the dialog with data-dialog-target=\"title\"; zero or one inside the root",
+      "container": "Required once for non-modal. The dialog's parent element. Use a dimensioned positioning area without border or padding and create the containing block with user CSS. Scrolling, rotation/skew, and vertical writing are outside the scope",
+      "move": "Required once for non-modal. A native button[type=button] with an accessible name inside the dialog, used for movement drag and arrow operations",
+      "resize": "Required once for non-modal. A native button[type=button] with an accessible name inside the dialog, used to resize toward inline-end / the bottom edge",
+      "xControl": "Required once for non-modal. A labeled native input[type=number] inside the dialog for entering the position percentage from inline-start",
+      "yControl": "Required once for non-modal. A labeled native input[type=number] inside the dialog for entering the position percentage from the top edge",
+      "widthControl": "Required once for non-modal. A labeled native input[type=number] inside the dialog for entering the width percentage",
+      "heightControl": "Required once for non-modal. A labeled native input[type=number] inside the dialog for entering the height percentage",
+      "apply": "Required once for non-modal. A native button[type=button] with an accessible name inside the dialog that applies all four inputs together. Software keyboard and tap can reach the same bounds as drag",
+      "instructions": "Required once for non-modal. Non-empty operation instructions inside the dialog describing movement and resize arrows, Shift, Escape, numeric input, and apply. The controller composes its ID into aria-describedby for move and resize"
+    },
+    "label": "The dialog has an accessible name from a non-empty aria-label, aria-labelledby, or title target. The controller supplements aria-labelledby only when a title target exists and neither aria-label nor aria-labelledby exists",
+    "validity": "A root has exactly one native <dialog> and at least one trigger; triggers and close targets are native button[type=button]. Non-modal configurations have one of each additional target, all as distinct elements. Make dialog a direct child of container, with dialog and container using the same direction and horizontal-tb. Non-modal role may be omitted or dialog; aria-modal may be omitted or false; closedby may be omitted or none. Additional controls must not be synchronized by disabled, readonly, or form submit/reset. Do not add additional targets to modal configurations",
+    "content": "The controller does not generate or manage elements, content, backdrop, scroll lock, or z-index. Non-modal CSS applies dialog border-box position and dimensions from custom properties and removes margin and native max-size constraints. The user provides overflow and minimum dimensions that keep content and operation paths reachable even for a small rectangle. Set touch-action:none on handles"
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The dialog target must be an HTMLDialogElement",
+      "Trigger and close targets must be HTMLButtonElement with type=\"button\"",
+      "The title target must be a descendant of dialog"
+    ],
+    "invalidMarkup": "Validate on connection and target replacement. When invalid, disable enhancement and call console.warn once per root while connected. Do not apply ARIA, state output, or native open to initially invalid markup. If valid non-modal markup becomes invalid, cancel the preview, close the original dialog without notification, synchronize the last valid trigger and root/dialog state to closed, and then remove listeners. Do not apply attributes to newly added invalid elements. Do not throw",
+    "warning": "The warning includes the violating element type and controller name. Validate again after the user repairs and reconnects the markup",
+    "completion": {
+      "attributes": [
+        "dialog aria-labelledby",
+        "trigger aria-controls",
+        "step=any and required on non-modal xControl / yControl / widthControl / heightControl"
+      ],
+      "warning": "List completed attributes using \"Added <attributes>. Include them in your markup.\" Warn once per connection using a flag separate from the enhancement-disabling warning."
+    },
+    "completionExempt": [
+      "Composing the instructions id into move / resize aria-describedby",
+      "Synchronizing non-modal custom properties and input.value"
+    ]
+  },
+  "api": {
+    "values": {
+      "open": {
+        "type": "Boolean",
+        "htmlAttribute": "data-dialog-open-value",
+        "default": false,
+        "description": "Initial open state. When true, open on connection according to the modal setting"
+      },
+      "modal": {
+        "type": "Boolean",
+        "default": true,
+        "htmlAttribute": "data-dialog-modal-value",
+        "description": "false is non-modal. A change while connected closes the current dialog without notification, revalidates, and opens according to open value"
+      },
+      "x": {
+        "type": "Number",
+        "default": 0,
+        "htmlAttribute": "data-dialog-x-value",
+        "description": "Initial inline-start position percentage. A finite number"
+      },
+      "y": {
+        "type": "Number",
+        "default": 0,
+        "htmlAttribute": "data-dialog-y-value",
+        "description": "Initial top-edge position percentage. A finite number"
+      },
+      "width": {
+        "type": "Number",
+        "default": 50,
+        "htmlAttribute": "data-dialog-width-value",
+        "description": "Initial width percentage. A finite number"
+      },
+      "height": {
+        "type": "Number",
+        "default": 50,
+        "htmlAttribute": "data-dialog-height-value",
+        "description": "Initial height percentage. A finite number"
+      },
+      "minWidth": {
+        "type": "Number",
+        "default": 10,
+        "htmlAttribute": "data-dialog-min-width-value",
+        "description": "Minimum width percentage. Greater than 0 and at most 100"
+      },
+      "minHeight": {
+        "type": "Number",
+        "default": 10,
+        "htmlAttribute": "data-dialog-min-height-value",
+        "description": "Minimum height percentage. Greater than 0 and at most 100"
+      },
+      "step": {
+        "type": "Number",
+        "default": 1,
+        "htmlAttribute": "data-dialog-step-value",
+        "description": "Percentage for one handle arrow operation. Greater than 0 and at most 100. Shift multiplies it by 10"
+      }
+    },
+    "properties": {
+      "bounds": {
+        "type": "DialogBounds = { x: number; y: number; width: number; height: number }",
+        "access": "getter/setter",
+        "description": "A copy of committed non-modal bounds. The setter accepts four finite numbers, clamps dimensions from the minimum to 100, and positions from 0 to 100−dimension. It discards drag without notification. Invalid values, modal state, and disconnection are no-ops. Values are initial settings and are not changed by operations"
+      },
+      "open": {
+        "type": "boolean",
+        "access": "getter/setter",
+        "description": "Current open state. Like show()/close(), the setter commits state programmatically without dispatching an event"
+      }
+    },
+    "methods": {
+      "show()": {
+        "returns": "void",
+        "description": "Open with native showModal() when modal=true and native show() when false. Synchronize ARIA and state output without dispatching an event"
+      },
+      "close(returnValue)": {
+        "returns": "void",
+        "description": "Close with dialog.close(returnValue). returnValue is an empty string when omitted, and no event is dispatched"
+      },
+      "toggle()": {
+        "returns": "void",
+        "description": "Toggle the current open state. Execute programmatically without dispatching an event"
+      }
+    },
+    "events": {
+      "dispatchTarget": "root element",
+      "dialog:beforechange": {
+        "when": "Immediately before committing bounds from a non-modal trusted handle arrow, drag pointerup, or apply activation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "operation": "move | resize | set",
+          "bounds": "Normalized candidate DialogBounds",
+          "previousBounds": "DialogBounds before the change"
+        },
+        "effect": "preventDefault stops commitment and change and restores the preview and inputs to committed bounds. Do not commit an old request if the listener changes the API, settings, targets, or open state. Do not accept mutations to detail"
+      },
+      "dialog:change": {
+        "when": "After a non-modal bounds change is committed. Use the same DialogChangeDetail as beforechange",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "operation": "move | resize | set",
+          "bounds": "Committed DialogBounds",
+          "previousBounds": "DialogBounds before the change"
+        }
+      },
+      "dialog:beforeopen": {
+        "when": "Immediately before native open from trusted trigger activation",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard"
+        },
+        "effect": "When preventDefault() is called, do not open or change focus or state output"
+      },
+      "dialog:open": {
+        "when": "After opening through trusted trigger activation is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard"
+        }
+      },
+      "dialog:beforeclose": {
+        "when": "Immediately before closing from trusted close-button activation or Escape",
+        "bubbles": true,
+        "cancelable": true,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "returnValue": "The returnValue about to be committed. Usually an empty string"
+        },
+        "effect": "When preventDefault() is called, do not close or change focus inside the dialog"
+      },
+      "dialog:close": {
+        "when": "After closing from trusted close-button activation or Escape is committed",
+        "bubbles": true,
+        "cancelable": false,
+        "detail": {
+          "reason": "pointer | keyboard",
+          "returnValue": "The committed dialog.returnValue"
+        }
+      },
+      "programmatic": "The open setter, show(), close(), toggle(), initialization, reconnection, disconnect(), and dynamic target synchronization do not dispatch events",
+      "sameState": "Trigger activation while already open, close activation while already closed, and activation of a disabled target do not dispatch events",
+      "formMethodDialog": "Close from <form method=\"dialog\"> and backdrop clicks are outside the scope; use a close target or the public API"
+    }
+  },
+  "consumerIntegration": {
+    "stimulusActions": "Specify data-action=\"dialog:open->controller#method dialog:close->controller#method\" on the root or an ancestor. Ordinary trigger/close click actions can also be used; the controller does not stop event propagation",
+    "cancelableHook": "To stop close, call event.preventDefault() with data-action=\"dialog:beforeclose->controller#method\". To stop open, use dialog:beforeopen",
+    "programmatic": "Another controller can call open/show/close/toggle through a Stimulus controller reference or outlets. The programmatic API does not dispatch events",
+    "nested": "When receiving events from a nested dialog outside, narrow them to your root with the data-action :self modifier or event.target === event.currentTarget"
+  },
+  "behavior": {
+    "initial": [
+      "When open value is false, make the dialog closed",
+      "When open value is true, open after connection according to the modal setting",
+      "When the dialog is already natively open, do not call showModal() twice; synchronize only open state and state output"
+    ],
+    "trigger": "A trusted click on an enabled trigger opens through dialog:beforeopen with pointer or keyboard reason. Ignore disabled triggers",
+    "close": "A trusted click on an enabled close target closes through dialog:beforeclose with pointer or keyboard reason. Ignore disabled close targets",
+    "escape": "Receive the native dialog cancel event and close as Escape through dialog:beforeclose. If beforeclose is canceled, also call preventDefault() on the cancel event",
+    "returnValue": "The public close(returnValue) passes the specified value to native dialog.close(). A user-operation close has an empty returnValue; form method=\"dialog\" returnValue is outside the scope",
+    "modal": "For modal=true, use showModal() and the native top layer, inert, and focus containment. For false, use native show() and allow background operation and Tab entry/exit. Do not provide a custom focus trap or foreground switching among multiple panels",
+    "bounds": "Non-modal bounds are percentages relative to container. x is inline-start and y is the top edge. Clamp width and height from their minimums to 100, then clamp positions from 0 to 100−dimension. Movement preserves dimensions; resize preserves position and is limited to the remaining area. Reconnection and coordinate-value changes reapply all four coordinate values; min / step changes normalize the current value. Preserve percentages when container dimensions change and do not change focus or events",
+    "drag": "Accept only primary pointer button=0 and use pointer capture on the handle. pointermove previews CSS and inputs without changing the bounds getter or events. Dispatch beforechange/change once on pointerup. Do not notify for equal values. Discard the preview on pointercancel, lostpointercapture, Escape, blur, disconnection, or target, settings, or public API changes. Ignore other pointers and synthetic events. Also discard it if container dimensions or direction change during drag",
+    "inputs": "Delegate editing of the inputs themselves to native behavior and validate and commit all four values on trusted apply activation. Report empty, non-finite, and custom-validity violations with native reportValidity and do not apply them. Use the same normalization as the bounds setter. Do not set control min/max; supplement step=any. Prevent form submission from Enter on additional inputs. The user owns native form submission values and reset",
+    "backdrop": "Do not close on backdrop clicks. User CSS and markup own the backdrop appearance and the cue for clicking it"
+  },
+  "keyboard": {
+    "nativeDialog": "Delegate modal Tab and Shift+Tab focus containment and Escape dispatch to native behavior. Non-modal dialogs allow Tab and Shift+Tab entry and exit and treat only Escape inside the dialog as a cancelable close. Escape during drag cancels the drag without closing. Do not process Escape when a child widget called preventDefault",
+    "panel": {
+      "ArrowLeft": "move goes visually left; resize shrinks in LTR and grows in RTL",
+      "ArrowRight": "move goes visually right; resize grows in LTR and shrinks in RTL",
+      "ArrowUp": "move goes up; resize reduces height",
+      "ArrowDown": "move goes down; resize increases height",
+      "Shift": "Multiply step by 10",
+      "Escape": "Cancel drag; otherwise close the non-modal dialog containing focus",
+      "Enter": "Native activation of the apply button. Prevent form submission on additional inputs",
+      "Space": "Native activation of the apply button",
+      "Tab": "Native focus movement",
+      "Shift+Tab": "Native reverse focus movement",
+      "modifiers": "Ignore handle operations with Ctrl, Alt, Meta, or IME"
+    },
+    "trigger": {
+      "Enter": "Open through native button activation",
+      "Space": "Open through native button activation"
+    },
+    "close": {
+      "Enter": "Close through native button activation",
+      "Space": "Close through native button activation"
+    }
+  },
+  "focus": {
+    "open": "Native showModal()/show() determines initial focus. Follow autofocus and native focus rules",
+    "close": "For modal dialogs, return focus to the last originating trigger when it remains connected and enabled. For non-modal dialogs, defer focus return to native close and do not steal focus that moved to the background before closing",
+    "programmatic": "The controller does not move focus for public API calls, initialization, reconnection, or canceled before events. Preserve the focus behavior of native show/close"
+  },
+  "managedMarkup": {
+    "dialog": [
+      "Use the implicit role and display semantics of native <dialog>; do not add role or aria-modal",
+      "When id is absent, add an id unique within the document"
+    ],
+    "trigger": [
+      "When aria-controls is absent, add the dialog id",
+      "Synchronize aria-expanded with the open state as a controller-owned state output"
+    ],
+    "title": "When a title target exists and the dialog has neither aria-label nor aria-labelledby, assign a title id and add aria-labelledby",
+    "preservation": "Do not overwrite an authored id, role, aria-label, aria-labelledby, aria-modal, aria-controls, or other static attribute. Respect native dialog semantics and synchronize controller-owned aria-expanded, data-state, native open, non-modal input.value, and bounds custom properties",
+    "disabled": "Read only the native disabled attributes of trigger and close targets as activation guards. Do not add data-* attributes for disabled state"
+  },
+  "stateOutputs": {
+    "bounds": "Output --dialog-x, --dialog-y, --dialog-width, and --dialog-height as unitless percentages on non-modal dialogs. Output a preview during drag and committed bounds otherwise. Remove them when switching to modal. Do not set CSS position or dimension properties directly",
+    "ownership": "The root, dialog, and trigger data-state attributes and trigger aria-expanded are controller-owned",
+    "open": {
+      "root": "data-state=\"open\"",
+      "dialog": "data-state=\"open\"",
+      "trigger": "data-state=\"open\"、aria-expanded=\"true\""
+    },
+    "closed": {
+      "root": "data-state=\"closed\"",
+      "dialog": "data-state=\"closed\"",
+      "trigger": "data-state=\"closed\"、aria-expanded=\"false\""
+    }
+  },
+  "lifecycle": [
+    "Register root click, keydown, pointerdown/move/up/cancel, and lostpointercapture listeners plus window blur and dialog cancel/close listeners in connect(), and remove them in disconnect(). Do not register twice after reconnection. Also release drag pointer capture and preview",
+    "In disconnect(), close an open native dialog to release the top layer and modal state without dispatching an event",
+    "Leave generated attributes and state outputs in place on disconnect().",
+    "On reconnection, synchronize structural attributes and state output with the current markup and open value",
+    "Track every target addition and removal with Stimulus TargetConnected/TargetDisconnected, and synchronously check membership during non-modal operations",
+    "Do not throw when a target is temporarily absent."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "macOS Safari + VoiceOver and touch devices",
+        "item": "Native dialog roles/names, non-modal entry/exit, number-input values, handle instructions, touch dragging, and software-keyboard entry",
+        "status": "unverified",
+        "impact": "Native dialog/button/number-input semantics and equivalent controls are fixed independently of compatibility wording and touch ergonomics."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Required AAA criteria: 2.1.3 Keyboard (No Exception), with no pointer-only features; and 3.2.5 Change on Request, with controller focus movement limited to user actions or consumer JS calls, never timers.",
+    "Do not partially apply ARIA to compensate for semantic HTML contract violations; detect them with console.warn and disabled enhancement",
+    "Require WCAG 2.2 Level AA for every configuration, preserving the native <dialog> role, name, relationship to triggers, and open state. Modal dialogs conform to the APG Dialog (Modal) Pattern",
+    "Use the native showModal() top layer, inert behavior, and focus containment for modal dialogs. Use native show() for non-modal dialogs so the background remains operable. Do not implement a custom focus trap or scroll lock",
+    "Only trusted trigger/close/Escape operations and trusted non-modal drag/keyboard/apply bounds changes dispatch one cancelable before event followed by one committed event in order",
+    "Canceling a before event stops opening/closing and controller-managed focus return",
+    "Public API calls, initialization, reconnection, and disconnect do not dispatch events; they synchronize open, native dialog.open, and state output",
+    "Preserve existing id and ARIA attributes, and ensure generated ids do not collide within the same document",
+    "After modal close, return focus to the valid originating trigger. For non-modal dialogs, defer focus return to native behavior and do not steal focus that moved to the background",
+    "Pass automated tests in Chromium, Firefox, and WebKit.",
+    "Test non-modal background operation, Tab entry/exit, preservation of external focus, boundaries, RTL, and equivalent drag / keyboard / numeric-input-and-apply paths for movement and resize in all three engines",
+    "Observation: verify native dialog role/name, non-modal entry/exit, number-input values, and handle instructions with macOS Safari + VoiceOver. The public specification is based on native dialog/button/number-input semantics and operation instructions and does not depend on this compatibility observation. Real-device verification is pending. Real-device touch dragging and software-keyboard input are also unverified observations"
+  ],
+  "testMatrix": [
+    { "testId": "dialog-panel-native", "description": "Non-modal background operation and focus" },
+    { "testId": "dialog-panel-bounds", "description": "Bounds synchronization and API" },
+    { "testId": "dialog-panel-keyboard", "description": "Arrows and RTL" },
+    { "testId": "dialog-panel-input", "description": "Numeric input and apply" },
+    { "testId": "dialog-panel-drag", "description": "Drag preview and commitment" },
+    { "testId": "dialog-panel-drag-cancel", "description": "Drag cancellation" },
+    { "testId": "dialog-panel-trusted", "description": "Synthetic event rejection" },
+    { "testId": "dialog-panel-reentrant", "description": "beforechange reentrancy" },
+    { "testId": "dialog-panel-lifecycle", "description": "Disconnection and reconnection" },
+    { "testId": "dialog-panel-validation", "description": "Markup validation" },
+    { "testId": "dialog-panel-isolation", "description": "Multiple panels" },
+    {
+      "testId": "dialog-state-sync",
+      "description": "Valid native dialog markup, role, name, aria-modal, generated id, and state"
+    },
+    {
+      "testId": "dialog-title-label",
+      "description": "Title target and preservation of authored aria-labelledby"
+    },
+    {
+      "testId": "dialog-beforeopen-cancel",
+      "description": "Trigger beforeopen, open event, detail, and cancellation"
+    },
+    {
+      "testId": "dialog-keyboard-reason",
+      "description": "Trigger/close keyboard operations and Escape detail.reason"
+    },
+    {
+      "testId": "dialog-beforeclose-cancel",
+      "description": "Close-target beforeclose, close event, focus return, and cancellation"
+    },
+    {
+      "testId": "dialog-escape-cancel",
+      "description": "beforeclose cancellation from native cancel and Escape"
+    },
+    {
+      "testId": "dialog-programmatic-silence",
+      "description": "Open setter, show/close/toggle, native open synchronization, and no events from the programmatic API"
+    },
+    {
+      "testId": "dialog-disabled-guard",
+      "description": "Disabled trigger/close, same state, and no-op trigger outside the dialog"
+    },
+    {
+      "testId": "dialog-focus-autofocus",
+      "description": "Native modal autofocus, trigger focus return after close, and removed origin"
+    },
+    {
+      "testId": "dialog-dynamic-targets",
+      "description": "Dynamic target replacement and state/listener synchronization"
+    },
+    {
+      "testId": "dialog-disconnect-cleanup",
+      "description": "Disconnect/reconnect and listener cleanup"
+    },
+    {
+      "testId": "dialog-semantic-validation",
+      "description": "Semantic-target validation, warnings, and disabled enhancement"
+    },
+    {
+      "testId": "dialog-invalid-target-count",
+      "description": "Invalid target counts and accessible-name no-op"
+    },
+    "Engine-specific results for Chromium, Firefox, and WebKit",
+    "Real-device macOS Safari and VoiceOver results",
+    {
+      "testId": "dialog-completion-warning",
+      "description": "Completion warnings for missing attributes, none for complete markup, and separation from invalid-markup warnings"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "dialog-panel-mode-state-negative",
+      "guard": "Closed-state synchronization when switching display mode",
+      "mutation": {
+        "description": "Remove state synchronization for the old dialog closed by a mode change",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          { "find": "\t\t\t\tthis.syncState(previousDialog, this.boundTriggers);", "replace": "" }
+        ]
+      },
+      "expectedFailure": "dialog-panel-mode-state-negative fails."
+    },
+    {
+      "testId": "dialog-panel-key-reason-negative",
+      "guard": "Record an activation marker even for keydown events that should be ignored",
+      "mutation": {
+        "description": "Record an activation marker even for keydown events that should be ignored",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleKeydown = (event: KeyboardEvent) => {\n\t\tif (\n\t\t\t!event.isTrusted ||\n\t\t\tevent.defaultPrevented ||\n\t\t\tisImeKeydown(event) ||\n\t\t\tevent.ctrlKey ||\n\t\t\tevent.altKey ||\n\t\t\tevent.metaKey\n\t\t) {",
+            "replace": "\tprivate handleKeydown = (event: KeyboardEvent) => {\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-key-reason-negative fails."
+    },
+    {
+      "testId": "dialog-panel-writing-negative",
+      "guard": "Dialog-side writing-mode validation",
+      "mutation": {
+        "description": "Remove dialog-side writing-mode validation",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tview.getComputedStyle(dialog).writingMode !== \"horizontal-tb\"",
+            "replace": "\t\t\tfalse"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-writing-negative fails."
+    },
+    {
+      "testId": "dialog-panel-invalid-state-negative",
+      "guard": "Synchronize state after closing due to invalid markup",
+      "mutation": {
+        "description": "Do not synchronize state after closing due to invalid markup",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          { "find": "\t\t\t\tthis.syncState(this.boundDialog, this.boundTriggers);", "replace": "" }
+        ]
+      },
+      "expectedFailure": "dialog-panel-invalid-state-negative fails."
+    },
+    {
+      "testId": "dialog-panel-instructions-negative",
+      "guard": "Accept the dialog itself as instructions",
+      "mutation": {
+        "description": "Accept the dialog itself as instructions",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\telements.some((element) => element === dialog || !dialog.contains(element))",
+            "replace": "\t\t\telements.some((element) => !dialog.contains(element))"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-instructions-negative fails."
+    },
+    {
+      "testId": "dialog-panel-label-negative",
+      "guard": "Reject a label associated with the current input",
+      "mutation": {
+        "description": "Reject a label associated with the current input",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "label.control === element && Boolean(label.textContent?.trim())",
+            "replace": "label.control !== element && Boolean(label.textContent?.trim())"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-label-negative fails. The normal dialog-panel configuration and catalog/dialog.html connection and interaction checks also require the same label-association invariant for labeled native inputs"
+    },
+    {
+      "testId": "dialog-panel-modal-negative",
+      "guard": "Fix the display mode to modal",
+      "mutation": {
+        "description": "Fix the display mode to modal",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          { "find": "\t\t\t\t\tdialog.show();", "replace": "\t\t\t\t\tdialog.showModal();" }
+        ]
+      },
+      "expectedFailure": "dialog-panel-modal-negative fails. dialog-panel-isolation and the pointerdown focus-listener checks also test non-modal display that permits background focus"
+    },
+    {
+      "testId": "dialog-panel-output-negative",
+      "guard": "Fix bounds CSS output to zero",
+      "mutation": {
+        "description": "Fix bounds CSS output to zero",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tdialog.style.setProperty(`--dialog-${field}`, String(value[field]));",
+            "replace": "\t\t\tdialog.style.setProperty(`--dialog-${field}`, \"0\");"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-output-negative fails. The dialog-panel-input, dialog-panel-drag, and dialog-panel-drag-cancel checks also test bounds CSS output"
+    },
+    {
+      "testId": "dialog-panel-clamp-negative",
+      "guard": "Expand the width maximum to 200",
+      "mutation": {
+        "description": "Expand the width maximum to 200",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst width = clamp(value.width, this.minWidthValue, 100);",
+            "replace": "\t\tconst width = clamp(value.width, this.minWidthValue, 200);"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-clamp-negative fails."
+    },
+    {
+      "testId": "dialog-panel-rtl-negative",
+      "guard": "Disable RTL correction for handles",
+      "mutation": {
+        "description": "Disable RTL correction for handles",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst rtl = getComputedStyle(panel.container).direction === \"rtl\";",
+            "replace": "\t\tconst rtl = false;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-rtl-negative fails."
+    },
+    {
+      "testId": "dialog-panel-before-negative",
+      "guard": "Ignore beforechange cancellation",
+      "mutation": {
+        "description": "Ignore beforechange cancellation",
+        "file": "src/dialog_controller.ts",
+        "replacements": [{ "find": "\t\t\t!accepted ||", "replace": "\t\t\tfalse ||" }]
+      },
+      "expectedFailure": "dialog-panel-before-negative fails."
+    },
+    {
+      "testId": "dialog-panel-preview-negative",
+      "guard": "Change committed values during drag",
+      "mutation": {
+        "description": "Change committed values during drag",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.syncBounds(drag.preview);",
+            "replace": "\t\t\tthis.commitBounds(drag.preview);"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-preview-negative fails. dialog-panel-drag-cancel and dialog-panel-lifecycle also test the separation between preview and committed values"
+    },
+    {
+      "testId": "dialog-panel-cancel-negative",
+      "guard": "Remove cancellation on capture loss",
+      "mutation": {
+        "description": "Remove cancellation on capture loss",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.isTrusted && event.pointerId === this.drag?.id) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-cancel-negative fails."
+    },
+    {
+      "testId": "dialog-panel-trusted-negative",
+      "guard": "Remove synthetic-click rejection for apply",
+      "mutation": {
+        "description": "Remove synthetic-click rejection for apply",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted || panel.apply.matches(\":disabled\")) {",
+            "replace": "\t\tif (panel.apply.matches(\":disabled\")) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-trusted-negative fails."
+    },
+    {
+      "testId": "dialog-panel-reentrant-negative",
+      "guard": "Remove detection of API changes during beforechange",
+      "mutation": {
+        "description": "Remove detection of API changes during beforechange",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          { "find": "\t\t\trevision !== this.revision ||", "replace": "\t\t\tfalse ||" }
+        ]
+      },
+      "expectedFailure": "dialog-panel-reentrant-negative fails."
+    },
+    {
+      "testId": "dialog-panel-cleanup-negative",
+      "guard": "Omit drag cancellation on disconnect",
+      "mutation": {
+        "description": "Omit drag cancellation on disconnect",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.ownerDocument.defaultView?.removeEventListener(\"blur\", this.cancelDrag);\n\t\tthis.cancelDrag();",
+            "replace": "\t\tthis.element.ownerDocument.defaultView?.removeEventListener(\"blur\", this.cancelDrag);"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-cleanup-negative fails."
+    },
+    {
+      "testId": "dialog-panel-validation-negative",
+      "guard": "Remove non-modal settings and markup validation",
+      "mutation": {
+        "description": "Remove non-modal settings and markup validation",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn triggersValid && closeTargetsValid && titleValid && hasName && this.validPanel(dialog);",
+            "replace": "\t\treturn triggersValid && closeTargetsValid && titleValid && hasName;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-panel-validation-negative fails."
+    },
+    {
+      "testId": "dialog-semantic-validation-negative",
+      "guard": "semantic target validation",
+      "mutation": {
+        "description": "Disable semantic validation and accept a title target outside the dialog",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.isValidMarkup()) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-semantic-validation-negative fails. The individual dialog-invalid-target-count check also tests the same enhancement-disabling invariant"
+    },
+    {
+      "testId": "dialog-root-state-negative",
+      "guard": "root data-state output",
+      "mutation": {
+        "description": "Fix root open/closed data-state output to closed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.dataset.state = state;",
+            "replace": "\t\tthis.element.dataset.state = \"closed\";"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-root-state-negative fails. drawer's keyboard selection of open/closed and three height levels, with separate state and focus, also tests the same root state output"
+    },
+    {
+      "testId": "dialog-dialog-state-negative",
+      "guard": "dialog data-state output",
+      "mutation": {
+        "description": "Fix native dialog open/closed data-state output to closed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tdialog.dataset.state = state;",
+            "replace": "\t\tdialog.dataset.state = \"closed\";"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-dialog-state-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-state-negative",
+      "guard": "trigger data-state output",
+      "mutation": {
+        "description": "Fix trigger open/closed data-state output to closed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger.dataset.state = state;",
+            "replace": "\t\t\ttrigger.dataset.state = \"closed\";"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-state-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-expanded-negative",
+      "guard": "trigger aria-expanded output",
+      "mutation": {
+        "description": "Always set trigger aria-expanded to false and break synchronization with native open state",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\ttrigger.setAttribute(\"aria-expanded\", String(dialog.open));",
+            "replace": "\t\t\ttrigger.setAttribute(\"aria-expanded\", \"false\");"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-expanded-negative fails."
+    },
+    {
+      "testId": "dialog-open-value-negative",
+      "guard": "initial open value application",
+      "mutation": {
+        "description": "Disable initial open-value application from data-dialog-open-value",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.shouldApplyOpenValue) {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-open-value-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-controls-preservation-negative",
+      "guard": "authored aria-controls preservation",
+      "mutation": {
+        "description": "Overwrite an authored trigger aria-controls without the hasAttribute guard",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!trigger.hasAttribute(\"aria-controls\")) {",
+            "replace": "\t\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-controls-preservation-negative fails."
+    },
+    {
+      "testId": "dialog-title-labelledby-preservation-negative",
+      "guard": "authored aria-labelledby preservation",
+      "mutation": {
+        "description": "Overwrite an authored dialog aria-labelledby by removing it from the completion condition",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t!dialog.hasAttribute(\"aria-labelledby\")",
+            "replace": "\t\t\ttrue"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-title-labelledby-preservation-negative fails."
+    },
+    {
+      "testId": "dialog-beforeopen-cancel-negative",
+      "guard": "beforeopen cancellation",
+      "mutation": {
+        "description": "Ignore the preventDefault result from dialog:beforeopen",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeOpen)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeOpen);"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-beforeopen-cancel-negative fails."
+    },
+    {
+      "testId": "dialog-key-filter-negative",
+      "guard": "keyboard key filter",
+      "mutation": {
+        "description": "Record keydown events other than Enter/Space as keyboard activation targets",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (event.key !== \"Enter\" && event.key !== \" \") {",
+            "replace": "\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-key-filter-negative fails."
+    },
+    {
+      "testId": "dialog-beforeclose-cancel-negative",
+      "guard": "beforeclose cancellation",
+      "mutation": {
+        "description": "Ignore the preventDefault result from dialog:beforeclose",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.dispatchEvent(beforeClose)) {\n\t\t\treturn;\n\t\t}",
+            "replace": "\t\tthis.element.dispatchEvent(beforeClose);"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-beforeclose-cancel-negative fails. dialog-escape-cancel, dialog-panel-native, and tour's preservation of existing close cancellation without moving focus to a background guide target while modal also test the same beforeclose cancellation"
+    },
+    {
+      "testId": "dialog-cancel-trusted-negative",
+      "guard": "native cancel isTrusted",
+      "mutation": {
+        "description": "Remove the native cancel event isTrusted guard and treat synthetic cancel as Escape",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\tprivate handleCancel = (event: Event) => {\n\t\tif (!event.isTrusted) {",
+            "replace": "\tprivate handleCancel = (event: Event) => {\n\t\tif (false) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-cancel-trusted-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-click-trusted-negative",
+      "guard": "trigger click isTrusted",
+      "mutation": {
+        "description": "Remove the trigger-click isTrusted guard and treat a synthetic click as a user open",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (!event.isTrusted) {\n\t\t\t\tthis.keyboardActivationTarget = null;\n\t\t\t\tthis.show();",
+            "replace": "\t\t\tif (false) {\n\t\t\t\tthis.keyboardActivationTarget = null;\n\t\t\t\tthis.show();"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-click-trusted-negative fails. dialog-disconnect-cleanup also tests that synthetic clicks do not dispatch events"
+    },
+    {
+      "testId": "dialog-close-click-trusted-negative",
+      "guard": "close click isTrusted",
+      "mutation": {
+        "description": "Remove the close-click isTrusted guard and treat a synthetic click as a user close",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted) {\n\t\t\tthis.keyboardActivationTarget = null;\n\t\t\tthis.close();",
+            "replace": "\t\tif (false) {\n\t\t\tthis.keyboardActivationTarget = null;\n\t\t\tthis.close();"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-close-click-trusted-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-disabled-negative",
+      "guard": "disabled trigger exclusion",
+      "mutation": {
+        "description": "Remove the trigger disabled guard and accept disabled activation",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (trigger.disabled || this.open) {",
+            "replace": "\t\t\tif (this.open) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-disabled-negative fails."
+    },
+    {
+      "testId": "dialog-close-disabled-negative",
+      "guard": "disabled close exclusion",
+      "mutation": {
+        "description": "Remove the close-target disabled guard and accept disabled activation",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (close === undefined || close.disabled || !this.open) {",
+            "replace": "\t\tif (close === undefined || !this.open) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-close-disabled-negative fails."
+    },
+    {
+      "testId": "dialog-same-state-negative",
+      "guard": "same-state trigger early return",
+      "mutation": {
+        "description": "Remove the same-state guards from handleClick and requestOpen together and accept activation from a trigger while already open",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (trigger.disabled || this.open) {",
+            "replace": "\t\t\tif (trigger.disabled) {"
+          },
+          {
+            "find": "\t\tif (dialog === null || dialog.open) {",
+            "replace": "\t\tif (dialog === null) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-same-state-negative fails."
+    },
+    {
+      "testId": "dialog-target-membership-negative",
+      "guard": "Validate that the event target is a registered target",
+      "mutation": {
+        "description": "Remove eventButton membership validation and target any button inside the root",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t\t\tcandidate instanceof HTMLButtonElement && targets.includes(candidate),",
+            "replace": "\t\t\t\t\tcandidate instanceof HTMLButtonElement,"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-target-membership-negative fails. dialog-keyboard-reason, dialog-key-filter-negative, dialog-beforeclose-cancel, dialog-programmatic-silence, dialog-focus-autofocus, and dialog-dynamic-targets also test membership checks based on composedPath"
+    },
+    {
+      "testId": "dialog-disconnect-listener-negative",
+      "guard": "disconnect root listener cleanup",
+      "mutation": {
+        "description": "Break both the connected reset and root-listener removal in disconnect, leaving the click listener after disconnection",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.connected = false;\n\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);",
+            "replace": "\t\tthis.connected = true;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-disconnect-listener-negative fails. dialog-panel-lifecycle also tests the same root-listener cleanup"
+    },
+    {
+      "testId": "dialog-dialog-target-count-negative",
+      "guard": "dialog target count validation",
+      "mutation": {
+        "description": "Remove validation that there is exactly one native dialog target and accept the first of multiple targets",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (this.dialogTargets.length !== 1) {",
+            "replace": "\t\tif (this.dialogTargets.length === 0) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-dialog-target-count-negative fails."
+    },
+    {
+      "testId": "dialog-dialog-element-negative",
+      "guard": "native dialog element validation",
+      "mutation": {
+        "description": "Remove HTMLDialogElement validation for the dialog target and accept a div target",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\treturn dialog instanceof HTMLDialogElement ? dialog : null;",
+            "replace": "\t\treturn dialog as HTMLDialogElement;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-dialog-element-negative fails."
+    },
+    {
+      "testId": "dialog-trigger-validation-negative",
+      "guard": "trigger semantic validation",
+      "mutation": {
+        "description": "Always make native button/type validation for triggers succeed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst triggersValid = this.triggerTargets.every(\n\t\t\t(target) => target instanceof HTMLButtonElement && target.type === \"button\",\n\t\t);",
+            "replace": "\t\tconst triggersValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-trigger-validation-negative fails."
+    },
+    {
+      "testId": "dialog-close-validation-negative",
+      "guard": "close semantic validation",
+      "mutation": {
+        "description": "Always make native button/type validation for close targets succeed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst closeTargetsValid = this.closeTargets.every(\n\t\t\t(target) => target instanceof HTMLButtonElement && target.type === \"button\",\n\t\t);",
+            "replace": "\t\tconst closeTargetsValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-close-validation-negative fails."
+    },
+    {
+      "testId": "dialog-title-count-negative",
+      "guard": "title target count validation",
+      "mutation": {
+        "description": "Remove validation that there are zero or one title targets and accept multiple titles",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (dialog === null || this.triggerTargets.length === 0 || this.titleTargets.length > 1) {",
+            "replace": "\t\tif (dialog === null || this.triggerTargets.length === 0 || this.titleTargets.length > 2) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-title-count-negative fails."
+    },
+    {
+      "testId": "dialog-title-containment-negative",
+      "guard": "title descendant validation",
+      "mutation": {
+        "description": "Always make validation that the title target is a dialog descendant succeed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst titleValid = title === undefined || dialog.contains(title);",
+            "replace": "\t\tconst titleValid = true;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-title-containment-negative fails."
+    },
+    {
+      "testId": "dialog-name-validation-negative",
+      "guard": "accessible name validation",
+      "mutation": {
+        "description": "Always make accessible-name validation for the dialog succeed",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tconst hasName =\n\t\t\t(ariaLabel !== null && ariaLabel.trim() !== \"\") ||\n\t\t\t(ariaLabelledBy !== null && ariaLabelledBy.trim() !== \"\") ||\n\t\t\ttitle !== undefined;",
+            "replace": "\t\tconst hasName = true;"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-name-validation-negative fails."
+    },
+    {
+      "testId": "dialog-no-trigger-validation-negative",
+      "guard": "trigger presence validation",
+      "mutation": {
+        "description": "Remove validation that at least one trigger is required",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (dialog === null || this.triggerTargets.length === 0 || this.titleTargets.length > 1) {",
+            "replace": "\t\tif (dialog === null || this.triggerTargets.length < 0 || this.titleTargets.length > 1) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-no-trigger-validation-negative fails."
+    },
+    {
+      "testId": "dialog-completion-warning-negative",
+      "guard": "Warnings for completed attributes",
+      "plannedMutation": "Disable the completion-warning guard so missing completion attributes do not warn.",
+      "mutation": {
+        "description": "Disable the guard that emits the completion warning",
+        "file": "src/dialog_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (attributes.length === 0 || this.completionWarningIssued) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "dialog-completion-warning-negative fails."
+    }
+  ]
+}

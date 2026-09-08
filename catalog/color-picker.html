@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>color-picker | catalog</title>
+    <link rel="stylesheet" href="./catalog.css" />
+    <script type="module" src="./main.ts"></script>
+  </head>
+  <body class="catalog-page">
+    <header><a href="./index.html">catalog</a></header>
+    <main
+      data-catalog-states="idle adjusting data-color-space"
+      data-catalog-properties="--color-picker-hue --color-picker-saturation --color-picker-brightness --color-picker-alpha --color-picker-color --color-picker-hue-color"
+      data-catalog-events="color-picker:beforechange color-picker:change"
+    >
+      <h1>color-picker</h1>
+      <section>
+        <h2>sRGB・area</h2>
+        <div
+          class="catalog-color-picker"
+          data-controller="color-picker"
+          role="group"
+          aria-label="sRGB color"
+        >
+          <button
+            id="color-area"
+            class="catalog-color-area"
+            type="button"
+            data-color-picker-target="area"
+            aria-label="Go to saturation and brightness sliders"
+            aria-controls="color-a-s color-a-v"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+          <p data-color-picker-target="instructions">
+            Adjust saturation and brightness with arrows. Hold Shift for ten times the step. Escape
+            cancels. Enter or Space moves to the sliders below.
+          </p>
+          <div class="catalog-color-controls">
+            <label for="color-a-h">Hue (degrees)</label
+            ><input
+              id="color-a-h"
+              type="range"
+              min="0"
+              max="360"
+              step="any"
+              data-color-picker-target="hueControl"
+            />
+            <label for="color-a-s">Saturation (%)</label
+            ><input
+              id="color-a-s"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="saturationControl"
+            />
+            <label for="color-a-v">Brightness (%)</label
+            ><input
+              id="color-a-v"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="brightnessControl"
+            />
+            <label for="color-a-a">Opacity (0–1)</label
+            ><input
+              id="color-a-a"
+              type="range"
+              min="0"
+              max="1"
+              step="any"
+              data-color-picker-target="alphaControl"
+            />
+          </div>
+          <span class="catalog-color-swatch" aria-hidden="true"></span
+          ><span class="catalog-color-alpha" aria-hidden="true"></span>
+        </div>
+      </section>
+      <section>
+        <h2>Display-P3・wheel</h2>
+        <div
+          class="catalog-color-picker"
+          data-controller="color-picker"
+          data-color-picker-value-value='{"colorSpace":"display-p3","hue":120,"saturation":100,"brightness":100,"alpha":0.5}'
+          role="group"
+          aria-label="Display-P3 hue"
+        >
+          <button
+            id="color-wheel"
+            class="catalog-color-wheel"
+            type="button"
+            data-color-picker-target="wheel"
+            aria-label="Go to hue slider"
+            aria-controls="color-w-h"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+          <p data-color-picker-target="instructions">
+            Adjust hue with arrows. Home and End reach the limits. Hold Shift for ten times the
+            step. Escape cancels. Enter or Space moves to the hue slider below.
+          </p>
+          <div class="catalog-color-controls">
+            <label for="color-w-h">Hue (degrees)</label
+            ><input
+              id="color-w-h"
+              type="range"
+              min="0"
+              max="360"
+              step="any"
+              data-color-picker-target="hueControl"
+            />
+            <label for="color-w-s">Saturation (%)</label
+            ><input
+              id="color-w-s"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="saturationControl"
+            />
+            <label for="color-w-v">Brightness (%)</label
+            ><input
+              id="color-w-v"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="brightnessControl"
+            />
+            <label for="color-w-a">Opacity (0–1)</label
+            ><input
+              id="color-w-a"
+              type="range"
+              min="0"
+              max="1"
+              step="any"
+              data-color-picker-target="alphaControl"
+            />
+          </div>
+          <span class="catalog-color-swatch" aria-hidden="true"></span
+          ><span class="catalog-color-alpha" aria-hidden="true"></span>
+        </div>
+      </section>
+      <section>
+        <h2>Display-P3 ranges only</h2>
+        <div
+          class="catalog-color-picker"
+          data-controller="color-picker"
+          data-color-picker-value-value='{"colorSpace":"display-p3","hue":240,"saturation":70,"brightness":80,"alpha":1}'
+          role="group"
+          aria-label="Display-P3 channels"
+        >
+          <div class="catalog-color-controls">
+            <label for="color-r-h">Hue (degrees)</label
+            ><input
+              id="color-r-h"
+              type="range"
+              min="0"
+              max="360"
+              step="any"
+              data-color-picker-target="hueControl"
+            />
+            <label for="color-r-s">Saturation (%)</label
+            ><input
+              id="color-r-s"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="saturationControl"
+            />
+            <label for="color-r-v">Brightness (%)</label
+            ><input
+              id="color-r-v"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="brightnessControl"
+            />
+            <label for="color-r-a">Opacity (0–1)</label
+            ><input
+              id="color-r-a"
+              type="range"
+              min="0"
+              max="1"
+              step="any"
+              data-color-picker-target="alphaControl"
+            />
+          </div>
+          <span class="catalog-color-swatch" aria-hidden="true"></span
+          ><span class="catalog-color-alpha" aria-hidden="true"></span>
+        </div>
+      </section>
+      <section>
+        <h2>sRGB area and wheel, RTL</h2>
+        <div
+          class="catalog-color-picker"
+          data-controller="color-picker"
+          dir="rtl"
+          role="group"
+          aria-label="Right-to-left color selection"
+        >
+          <button
+            id="color-rtl-area"
+            class="catalog-color-area"
+            type="button"
+            data-color-picker-target="area"
+            aria-label="Go to saturation and brightness sliders"
+            aria-controls="color-b-s color-b-v"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+          <button
+            id="color-rtl-wheel"
+            class="catalog-color-wheel"
+            type="button"
+            data-color-picker-target="wheel"
+            aria-label="Go to hue slider"
+            aria-controls="color-b-h"
+          >
+            <span aria-hidden="true"></span>
+          </button>
+          <p data-color-picker-target="instructions">
+            Area arrows adjust saturation and brightness; wheel arrows adjust hue. Home and End
+            reach hue limits. Hold Shift for ten times the step. Escape cancels. Enter or Space
+            moves to the sliders below.
+          </p>
+          <div class="catalog-color-controls">
+            <label for="color-b-h">Hue (degrees)</label
+            ><input
+              id="color-b-h"
+              type="range"
+              min="0"
+              max="360"
+              step="any"
+              data-color-picker-target="hueControl"
+            />
+            <label for="color-b-s">Saturation (%)</label
+            ><input
+              id="color-b-s"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="saturationControl"
+            />
+            <label for="color-b-v">Brightness (%)</label
+            ><input
+              id="color-b-v"
+              type="range"
+              min="0"
+              max="100"
+              step="any"
+              data-color-picker-target="brightnessControl"
+            />
+            <label for="color-b-a">Opacity (0–1)</label
+            ><input
+              id="color-b-a"
+              type="range"
+              min="0"
+              max="1"
+              step="any"
+              data-color-picker-target="alphaControl"
+            />
+          </div>
+          <span class="catalog-color-swatch" aria-hidden="true"></span
+          ><span class="catalog-color-alpha" aria-hidden="true"></span>
+        </div>
+      </section>
+      <ul class="catalog-events" role="log"></ul>
+    </main>
+  </body>
+</html>

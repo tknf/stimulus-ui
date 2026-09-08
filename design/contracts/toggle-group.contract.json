@@ -1,0 +1,492 @@
+{
+  "name": "toggle-group",
+  "controller": "toggle-group",
+  "pattern": "Toggle buttons following the WAI-ARIA APG Button Pattern, with roving-tabindex focus",
+  "responsibility": "Provides single/multiple selection for native buttons, synchronized aria-pressed/data-state, and arrow-key focus navigation. Does not provide form input, appearance, or content.",
+  "references": [
+    "https://www.w3.org/WAI/ARIA/apg/patterns/button/",
+    "https://www.w3.org/TR/wai-aria-1.2/#group",
+    "https://www.w3.org/TR/WCAG22/",
+    "https://www.w3.org/TR/accname-1.2/#computation-steps"
+  ],
+  "authorMarkup": {
+    "root": "An HTMLElement with data-controller=\"toggle-group\" and role=\"group\", named through aria-label or aria-labelledby referencing nonempty text.",
+    "item": "At least one native <button type=\"button\"> with data-toggle-group-target=\"item\" and a unique nonempty data-toggle-group-value. Names must not change with selection; aria-pressed is synchronized by the controller. Use aria-label, aria-labelledby referencing text, or button text. Image/SVG-only buttons require aria-label or aria-labelledby. Ordinary text names exclude SVG, aria-hidden=true, hidden, display:none, visibility:hidden/collapse, content-visibility:hidden, and script/style subtrees.",
+    "boundaries": "Toolbar manages focus without selection; toggle-group manages a button selection set in a group role. It does not replace native radio form submission or exclusive selection. Combining toolbar on the same element and nesting composite widgets are outside scope. Nested same-type controllers operate only on items in their Stimulus scope."
+  },
+  "contractValidation": {
+    "semanticElements": [
+      "The root accessible name is nonempty.",
+      "At least one item is required, each a native button type=button beneath the root.",
+      "Item values are nonempty and unique, and item names are nonempty.",
+      "orientation is horizontal or vertical.",
+      "selected is a JSON string array parsed through Stimulus Array values. Invalid JSON, non-arrays, or arrays containing nonstrings disable enhancement."
+    ],
+    "invalidMarkup": "Violations issue the standard English warning once per connection and disable enhancement. Do not complete static attributes, output state, move focus, emit events, or apply public API changes; preserve committed selection/outputs. Revalidate changes to targets, values, names, disabled, and type within the root, resuming when valid. External-label contents are revalidated at the next operation, API call, or root change.",
+    "completion": "Supply group only when root role is absent, preserving authored role. Report completion with the standard English warning once per connection.",
+    "completionExempt": "Write aria-pressed as synchronized selection state and tabindex as an operational attribute without warnings. Do not put aria-orientation on group or invent names. Visible referenced labels exclude hidden descendant text; directly referenced hidden labels include their subtree text. Opacity zero or offscreen positioning alone does not invalidate names."
+  },
+  "api": {
+    "values": {
+      "multiple": {
+        "type": "Boolean",
+        "default": false,
+        "htmlAttribute": "data-toggle-group-multiple-value"
+      },
+      "selected": {
+        "type": "Array",
+        "default": [],
+        "description": "Initial selection is a string array, synchronized to the current committed value afterward. Removing the attribute resets to an empty array. Do not reserve unknown values for later-added targets.",
+        "htmlAttribute": "data-toggle-group-selected-value"
+      },
+      "orientation": {
+        "type": "String",
+        "default": "horizontal",
+        "allowed": ["horizontal", "vertical"],
+        "htmlAttribute": "data-toggle-group-orientation-value"
+      }
+    },
+    "properties": {
+      "selected": {
+        "type": "string[]",
+        "access": "getter/setter",
+        "description": "Return selected values in DOM order. Assignment removes unknowns/duplicates and normalizes single mode to the first DOM-order value. JS may select disabled items. Do not move focus or emit events."
+      }
+    },
+    "methods": {},
+    "events": {
+      "toggle-group:beforechange": {
+        "bubbles": true,
+        "cancelable": true,
+        "detail": "ToggleGroupChangeDetail { selected: string[], previousSelected: string[], reason: 'pointer' | 'keyboard' }, before trusted-click changes. preventDefault cancels the change."
+      },
+      "toggle-group:change": {
+        "bubbles": true,
+        "cancelable": false,
+        "detail": "ToggleGroupChangeDetail after user-originated commitment. Do not emit for programmatic changes, attribute synchronization, or target changes."
+      }
+    },
+    "selection": "Reactivating a selected button deselects it in either mode. Single mode clears other items; multiple mode toggles only the item. Switching to single retains the first selected DOM-order item. Target removal drops its value; disabled changes preserve selection. Do nothing if native click is already defaultPrevented.",
+    "reentrancy": "If beforechange listeners change the API, configuration, or targets, preserve their committed result and discard the original operation. Mutating detail arrays does not affect internal selection. API changes remain committed even if the listener also cancels. Unrelated log additions or focus movement alone do not abort. Root removal or removing its controller attribute counts as disconnection."
+  },
+  "keyboard": {
+    "Tab": "One enabled item has tabindex=0; others have -1. Prefer the last genuinely focused enabled item, then an enabled selected item, then the first enabled item.",
+    "ArrowLeft": "Horizontal: focus previous in LTR or next in RTL, wrapping at boundaries.",
+    "ArrowRight": "Horizontal: focus next in LTR or previous in RTL, wrapping at boundaries.",
+    "ArrowUp": "Focus previous in vertical mode; ignore in horizontal mode.",
+    "ArrowDown": "Focus next in vertical mode; ignore in horizontal mode.",
+    "Home": "Focus the first enabled item.",
+    "End": "Focus the last enabled item.",
+    "Enter": "Toggle selection through trusted native button click.",
+    "Space": "Toggle selection through trusted native button click.",
+    "navigation": "Arrows/Home/End preserve selection. Exclude native :disabled items, including disabled fieldsets. Ignore modified navigation, IME keydown, and synthetic keydown. Use root computed direction; leave Tab to native behavior."
+  },
+  "managedMarkup": {
+    "root": "Complete missing role only; do not output root data-state.",
+    "item": "Synchronize aria-pressed=true/false, data-state=on/off, and tabindex=0/-1. Preserve authored IDs and static attributes."
+  },
+  "stateOutputs": {
+    "item": ["on", "off"],
+    "root": "Output state per item, not aggregated on the root. No CSS custom properties."
+  },
+  "lifecycle": [
+    "Register listeners/observers on connect and remove them on disconnect. Queued synchronization must not run while disconnected.",
+    "Handle item changes with itemTargetConnected/Disconnected, leaving written state attributes on removed items.",
+    "Preserve selection across reconnection without duplicate subscriptions. Public API changes do nothing while disconnected; leave attributes intact.",
+    "Asynchronous target/disabled changes correct the Tab stop without moving actual focus.",
+    "Track disabled changes on ancestor fieldsets outside the root. Pre-connect target callbacks do not subscribe; synchronize current targets after connect."
+  ],
+  "manualVerification": {
+    "blocking": [],
+    "observations": [
+      {
+        "environment": "Screen readers on real devices",
+        "item": "Group names, pressed state, and navigation announcements",
+        "status": "unverified",
+        "impact": "Native buttons and aria-pressed define the public semantics independently of compatibility wording."
+      }
+    ]
+  },
+  "acceptanceCriteria": [
+    "Controller behavior must meet WCAG 2.2 Level AA. Consumers own meaningful names, colors, contrast, and focus indicators.",
+    "AAA 2.1.3 Keyboard (No Exception): selection/deselection available by pointer is also available through Enter/Space.",
+    "AAA 3.2.5 Change on Request: move focus only for user keyboard operations, never timers or synchronization.",
+    "Verify single/multiple mode, RTL/vertical, cancellation, synthetic events, disabled state, dynamic changes, reconnection, and nesting in Chromium, Firefox, and WebKit.",
+    "Observation, unverified: real-device screen reader compatibility for group names, pressed state, and navigation announcements in the catalog. Public semantics use native buttons and aria-pressed and do not depend on these observations."
+  ],
+  "testMatrix": [
+    {
+      "testId": "toggle-group-state",
+      "description": "Initial selection, aria-pressed, data-state, no root aggregate, and authored-attribute preservation"
+    },
+    {
+      "testId": "toggle-group-api",
+      "description": "Single/multiple selected getter/setter, normalization, attribute synchronization, and no events"
+    },
+    {
+      "testId": "toggle-group-activation",
+      "description": "Trusted pointer/Enter/Space selection and deselection, reasons, and event order"
+    },
+    {
+      "testId": "toggle-group-navigation",
+      "description": "Arrows, Home/End, wrapping, Tab stop, vertical/RTL, and preserved selection"
+    },
+    {
+      "testId": "toggle-group-ignored-keys",
+      "description": "Rejecting modifiers, IME, and synthetic keydown"
+    },
+    {
+      "testId": "toggle-group-disabled",
+      "description": "Disabled exclusion including ancestor fieldsets, selection preservation, and all-disabled state"
+    },
+    {
+      "testId": "toggle-group-validation",
+      "description": "Invalid targets/values/configuration and repair, invalid-JSON warnings, and preservation of existing outputs"
+    },
+    {
+      "testId": "toggle-group-names",
+      "description": "Root/item names, external labels, and separate completion/disabling warnings"
+    },
+    {
+      "testId": "toggle-group-dynamic",
+      "description": "Target addition/removal/movement and value/configuration/name changes without focus movement"
+    },
+    {
+      "testId": "toggle-group-cancellation",
+      "description": "beforechange cancellation and already-defaultPrevented clicks"
+    },
+    {
+      "testId": "toggle-group-reentrancy",
+      "description": "API/configuration/target/disconnect changes in beforechange and detail-array independence"
+    },
+    {
+      "testId": "toggle-group-synthetic",
+      "description": "Rejecting synthetic clicks without events"
+    },
+    {
+      "testId": "toggle-group-lifecycle",
+      "description": "Disconnect listener/observer cleanup, cancellation of queued synchronization, and reconnection"
+    },
+    {
+      "testId": "toggle-group-nested",
+      "description": "Same-type controller scope and event bubbling isolation"
+    }
+  ],
+  "negativeControls": [
+    {
+      "testId": "toggle-group-state-negative",
+      "guard": "Remove item data-state output.",
+      "mutation": {
+        "description": "Remove item data-state output.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\titem.dataset.state = selected ? \"on\" : \"off\";",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-state-negative, catalog behavior, toggle-group-names, toggle-group-dynamic, and toggle-group-lifecycle fail on state output."
+    },
+    {
+      "testId": "toggle-group-role-negative",
+      "guard": "Overwrite authored role with group.",
+      "mutation": {
+        "description": "Overwrite authored role with group.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!this.element.hasAttribute(\"role\")) {",
+            "replace": "\t\tif (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-role-negative, catalog connection/behavior, toggle-group-names, and toggle-group-reentrancy completion warnings after controller-attribute removal fail."
+    },
+    {
+      "testId": "toggle-group-validation-negative",
+      "guard": "Remove semantic markup validation.",
+      "mutation": {
+        "description": "Remove semantic markup validation.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "if (values === undefined || !this.isValidMarkup()) {",
+            "replace": "if (values === undefined) {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-validation-negative and toggle-group-names missing-name/repair checks fail."
+    },
+    {
+      "testId": "toggle-group-single-negative",
+      "guard": "Remove normalization to one item in single mode.",
+      "mutation": {
+        "description": "Remove normalization to one item in single mode.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "return this.multipleValue ? selected : selected.slice(0, 1);",
+            "replace": "return selected;"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-single-negative and toggle-group-dynamic multiple-to-single normalization fail."
+    },
+    {
+      "testId": "toggle-group-warning-negative",
+      "guard": "Repeat completion warnings during the same connection.",
+      "mutation": {
+        "description": "Repeat completion warnings during the same connection.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "if (!this.completionWarningIssued) {",
+            "replace": "if (true) {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-warning-negative fails."
+    },
+    {
+      "testId": "toggle-group-keyboard-negative",
+      "guard": "Remove the isTrusted guard for synthetic keydown.",
+      "mutation": {
+        "description": "Remove the isTrusted guard for synthetic keydown.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\t!event.isTrusted ||\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-keyboard-negative fails."
+    },
+    {
+      "testId": "toggle-group-disabled-negative",
+      "guard": "Remove native-disabled and ancestor-fieldset exclusion.",
+      "mutation": {
+        "description": "Remove native-disabled and ancestor-fieldset exclusion.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "private isEnabled = (item: HTMLButtonElement) => !item.matches(\":disabled\");",
+            "replace": "private isEnabled = (_item: HTMLButtonElement) => true;"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-disabled-negative and catalog disabled-exclusion behavior fail."
+    },
+    {
+      "testId": "toggle-group-cancel-negative",
+      "guard": "Ignore beforechange cancellation.",
+      "mutation": {
+        "description": "Ignore beforechange cancellation.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!accepted) {\n\t\t\treturn;\n\t\t}",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-cancel-negative fails."
+    },
+    {
+      "testId": "toggle-group-reentrancy-negative",
+      "guard": "Remove both independent guards protecting API/markup changes made by beforechange listeners.",
+      "mutation": {
+        "description": "Remove both independent guards protecting API/markup changes made by beforechange listeners.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tthis.revision !== revision ||\n\t\t\tmarkupChanged ||",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-reentrancy-negative fails."
+    },
+    {
+      "testId": "toggle-group-detail-negative",
+      "guard": "Share beforechange detail arrays with internal selection arrays.",
+      "mutation": {
+        "description": "Share beforechange detail arrays with internal selection arrays.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tselected: [...selected],\n\t\t\tpreviousSelected: [...previousSelected],",
+            "replace": "\t\t\tselected,\n\t\t\tpreviousSelected,"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-detail-negative fails."
+    },
+    {
+      "testId": "toggle-group-synthetic-negative",
+      "guard": "Remove the synthetic-click isTrusted guard.",
+      "mutation": {
+        "description": "Remove the synthetic-click isTrusted guard.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tif (!event.isTrusted || event.defaultPrevented || !this.ensureEnhanced()) {",
+            "replace": "\t\tif (event.defaultPrevented || !this.ensureEnhanced()) {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-synthetic-negative fails."
+    },
+    {
+      "testId": "toggle-group-cleanup-negative",
+      "guard": "Remove connected reset and listener/observer cleanup together on disconnect.",
+      "mutation": {
+        "description": "Remove connected reset and listener/observer cleanup together on disconnect.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\tdisconnect = () => {\n\t\tthis.connected = false;\n\t\tthis.enhanced = false;\n\t\tthis.revision += 1;\n\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);\n\t\tthis.observer?.disconnect();\n\t\tthis.observer = undefined;\n\t};",
+            "replace": "\tdisconnect = () => {};"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-cleanup-negative, toggle-group-reentrancy disconnect aborts, and toggle-group-pending-negative queued-synchronization cancellation fail."
+    },
+    {
+      "testId": "toggle-group-listener-negative",
+      "guard": "Remove all listener cleanup on disconnect.",
+      "mutation": {
+        "description": "Remove all listener cleanup on disconnect.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.removeEventListener(\"click\", this.handleClick);\n\t\tthis.element.removeEventListener(\"keydown\", this.handleKeydown);\n\t\tthis.element.removeEventListener(\"focusin\", this.handleFocusin);",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-listener-negative fails."
+    },
+    {
+      "testId": "toggle-group-observer-negative",
+      "guard": "Remove observer cleanup on disconnect.",
+      "mutation": {
+        "description": "Remove observer cleanup on disconnect.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.observer?.disconnect();",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-observer-negative fails."
+    },
+    {
+      "testId": "toggle-group-pending-negative",
+      "guard": "Remove the connected guard from queued synchronization.",
+      "mutation": {
+        "description": "Remove the connected guard from queued synchronization.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\t\tif (this.connected) {\n\t\t\t\tthis.reconcile();\n\t\t\t}",
+            "replace": "\t\t\tthis.reconcile();"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-pending-negative fails."
+    },
+    {
+      "testId": "toggle-group-reentrant-log-negative",
+      "guard": "Abort the original operation for unrelated mutations.",
+      "mutation": {
+        "description": "Abort the original operation for unrelated mutations.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "return records.some((record) => {",
+            "replace": "return records.length > 0 || records.some((record) => {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-reentrant-log-negative fails."
+    },
+    {
+      "testId": "toggle-group-detached-negative",
+      "guard": "Remove the root DOM-connection check.",
+      "mutation": {
+        "description": "Remove the root DOM-connection check.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tthis.element.isConnected &&\n",
+            "replace": ""
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-detached-negative fails."
+    },
+    {
+      "testId": "toggle-group-tabstop-negative",
+      "guard": "Record synchronization fallback as genuine focus history.",
+      "mutation": {
+        "description": "Record synchronization fallback as genuine focus history.",
+        "file": "src/toggle_group_controller.ts",
+        "replacements": [
+          {
+            "find": "\t\tfor (const item of this.buttons()) {",
+            "replace": "\t\tthis.currentItem = active;\n\t\tfor (const item of this.buttons()) {"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-tabstop-negative and toggle-group-disabled focus-history Tab-stop selection after re-enabling fail."
+    },
+    {
+      "testId": "toggle-group-name-negative",
+      "guard": "Count hidden-subtree and SVG text in ordinary item text names.",
+      "mutation": {
+        "description": "Count hidden-subtree and SVG text in ordinary item text names.",
+        "file": "src/internal/accessible_text_name.ts",
+        "replacements": [
+          {
+            "find": "(allowText && hasTextName(element))",
+            "replace": "(allowText && (element.textContent ?? \"\").trim() !== \"\")"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-name-negative, toc-names, editable-names, and menu-context-shared-name fail because they share the same naming utility invariant."
+    },
+    {
+      "testId": "toggle-group-reference-name-negative",
+      "guard": "Include hidden descendant text in visible referenced labels.",
+      "mutation": {
+        "description": "Include hidden descendant text in visible referenced labels.",
+        "file": "src/internal/accessible_text_name.ts",
+        "replacements": [
+          {
+            "find": "return labels.some((label) => hasTextName(label, isHiddenNameSource(label), true));",
+            "replace": "return labels.some((label) => (label.textContent ?? \"\").trim() !== \"\");"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-reference-name-negative fails."
+    },
+    {
+      "testId": "toggle-group-hidden-reference-negative",
+      "guard": "Exclude directly referenced hidden-label subtree text as if it were ordinary text.",
+      "mutation": {
+        "description": "Exclude directly referenced hidden-label subtree text as if it were ordinary text.",
+        "file": "src/internal/accessible_text_name.ts",
+        "replacements": [
+          {
+            "find": "return labels.some((label) => hasTextName(label, isHiddenNameSource(label), true));",
+            "replace": "return labels.some((label) => hasTextName(label, false, true));"
+          }
+        ]
+      },
+      "expectedFailure": "toggle-group-hidden-reference-negative fails."
+    }
+  ]
+}
