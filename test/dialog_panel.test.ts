@@ -465,9 +465,10 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 			mounted.target<HTMLInputElement>("xControl"),
 			mode === "synthetic" ? "10" : "20",
 		);
-		if (mode === "synthetic")
+		if (mode === "synthetic") {
 			mounted.apply.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-		else {
+			mounted.apply.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter" }));
+		} else {
 			mounted.apply.addEventListener("keydown", (event) => event.preventDefault(), { once: true });
 			mounted.apply.focus();
 			await userEvent.keyboard("{Enter}");

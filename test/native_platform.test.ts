@@ -37,6 +37,14 @@ for (const type of ["date", "time"] as const) {
 			outside.focus();
 			observations.push({ keys, value: input.value, events: [...events] });
 			expect(events.some((event) => event.type === "keydown" && event.trusted)).toBe(true);
+			if (keys === "{ArrowUp}") {
+				const editsSegments = server.browser !== "webkit" || server.platform !== "linux";
+				expect(input.value !== initialValue).toBe(editsSegments);
+				expect(events.some((event) => event.type === "input" && event.trusted)).toBe(editsSegments);
+				expect(events.some((event) => event.type === "change" && event.trusted)).toBe(
+					editsSegments,
+				);
+			}
 		}
 		console.info(
 			JSON.stringify({ platform: server.platform, browser: server.browser, type, observations }),
@@ -58,6 +66,8 @@ test("Native non-modal dialog close reports focus behavior on the host platform"
 	expect(document.activeElement).toBe(outside);
 	dialog.close();
 	expect(dialog.open).toBe(false);
+	const restoresTrigger = server.browser === "webkit";
+	expect(document.activeElement).toBe(restoresTrigger ? trigger : outside);
 	console.info(
 		JSON.stringify({
 			platform: server.platform,
