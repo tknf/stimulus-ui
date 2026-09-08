@@ -1,14 +1,12 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const results = join(root, "test-results");
 mkdirSync(results, { recursive: true });
-const verifiedTarball = join(results, "stimulus-ui.tgz");
-rmSync(verifiedTarball, { force: true });
 const temporary = mkdtempSync(join(results, "package-check-"));
 const tarball = join(temporary, "package.tgz");
 
@@ -52,7 +50,6 @@ try {
       "Release tag must match package version",
     );
   }
-  copyFileSync(tarball, verifiedTarball);
   console.log(
     `Package verified: ${manifest.name}@${manifest.version}, ${exported.length} controllers, ${entries.length} files`,
   );

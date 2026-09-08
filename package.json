@@ -44,14 +44,14 @@
     "check:release-readiness": "node scripts/check_release_readiness.mjs",
     "check:test-reporting": "node scripts/check_test_reporting.mjs",
     "check:negative-controls": "node scripts/check_negative_controls.mjs",
-    "pack": "vp pack",
+    "build": "vp pack",
     "prepare": "vp config",
-    "prepublishOnly": "vp run pack",
+    "prepublishOnly": "vp run build",
     "test": "vp test",
     "test:api-docs": "node --test scripts/check_api_docs.test.mjs",
     "test:release-readiness": "node --test scripts/check_release_readiness.test.mjs",
     "test:chromium": "vp test run --browser.name chromium",
-    "test:log": "mkdir -p test-results && vp test run > test-results/console.log 2>&1 || (tail -60 test-results/console.log; exit 1)"
+    "test:log": "mkdir -p test-results && vp test run --project \"${TEST_BROWSER:-*}\" > test-results/console.log 2>&1 || (tail -60 test-results/console.log; exit 1)"
   },
   "devDependencies": {
     "@hotwired/stimulus": "3.2.2",
