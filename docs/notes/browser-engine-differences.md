@@ -24,6 +24,26 @@ These native behaviors are observed separately from controller behavior in
 `test/native_platform.test.ts`; results for a synchronous sequence do not establish
 focus behavior after intervening trusted keyboard or pointer operations.
 
+## Firefox native validation popups can outlive test fixtures
+
+In Playwright Firefox 153 on Ubuntu 24.04, the empty required-input case in
+`test/dialog_panel.test.ts` can leave native validation UI open after its fixture
+is removed. The subsequent `dialog-panel-key-reason-negative` test receives no
+trusted pointerdown, pointerup, or click on the apply button. Running that test
+alone does not reproduce the failure; running it after `dialog-panel-before-negative`
+does. This sequence does not reproduce on macOS Firefox.
+
+Blur the active element in the file's `afterEach` before disconnecting controllers
+or removing markup. Firefox's
+[FormValidationChild](https://github.com/mozilla-firefox/firefox/blob/main/browser/actors/FormValidationChild.sys.mjs)
+hides the validation popup on blur. Removing this cleanup reproduces the failure
+with the two-test command below. The assertions still require a trusted pointer
+apply and the committed numeric value; synthetic clicks and retries are not used.
+
+```sh
+vp run test run test/dialog_panel.test.ts --project firefox -t 'dialog-panel-before-negative|dialog-panel-key-reason-negative'
+```
+
 ## Reverse Tab navigation from a non-modal dialog
 
 With the native `dialog.show()` and the first button inside it in `test/dialog_panel.test.ts`, Firefox and WebKit include the dialog itself as a stopping point for Shift+Tab. Chromium moves to the outer button. Both allow navigation to the background, so the controller does not adjust Tab navigation. The test sends another Shift+Tab only when focus stops on the dialog itself, then verifies that the background can be reached.

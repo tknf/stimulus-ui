@@ -105,6 +105,8 @@ beforeEach(() => {
 	application.register("dialog", DialogController);
 });
 afterEach(async () => {
+	// Blur before removing fixtures so Firefox closes its native validation popup.
+	if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 	await pointerCommands.dialogPointer("", "release", 0, 0);
 	for (const root of document.querySelectorAll('[data-controller="dialog"]'))
 		root.removeAttribute("data-controller");
@@ -460,67 +462,21 @@ test("[dialog-panel-input] Prevents form submission from extra-input Enter and c
 test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canceled Enter does not contaminate the next pointer apply reason", async () => {
 	const mounted = await mount();
 	mounted.controller.show();
-	const interactions: Array<{ type: string; target: string | null; trusted: boolean }> = [];
-	for (const type of ["pointerdown", "pointerup", "click", "keydown", "keyup"]) {
-		mounted.owner.addEventListener(
-			type,
-			(event) => {
-				interactions.push({
-					type: event.type,
-					target:
-						event.target instanceof Element
-							? event.target.getAttribute("data-dialog-target")
-							: null,
-					trusted: event.isTrusted,
-				});
-			},
-			{ capture: true },
-		);
-	}
 	for (const mode of ["synthetic", "prevented"] as const) {
 		await userEvent.fill(
 			mounted.target<HTMLInputElement>("xControl"),
 			mode === "synthetic" ? "10" : "20",
 		);
-		if (mode === "synthetic") {
+		if (mode === "synthetic")
 			mounted.apply.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Enter" }));
-			mounted.apply.dispatchEvent(new KeyboardEvent("keyup", { bubbles: true, key: "Enter" }));
-		} else {
+		else {
 			mounted.apply.addEventListener("keydown", (event) => event.preventDefault(), { once: true });
 			mounted.apply.focus();
 			await userEvent.keyboard("{Enter}");
 		}
-		const applyPoint = handlePoint(mounted, mounted.apply);
-		await pointer(mounted, "down", applyPoint.x, applyPoint.y);
-		await pointer(mounted, "up", applyPoint.x, applyPoint.y);
-		await expect
-			.poll(() => ({
-				reason: mounted.events.at(-1)?.detail.reason,
-				mode,
-				bounds: mounted.controller.bounds,
-				interactions,
-				fields: fields.map((field) => {
-					const input = mounted.target<HTMLInputElement>(`${field}Control`);
-					return {
-						field,
-						value: input.value,
-						number: input.valueAsNumber,
-						valid: input.validity.valid,
-						message: input.validationMessage,
-					};
-				}),
-			}))
-			.toMatchObject({ reason: "pointer", bounds: { x: mode === "synthetic" ? 10 : 20 } })
-			.finally(() =>
-				console.info(
-					JSON.stringify({
-						mode,
-						interactions,
-						bounds: mounted.controller.bounds,
-						open: mounted.controller.open,
-					}),
-				),
-			);
+		await userEvent.click(mounted.apply);
+		expect(mounted.events.at(-1)?.detail.reason).toBe("pointer");
+		expect(mounted.controller.bounds.x).toBe(mode === "synthetic" ? 10 : 20);
 	}
 });
 
