@@ -56,6 +56,9 @@ jobs:
         run: vp run check:release-readiness
       - name: Install browsers
         run: vp run browsers:install --with-deps
+      - name: Enable WebKit keyboard navigation
+        if: ${{ matrix.browser == 'webkit' }}
+        run: defaults write org.webkit.Playwright AppleKeyboardUIMode -int 2
       - name: Test ${{ matrix.browser }}
         run: vp run test:log
         env:

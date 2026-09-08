@@ -5,7 +5,12 @@ Automated tests run on the three engines Chromium, Firefox, and WebKit. Workarou
 ## CI host platforms for native controls
 
 CI runs Chromium and Firefox on Ubuntu, and WebKit on macOS. The release workflow
-requires the same three jobs. In Playwright 1.62.1 on Linux, native date and time
+requires the same three jobs. The macOS job enables keyboard navigation for the
+Playwright app with `defaults write org.webkit.Playwright AppleKeyboardUIMode -int 2`.
+Without it, the runner's default settings skip native buttons in Tab order, as
+reported in [Playwright's macOS WebKit issue](https://github.com/microsoft/playwright/issues/41808).
+This setting applies only to the CI browser, not the maintainer's OS or consumer markup.
+In Playwright 1.62.1 on Linux, native date and time
 inputs receive trusted keydown events but do not change their values or emit
 input/change for the tested arrows, Home, and numeric typing. The same operations
 edit native segments in WebKit on macOS. The date-field and time-field trusted
