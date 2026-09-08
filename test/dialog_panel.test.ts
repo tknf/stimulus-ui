@@ -473,7 +473,23 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 			await userEvent.keyboard("{Enter}");
 		}
 		await userEvent.click(mounted.apply);
-		expect(mounted.events.at(-1)?.detail.reason).toBe("pointer");
+		expect(
+			mounted.events.at(-1)?.detail.reason,
+			JSON.stringify({
+				mode,
+				bounds: mounted.controller.bounds,
+				fields: fields.map((field) => {
+					const input = mounted.target<HTMLInputElement>(`${field}Control`);
+					return {
+						field,
+						value: input.value,
+						number: input.valueAsNumber,
+						valid: input.validity.valid,
+						message: input.validationMessage,
+					};
+				}),
+			}),
+		).toBe("pointer");
 	}
 });
 
