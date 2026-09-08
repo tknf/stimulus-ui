@@ -508,7 +508,17 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 					};
 				}),
 			}))
-			.toMatchObject({ reason: "pointer", bounds: { x: mode === "synthetic" ? 10 : 20 } });
+			.toMatchObject({ reason: "pointer", bounds: { x: mode === "synthetic" ? 10 : 20 } })
+			.finally(() =>
+				console.info(
+					JSON.stringify({
+						mode,
+						interactions,
+						bounds: mounted.controller.bounds,
+						open: mounted.controller.open,
+					}),
+				),
+			);
 	}
 });
 
