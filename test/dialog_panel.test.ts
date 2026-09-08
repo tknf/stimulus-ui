@@ -460,6 +460,23 @@ test("[dialog-panel-input] Prevents form submission from extra-input Enter and c
 test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canceled Enter does not contaminate the next pointer apply reason", async () => {
 	const mounted = await mount();
 	mounted.controller.show();
+	const interactions: Array<{ type: string; target: string | null; trusted: boolean }> = [];
+	for (const type of ["pointerdown", "pointerup", "click", "keydown", "keyup"]) {
+		mounted.owner.addEventListener(
+			type,
+			(event) => {
+				interactions.push({
+					type: event.type,
+					target:
+						event.target instanceof Element
+							? event.target.getAttribute("data-dialog-target")
+							: null,
+					trusted: event.isTrusted,
+				});
+			},
+			{ capture: true },
+		);
+	}
 	for (const mode of ["synthetic", "prevented"] as const) {
 		await userEvent.fill(
 			mounted.target<HTMLInputElement>("xControl"),
@@ -474,11 +491,12 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 			await userEvent.keyboard("{Enter}");
 		}
 		await userEvent.click(mounted.apply);
-		expect(
-			mounted.events.at(-1)?.detail.reason,
-			JSON.stringify({
+		await expect
+			.poll(() => ({
+				reason: mounted.events.at(-1)?.detail.reason,
 				mode,
 				bounds: mounted.controller.bounds,
+				interactions,
 				fields: fields.map((field) => {
 					const input = mounted.target<HTMLInputElement>(`${field}Control`);
 					return {
@@ -489,8 +507,8 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 						message: input.validationMessage,
 					};
 				}),
-			}),
-		).toBe("pointer");
+			}))
+			.toMatchObject({ reason: "pointer", bounds: { x: mode === "synthetic" ? 10 : 20 } });
 	}
 });
 
