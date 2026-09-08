@@ -36,6 +36,28 @@ const run = (name, additionalArguments = []) => {
 };
 
 try {
+  const collectionFile = join(workDirectory, "collection.json");
+  const collection = spawnSync(
+    "vp",
+    ["run", "test", "list", "--filesOnly", "--json", collectionFile],
+    { cwd: root, encoding: "utf8" },
+  );
+  assert.equal(collection.status, 0, collection.stderr);
+  /** @type {unknown} */
+  const modules = JSON.parse(readFileSync(collectionFile, "utf8"));
+  assert.ok(Array.isArray(modules), "Browser test collection must be an array");
+  for (const engine of engines) {
+    assert.ok(
+      modules.some(
+        (module) => module.projectName === engine && module.file.endsWith("/test/tabs.test.ts"),
+      ),
+      `Component tests were not collected for ${engine}`,
+    );
+  }
+  assert.ok(
+    modules.every((module) => !module.file.startsWith(join(root, "scripts") + "/")),
+    "Node-only script tests were collected for the browser",
+  );
   writeFileSync(
     fixture,
     `import { expect, test } from "vite-plus/test";

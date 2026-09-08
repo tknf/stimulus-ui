@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_call:
+    inputs:
+      release:
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -14,15 +19,25 @@ concurrency:
 
 jobs:
   ci:
-    name: Check, test, package
-    runs-on: ubuntu-latest
+    name: Check, test, package (${{ matrix.browser }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - browser: chromium
+            os: ubuntu-latest
+          - browser: firefox
+            os: ubuntu-latest
+          - browser: webkit
+            os: macos-latest
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
         with:
           node-version: "24"
-          cache: true
+          cache: ${{ !inputs.release }}
           run-install: false
       - name: Install dependencies
         run: vp install --frozen-lockfile
@@ -32,14 +47,24 @@ jobs:
         run: |
           vp run check:contracts
           vp run check:workflow-safety
-          vp run check:release-readiness --schema-only
           vp run test:release-readiness
+      - name: Check manual verification classification
+        if: ${{ !inputs.release }}
+        run: vp run check:release-readiness --schema-only
+      - name: Require completed blocking manual checks
+        if: ${{ inputs.release }}
+        run: vp run check:release-readiness
       - name: Install browsers
         run: vp run browsers:install --with-deps
-      - name: Test Chromium, Firefox, and WebKit
+      - name: Enable WebKit keyboard navigation
+        if: ${{ matrix.browser == 'webkit' }}
+        run: defaults write org.webkit.Playwright AppleKeyboardUIMode -int 2
+      - name: Test ${{ matrix.browser }}
         run: vp run test:log
+        env:
+          TEST_BROWSER: ${{ matrix.browser }}
       - name: Build
-        run: vp run pack
+        run: vp run build
       - name: Inspect the npm package
         run: vp run check:package
       - name: Check public API documentation
@@ -50,7 +75,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: test-results
+          name: test-results-${{ matrix.browser }}
           path: |
             test-results/console.log
             test-results/results.json

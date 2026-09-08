@@ -49,7 +49,8 @@ test("Records native color values and alpha/colorspace support", () => {
 	if (engine !== "chromium" && engine !== "firefox" && engine !== "webkit") {
 		throw new Error("検証対象外の engine です");
 	}
-	expect(observations).toEqual(expected[engine]);
+	const platform = engine === "webkit" && server.platform === "linux" ? "webkitLinux" : engine;
+	expect(observations).toEqual(expected[platform]);
 });
 
 test("Closed native color inputs do not edit two axes with arrows, and API assignment/reset emit no input/change", async () => {

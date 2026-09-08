@@ -34,7 +34,8 @@ for (const kind of ["button", "link", "link-tabindex"] as const) {
 		await userEvent.tab();
 		expect(document.activeElement).toBe(action);
 		await userEvent.tab({ shift: true });
-		const skipsLink = kind === "link" && server.browser === "webkit";
+		const skipsLink =
+			kind === "link" && server.browser === "webkit" && server.platform === "darwin";
 		expect(document.activeElement).toBe(skipsLink ? document.body : trigger);
 		trigger.focus();
 		await userEvent.tab();

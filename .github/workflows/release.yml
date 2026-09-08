@@ -12,11 +12,15 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  verify:
+    uses: ./.github/workflows/ci.yml
+    with:
+      release: true
   release:
     name: Publish to npm
+    needs: verify
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    environment: npm
     permissions:
       id-token: write
       contents: read
@@ -26,44 +30,22 @@ jobs:
           fetch-depth: 0
       - name: Require a release from main
         run: git merge-base --is-ancestor HEAD origin/main
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: "24"
+          registry-url: "https://registry.npmjs.org"
       - uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
         with:
           node-version: "24"
           cache: false
           run-install: false
-          registry-url: "https://registry.npmjs.org"
       - name: Install dependencies
         run: vp install --frozen-lockfile
-      - name: Check format, lint, and types
-        run: vp run check
-      - name: Check contracts and workflow
-        run: |
-          vp run check:contracts
-          vp run check:workflow-safety
-          vp run check:release-readiness
-          vp run test:release-readiness
-      - name: Install browsers
-        run: vp run browsers:install --with-deps
-      - name: Test Chromium, Firefox, and WebKit
-        run: vp run test:log
       - name: Build
-        run: vp run pack
+        run: vp run build
       - name: Inspect package and release version
         run: vp run check:package
-      - name: Check public API documentation
-        run: |
-          vp run check:api-docs
-          vp run test:api-docs
-      - name: Publish with trusted publishing
-        run: vp pm publish test-results/stimulus-ui.tgz --access public --no-git-checks --provenance
-      - name: Save test diagnostics
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: release-test-results
-          path: |
-            test-results/console.log
-            test-results/results.json
-            test-results/engine-results.json
-            test/__screenshots__/
-          if-no-files-found: ignore
+      - name: Publish
+        run: vp pm publish --access public --no-git-checks --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

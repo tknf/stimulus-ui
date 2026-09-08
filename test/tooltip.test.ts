@@ -131,11 +131,15 @@ describe("tooltip", () => {
 		root.addEventListener("tooltip:toggle", (event) =>
 			events.push((event as CustomEvent<Detail>).detail),
 		);
+		const statesOnEnter: Array<string | undefined> = [];
+		trigger.addEventListener("pointerenter", () => statesOnEnter.push(root.dataset.state), {
+			once: true,
+		});
+		const schedule = vi.spyOn(globalThis, "setTimeout");
 		await userEvent.hover(trigger);
-		await wait(10);
-		expect(root.dataset.state).toBe("closed");
-		await wait(110);
-		expect(root.dataset.state).toBe("open");
+		expect(statesOnEnter).toEqual(["closed"]);
+		expect(schedule).toHaveBeenCalledWith(expect.any(Function), 100);
+		await expect.poll(() => root.dataset.state).toBe("open");
 		// Browsers fire trigger pointerleave before content pointerenter.
 		// Remaining open across that order is required by WCAG 1.4.13 hoverable.
 		await userEvent.hover(content);

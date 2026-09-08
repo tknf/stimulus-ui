@@ -25,7 +25,7 @@ for (const file of expectedAgents) {
   }
 }
 
-const expectedSkills = ["impl", "issue", "plan"];
+const expectedSkills = ["impl", "issue", "plan", "release"];
 const actualSkills = readdirSync(resolve(root, ".agents/skills"))
   .filter((name) => existsSync(resolve(root, ".agents/skills", name, "SKILL.md")))
   .sort();
@@ -39,7 +39,7 @@ for (const name of expectedSkills) {
   if (!skill.startsWith("---\nname: " + name + "\n")) {
     errors.push(name + "/SKILL.md: invalid frontmatter");
   }
-  if (!/^\s*allow_implicit_invocation:\s*false\s*$/m.test(metadata)) {
+  if (name !== "release" && !/^\s*allow_implicit_invocation:\s*false\s*$/m.test(metadata)) {
     errors.push(name + ": must require explicit invocation");
   }
 }

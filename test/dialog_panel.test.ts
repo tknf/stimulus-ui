@@ -105,6 +105,8 @@ beforeEach(() => {
 	application.register("dialog", DialogController);
 });
 afterEach(async () => {
+	// Blur before removing fixtures so Firefox closes its native validation popup.
+	if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 	await pointerCommands.dialogPointer("", "release", 0, 0);
 	for (const root of document.querySelectorAll('[data-controller="dialog"]'))
 		root.removeAttribute("data-controller");
@@ -474,6 +476,7 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 		}
 		await userEvent.click(mounted.apply);
 		expect(mounted.events.at(-1)?.detail.reason).toBe("pointer");
+		expect(mounted.controller.bounds.x).toBe(mode === "synthetic" ? 10 : 20);
 	}
 });
 

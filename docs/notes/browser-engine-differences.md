@@ -2,6 +2,48 @@
 
 Automated tests run on the three engines Chromium, Firefox, and WebKit. Workarounds for engine-specific behavior belong here. **Read this document before removing a workaround.**
 
+## CI host platforms for native controls
+
+CI runs Chromium and Firefox on Ubuntu, and WebKit on macOS. The release workflow
+requires the same three jobs. The macOS job enables keyboard navigation for the
+Playwright app with `defaults write org.webkit.Playwright AppleKeyboardUIMode -int 2`.
+Without it, the runner's default settings skip native buttons in Tab order, as
+reported in [Playwright's macOS WebKit issue](https://github.com/microsoft/playwright/issues/41808).
+This setting applies only to the CI browser, not the maintainer's OS or consumer markup.
+In Playwright 1.62.1 on Linux, native date and time
+inputs receive trusted keydown events but do not change their values or emit
+input/change for the tested arrows, Home, and numeric typing. The same operations
+edit native segments in WebKit on macOS. The date-field and time-field trusted
+change tests therefore run on the macOS WebKit port; JavaScript-generated events
+are not a replacement for these native interaction tests.
+
+Native non-modal dialog close also differs: in the synchronous show(), external
+focus, close() sequence, WebKit on both tested platforms restores the element
+focused before show(), while Chromium and Firefox preserve the external focus.
+These native behaviors are observed separately from controller behavior in
+`test/native_platform.test.ts`; results for a synchronous sequence do not establish
+focus behavior after intervening trusted keyboard or pointer operations.
+
+## Firefox native validation popups can outlive test fixtures
+
+In Playwright Firefox 153 on Ubuntu 24.04, the empty required-input case in
+`test/dialog_panel.test.ts` can leave native validation UI open after its fixture
+is removed. The subsequent `dialog-panel-key-reason-negative` test receives no
+trusted pointerdown, pointerup, or click on the apply button. Running that test
+alone does not reproduce the failure; running it after `dialog-panel-before-negative`
+does. This sequence does not reproduce on macOS Firefox.
+
+Blur the active element in the file's `afterEach` before disconnecting controllers
+or removing markup. Firefox's
+[FormValidationChild](https://github.com/mozilla-firefox/firefox/blob/main/browser/actors/FormValidationChild.sys.mjs)
+hides the validation popup on blur. Removing this cleanup reproduces the failure
+with the two-test command below. The assertions still require a trusted pointer
+apply and the committed numeric value; synthetic clicks and retries are not used.
+
+```sh
+vp run test run test/dialog_panel.test.ts --project firefox -t 'dialog-panel-before-negative|dialog-panel-key-reason-negative'
+```
+
 ## Reverse Tab navigation from a non-modal dialog
 
 With the native `dialog.show()` and the first button inside it in `test/dialog_panel.test.ts`, Firefox and WebKit include the dialog itself as a stopping point for Shift+Tab. Chromium moves to the outer button. Both allow navigation to the background, so the controller does not adjust Tab navigation. The test sends another Shift+Tab only when focus stops on the dialog itself, then verifies that the background can be reached.
@@ -399,7 +441,7 @@ For modifier-exclusion tests, a capture listener for trusted ArrowLeft sets the 
 
 ### Native input measurements
 
-`test/native_color.test.ts` tests keyboard operations on a closed `input[type="color"]`, value normalization, and events from API assignment and form reset in Chromium / Firefox / WebKit through Playwright 1.62.1. Input values and engine-specific measurements are stored in `test/fixtures/native_color_observations.json`.
+`test/native_color.test.ts` tests keyboard operations on a closed `input[type="color"]`, value normalization, and events from API assignment and form reset in Chromium / Firefox / WebKit through Playwright 1.62.1. Input values and platform-specific measurements are stored in `test/fixtures/native_color_observations.json`. The table below describes macOS. On Linux, Playwright WebKit exposes neither the `alpha` nor `colorSpace` property, accepts six-digit hex values, and normalizes the tested CSS names, functional colors, and alpha values to black. The test selects this separate observation by both engine and host OS, not by accepting whichever result the browser returns.
 
 | Configuration                   | Chromium                | Firefox                    | WebKit                                      |
 | ------------------------------- | ----------------------- | -------------------------- | ------------------------------------------- |
@@ -427,7 +469,7 @@ dropdown-menu handles the shortcut directly and prevents the default action of t
 
 ## Returning by Tab from a manual popover to a link trigger
 
-`test/native_hover_preview.test.ts` places `popover="manual"` content immediately after a trigger, focuses the trigger, calls `showPopover()`, and tests Tab / Shift+Tab movement with the internal button. In Playwright headless WebKit, attempting to return with Shift+Tab to a link without tabindex makes body the activeElement. Chromium and Firefox return to the link. With a link that explicitly has `tabindex="0"` and with a native button, all three engines return to the trigger.
+`test/native_hover_preview.test.ts` places `popover="manual"` content immediately after a trigger, focuses the trigger, calls `showPopover()`, and tests Tab / Shift+Tab movement with the internal button. In Playwright headless WebKit on macOS, attempting to return with Shift+Tab to a link without tabindex makes body the activeElement. WebKit on Linux, Chromium, and Firefox return to the link. With a link that explicitly has `tabindex="0"` and with a native button, all three engines return to the trigger.
 
 This measurement is limited to the current headless configuration. A real device with changed Safari keyboard-navigation settings and a screen reader are unverified; it does not mean that every Safari environment skips links.
 
