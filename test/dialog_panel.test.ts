@@ -490,7 +490,9 @@ test("[dialog-panel-trusted][dialog-panel-key-reason-negative] Synthetic or canc
 			mounted.apply.focus();
 			await userEvent.keyboard("{Enter}");
 		}
-		await userEvent.click(mounted.apply);
+		const applyPoint = handlePoint(mounted, mounted.apply);
+		await pointer(mounted, "down", applyPoint.x, applyPoint.y);
+		await pointer(mounted, "up", applyPoint.x, applyPoint.y);
 		await expect
 			.poll(() => ({
 				reason: mounted.events.at(-1)?.detail.reason,
