@@ -45,18 +45,18 @@ try {
   assert.equal(collection.status, 0, collection.stderr);
   /** @type {unknown} */
   const modules = JSON.parse(readFileSync(collectionFile, "utf8"));
-  assert.ok(Array.isArray(modules), "ブラウザテストの収集結果が配列ではありません");
+  assert.ok(Array.isArray(modules), "Browser test collection must be an array");
   for (const engine of engines) {
     assert.ok(
       modules.some(
         (module) => module.projectName === engine && module.file.endsWith("/test/tabs.test.ts"),
       ),
-      `${engine} のコンポーネントテストが収集されていません`,
+      `Component tests were not collected for ${engine}`,
     );
   }
   assert.ok(
     modules.every((module) => !module.file.startsWith(join(root, "scripts") + "/")),
-    "Node用のscriptテストがブラウザに収集されています",
+    "Node-only script tests were collected for the browser",
   );
   writeFileSync(
     fixture,
