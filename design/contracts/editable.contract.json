@@ -27,6 +27,7 @@
     "semanticElements": [
       "Place exactly one of each target and make all targets descendants of the root. preview and editor are separate, non-containing HTMLElements. input / save / cancel are inside editor and edit is inside preview",
       "input is input type=text or textarea. Every operation button is type=button, and no element serves two target roles",
+      "commit-key must be enter or modifier-enter. Typos are invalid rather than silently falling back to the default commit key",
       "When a field or button has no name, do not supplement it; disable enhancement"
     ],
     "completion": [
@@ -36,7 +37,15 @@
     "invalidMarkup": "For an invalid configuration, cancel the editing draft, restore initial hidden / aria-expanded, and remove root state. Do not move focus. Warn once while connected. When valid again, connect in viewing with the current input.value as the committed value"
   },
   "api": {
-    "values": {},
+    "values": {
+      "commitKey": {
+        "type": "String",
+        "htmlAttribute": "data-editable-commit-key-value",
+        "allowed": ["enter", "modifier-enter"],
+        "default": "enter",
+        "description": "Keyboard save key for both field types. enter saves with a normal Enter. modifier-enter saves with Control+Enter / Meta+Enter"
+      }
+    },
     "properties": {
       "value": {
         "type": "string",
@@ -105,15 +114,17 @@
     "reentrancy": "Do not commit an old request when a before listener changes API, draft, settings, targets, or connection. Do not dispatch an old after event when a focus listener changes state",
     "disabled": "Read native :disabled and input.readOnly and prevent editing and saving. Cancel remains possible regardless of input disabled / readonly. Keyboard save and cancel also respect the corresponding button's disabled state",
     "reset": "Capture document reset and compare its input.form at dispatch time. When the associated form's native reset is not canceled, synchronize to viewing after returning to defaultValue. Do not dispatch an event or move focus",
-    "dynamic": "Validate target replacement within the same microtask against the final configuration. When a target changes, discard the old draft and begin viewing from the new input.value. Inspect label / type / disabled / readonly / form changes with a root observer and immediately before operations"
+    "dynamic": "Validate target replacement within the same microtask against the final configuration. When a target changes, discard the old draft and begin viewing from the new input.value. Inspect label / type / disabled / readonly / form changes with a root observer and immediately before operations",
+    "commitKey": "A commit-key change keeps the current editing state and draft and applies from the next keydown. An invalid commit-key follows contractValidation.invalidMarkup"
   },
   "keyboard": {
     "Tab": "Move to input, save, and cancel in native order. Do not create a focus trap",
     "Shift+Tab": "Native reverse order",
-    "Enter": "On a single-line input, save and prevent implicit form submission. A normal Enter in textarea inserts a newline. Enter on a button performs native click",
+    "Enter": "With commit-key=enter, save from the input or textarea and prevent implicit form submission and newline insertion. With commit-key=modifier-enter, do not save; a single-line input still prevents implicit form submission and a textarea inserts a newline natively. Enter on a button performs native click",
+    "Shift+Enter": "Do not handle it. A textarea inserts a newline natively for both commit keys",
     "Space": "Native click on a button",
     "Escape": "Cancel from the input. Ignore during IME and with modifiers",
-    "Control+Enter / Meta+Enter": "Save in textarea. Alt / Shift combinations and simultaneous Control+Meta are outside the scope",
+    "Control+Enter / Meta+Enter": "With commit-key=modifier-enter, save from the input or textarea. With commit-key=enter, do not handle it. Alt / Shift combinations and simultaneous Control+Meta are outside the scope",
     "IME": "Do not process keys with isComposing or keyCode 229"
   },
   "managedMarkup": {
@@ -154,7 +165,7 @@
     "AAA 2.1.3 Keyboard (No Exception): no pointer-only feature; everything is operable with native buttons and keys",
     "AAA 3.2.5 Change on Request: move focus only for user operations and explicit API calls, never timer or passive synchronization",
     "Verify commit/cancel, native validation/form reset, before cancellation, IME, disabled state, reentrancy, dynamic targets, and cleanup in all three engines",
-    "Verify both field configurations and every state / event / keyboard behavior in the catalog",
+    "Verify both field configurations, both commit keys, and every state / event / keyboard behavior in the catalog",
     "Retain real-device screen-reader checks in the completion report when unverified"
   ],
   "testMatrix": [
@@ -204,7 +215,15 @@
     },
     {
       "testId": "editable-multiline",
-      "description": "Keep textarea Enter as a newline and save with Control/Meta"
+      "description": "With commit-key=enter, insert a textarea newline with Shift+Enter, save with a normal Enter, and ignore Control/Meta+Enter"
+    },
+    {
+      "testId": "editable-commit-key",
+      "description": "With commit-key=modifier-enter, save both field types with Control/Meta+Enter and keep normal Enter from saving or submitting the form"
+    },
+    {
+      "testId": "editable-commit-key-value",
+      "description": "Keep the editing draft when commit-key changes and disable enhancement for an invalid commit-key"
     },
     {
       "testId": "editable-reentrancy",
@@ -253,7 +272,7 @@
           }
         ]
       },
-      "expectedFailure": "editable-state-negative fails. editable-names, which reproduces the declared catalog/editable.html behavior, also fails because it tests the same invariant"
+      "expectedFailure": "editable-state-negative fails. editable-names, editable-commit-key-value, and the check that reproduces the declared catalog/editable.html behavior also fail because they test the same invariant"
     },
     {
       "testId": "editable-commit-negative",
@@ -385,18 +404,63 @@
     },
     {
       "testId": "editable-keyboard-negative",
-      "guard": "Treat normal textarea Enter as save too",
+      "guard": "Leave textarea Shift+Enter to native newline insertion with commit-key=enter",
       "mutation": {
-        "description": "Treat normal textarea Enter as save too",
+        "description": "Treat textarea Shift+Enter as save with commit-key=enter",
         "file": "src/editable_controller.ts",
         "replacements": [
           {
-            "find": "((plain && this.elements.input instanceof HTMLInputElement) || multilineCommit)",
-            "replace": "(plain || multilineCommit)"
+            "find": "(this.commitKeyValue === \"enter\" ? plain : modifierCommit)",
+            "replace": "(this.commitKeyValue === \"enter\" ? plain || event.shiftKey : modifierCommit)"
           }
         ]
       },
       "expectedFailure": "editable-keyboard-negative fails. The check that reproduces the declared catalog/editable.html behavior also fails because it tests the same invariant"
+    },
+    {
+      "testId": "editable-commit-key-negative",
+      "guard": "Do not save on normal Enter with commit-key=modifier-enter",
+      "mutation": {
+        "description": "Save on normal Enter regardless of commit-key",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "(this.commitKeyValue === \"enter\" ? plain : modifierCommit)",
+            "replace": "(plain || modifierCommit)"
+          }
+        ]
+      },
+      "expectedFailure": "editable-commit-key-negative fails. editable-commit-key-value, editable-multiline, and the check that reproduces the declared catalog/editable.html behavior also fail because they test the same invariant"
+    },
+    {
+      "testId": "editable-commit-key-submit-negative",
+      "guard": "Prevent implicit form submission on normal Enter with commit-key=modifier-enter",
+      "mutation": {
+        "description": "Remove the guard that prevents implicit form submission on normal Enter with commit-key=modifier-enter",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "} else if (event.key === \"Enter\" && plain && singleLine) {\n\t\t\tevent.preventDefault();\n\t\t}",
+            "replace": "}"
+          }
+        ]
+      },
+      "expectedFailure": "editable-commit-key-submit-negative fails."
+    },
+    {
+      "testId": "editable-commit-key-value-negative",
+      "guard": "Disable enhancement for an invalid commit-key",
+      "mutation": {
+        "description": "Remove the guard that disables enhancement for an invalid commit-key",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "!EDITABLE_COMMIT_KEYS.some((key) => key === this.commitKeyValue)",
+            "replace": "false"
+          }
+        ]
+      },
+      "expectedFailure": "editable-commit-key-value-negative fails."
     },
     {
       "testId": "editable-reentrancy-negative",
@@ -456,7 +520,7 @@
           }
         ]
       },
-      "expectedFailure": "editable-controls-negative fails. The catalog/editable.html markup connects without warnings, the check reproducing its declared behavior, editable-state, editable-names, and editable-dynamic also test the same invariant"
+      "expectedFailure": "editable-controls-negative fails. The catalog/editable.html markup connects without warnings, the check reproducing its declared behavior, editable-state, editable-commit-key, editable-commit-key-value, editable-names, and editable-dynamic also test the same invariant"
     },
     {
       "testId": "editable-cleanup-negative",

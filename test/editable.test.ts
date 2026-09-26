@@ -340,19 +340,90 @@ test("[editable-ime] Does not handle IME Enter or Escape", async () => {
 	}
 });
 
-test("[editable-multiline][editable-keyboard-negative] Preserves textarea Enter as a newline and saves with Control or Meta", async () => {
+test("[editable-multiline][editable-keyboard-negative] Inserts textarea newlines with Shift+Enter and saves with a normal Enter", async () => {
 	const page = await mount(createEditable(true));
+	const events = listen(page);
 	page.controller.edit();
 	await userEvent.fill(page.input, "first");
-	await userEvent.keyboard("{End}{Enter}second");
+	await userEvent.keyboard("{End}{Shift>}{Enter}{/Shift}second");
 	expect(page.controller.editing).toBe(true);
 	expect(page.input.value).toBe("first\nsecond");
 	await userEvent.keyboard("{Control>}{Enter}{/Control}");
-	expect(page.controller.value).toBe("first\nsecond");
-	expect(page.controller.editing).toBe(false);
-	page.controller.edit();
 	await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+	expect(page.controller.editing).toBe(true);
+	expect(events).toEqual([]);
+	await userEvent.keyboard("{Enter}");
 	expect(page.controller.editing).toBe(false);
+	expect(page.controller.value).toBe(page.input.value);
+	expect(page.input.value.startsWith("first\nsecond")).toBe(true);
+	expect(events.map((event) => event.type)).toEqual(["editable:beforecommit", "editable:commit"]);
+});
+
+test("[editable-commit-key][editable-commit-key-negative][editable-commit-key-submit-negative] Saves both field types only with Control or Meta plus Enter under modifier-enter", async () => {
+	for (const multiline of [false, true]) {
+		const fixture = createEditable(multiline);
+		fixture.root.setAttribute("data-editable-commit-key-value", "modifier-enter");
+		const form = document.createElement("form");
+		form.append(fixture.root);
+		document.body.append(form);
+		const page = await mount(fixture);
+		const submits: Event[] = [];
+		form.addEventListener("submit", (event) => {
+			event.preventDefault();
+			submits.push(event);
+		});
+		const events = listen(page);
+		await userEvent.click(page.edit);
+		await userEvent.fill(page.input, "first");
+		await userEvent.keyboard("{Enter}");
+		expect(page.controller.editing).toBe(true);
+		expect(page.input.value).toBe(multiline ? "first\n" : "first");
+		expect(submits).toEqual([]);
+		await userEvent.keyboard("{Control>}{Enter}{/Control}");
+		expect(page.controller.editing).toBe(false);
+		expect(page.controller.value).toBe(page.input.value);
+		await userEvent.click(page.edit);
+		await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+		expect(page.controller.editing).toBe(false);
+		expect(submits).toEqual([]);
+		expect(events.map((event) => event.type)).toEqual([
+			"editable:beforeedit",
+			"editable:edit",
+			"editable:beforecommit",
+			"editable:commit",
+			"editable:beforeedit",
+			"editable:edit",
+			"editable:beforecommit",
+			"editable:commit",
+		]);
+		expect(events.at(-1)?.detail.reason).toBe("keyboard");
+		form.remove();
+		await settle();
+	}
+	expect(warnings).toEqual([]);
+});
+
+test("[editable-commit-key-value][editable-commit-key-value-negative] Disables enhancement for an invalid commit key and keeps the draft when switching commit keys", async () => {
+	const page = await mount();
+	page.controller.edit();
+	page.input.value = "draft";
+	page.root.setAttribute("data-editable-commit-key-value", "modifier-enter");
+	await settle();
+	expect(page.controller.editing).toBe(true);
+	expect(page.input.value).toBe("draft");
+	page.input.focus();
+	await userEvent.keyboard("{Enter}");
+	expect(page.controller.editing).toBe(true);
+	page.root.setAttribute("data-editable-commit-key-value", "ctrl-enter");
+	await settle();
+	expect(page.root.hasAttribute("data-state")).toBe(false);
+	expect(page.input.value).toBe("Alice");
+	expect(page.controller.edit()).toBe(false);
+	expect(warnings).toHaveLength(1);
+	page.root.setAttribute("data-editable-commit-key-value", "enter");
+	await settle();
+	expect(page.root.dataset.state).toBe("viewing");
+	expect(warnings).toHaveLength(1);
 });
 
 test("[editable-reentrancy][editable-reentrancy-negative] Does not overwrite API, draft, target, or connection changes in before listeners", async () => {

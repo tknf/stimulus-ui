@@ -55,6 +55,57 @@
           </div>
         </div>
       </section>
+      <section>
+        <h2>Single line with modifier-enter</h2>
+        <div
+          class="catalog-component catalog-editable"
+          data-controller="editable"
+          data-editable-commit-key-value="modifier-enter"
+        >
+          <div data-editable-target="preview">
+            <p>Project Alpha</p>
+            <button type="button" data-editable-target="edit" aria-controls="editable-title-editor">
+              Edit project title
+            </button>
+          </div>
+          <div data-editable-target="editor" id="editable-title-editor" hidden>
+            <label for="editable-title">Project title</label>
+            <input
+              id="editable-title"
+              data-editable-target="input"
+              type="text"
+              value="Project Alpha"
+            />
+            <button type="button" data-editable-target="save">Save</button>
+            <button type="button" data-editable-target="cancel">Cancel</button>
+          </div>
+        </div>
+      </section>
+      <section>
+        <h2>Multiple lines with modifier-enter</h2>
+        <div
+          class="catalog-component catalog-editable"
+          data-controller="editable"
+          data-editable-commit-key-value="modifier-enter"
+        >
+          <div data-editable-target="preview">
+            <p>Project summary</p>
+            <button
+              type="button"
+              data-editable-target="edit"
+              aria-controls="editable-summary-editor"
+            >
+              Edit project summary
+            </button>
+          </div>
+          <div data-editable-target="editor" id="editable-summary-editor" hidden>
+            <label for="editable-summary">Project summary</label>
+            <textarea id="editable-summary" data-editable-target="input">Project summary</textarea>
+            <button type="button" data-editable-target="save">Save</button>
+            <button type="button" data-editable-target="cancel">Cancel</button>
+          </div>
+        </div>
+      </section>
       <ul class="catalog-events" role="log"></ul>
     </main>
   </body>
