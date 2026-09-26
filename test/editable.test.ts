@@ -340,19 +340,23 @@ test("[editable-ime] Does not handle IME Enter or Escape", async () => {
 	}
 });
 
-test("[editable-multiline][editable-keyboard-negative] Preserves textarea Enter as a newline and saves with Control or Meta", async () => {
+test("[editable-multiline][editable-keyboard-negative] Inserts textarea newlines with Shift+Enter and saves with a normal Enter", async () => {
 	const page = await mount(createEditable(true));
+	const events = listen(page);
 	page.controller.edit();
 	await userEvent.fill(page.input, "first");
-	await userEvent.keyboard("{End}{Enter}second");
+	await userEvent.keyboard("{End}{Shift>}{Enter}{/Shift}second");
 	expect(page.controller.editing).toBe(true);
 	expect(page.input.value).toBe("first\nsecond");
 	await userEvent.keyboard("{Control>}{Enter}{/Control}");
-	expect(page.controller.value).toBe("first\nsecond");
-	expect(page.controller.editing).toBe(false);
-	page.controller.edit();
 	await userEvent.keyboard("{Meta>}{Enter}{/Meta}");
+	expect(page.controller.editing).toBe(true);
+	expect(events).toEqual([]);
+	await userEvent.keyboard("{Enter}");
 	expect(page.controller.editing).toBe(false);
+	expect(page.controller.value).toBe(page.input.value);
+	expect(page.input.value.startsWith("first\nsecond")).toBe(true);
+	expect(events.map((event) => event.type)).toEqual(["editable:beforecommit", "editable:commit"]);
 });
 
 test("[editable-commit-key][editable-commit-key-negative][editable-commit-key-submit-negative] Saves both field types only with Control or Meta plus Enter under modifier-enter", async () => {

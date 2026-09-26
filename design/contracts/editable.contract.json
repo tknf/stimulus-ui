@@ -43,7 +43,7 @@
         "htmlAttribute": "data-editable-commit-key-value",
         "allowed": ["enter", "modifier-enter"],
         "default": "enter",
-        "description": "Keyboard save key. enter saves a single-line input with Enter and a textarea with Control+Enter / Meta+Enter. modifier-enter saves both field types with Control+Enter / Meta+Enter only"
+        "description": "Keyboard save key for both field types. enter saves with a normal Enter. modifier-enter saves with Control+Enter / Meta+Enter"
       }
     },
     "properties": {
@@ -120,10 +120,11 @@
   "keyboard": {
     "Tab": "Move to input, save, and cancel in native order. Do not create a focus trap",
     "Shift+Tab": "Native reverse order",
-    "Enter": "With commit-key=enter, save on a single-line input and prevent implicit form submission. With commit-key=modifier-enter, do not save on a single-line input but still prevent implicit form submission. A normal Enter in textarea inserts a newline for both commit keys. Enter on a button performs native click",
+    "Enter": "With commit-key=enter, save from the input or textarea and prevent implicit form submission and newline insertion. With commit-key=modifier-enter, do not save; a single-line input still prevents implicit form submission and a textarea inserts a newline natively. Enter on a button performs native click",
+    "Shift+Enter": "Do not handle it. A textarea inserts a newline natively for both commit keys",
     "Space": "Native click on a button",
     "Escape": "Cancel from the input. Ignore during IME and with modifiers",
-    "Control+Enter / Meta+Enter": "Save in textarea for both commit keys, and on a single-line input with commit-key=modifier-enter. With commit-key=enter, do not handle it on a single-line input. Alt / Shift combinations and simultaneous Control+Meta are outside the scope",
+    "Control+Enter / Meta+Enter": "With commit-key=modifier-enter, save from the input or textarea. With commit-key=enter, do not handle it. Alt / Shift combinations and simultaneous Control+Meta are outside the scope",
     "IME": "Do not process keys with isComposing or keyCode 229"
   },
   "managedMarkup": {
@@ -214,7 +215,7 @@
     },
     {
       "testId": "editable-multiline",
-      "description": "Keep textarea Enter as a newline and save with Control/Meta"
+      "description": "With commit-key=enter, insert a textarea newline with Shift+Enter, save with a normal Enter, and ignore Control/Meta+Enter"
     },
     {
       "testId": "editable-commit-key",
@@ -403,33 +404,33 @@
     },
     {
       "testId": "editable-keyboard-negative",
-      "guard": "Treat normal textarea Enter as save too",
+      "guard": "Leave textarea Shift+Enter to native newline insertion with commit-key=enter",
       "mutation": {
-        "description": "Treat normal textarea Enter as save too",
+        "description": "Treat textarea Shift+Enter as save with commit-key=enter",
         "file": "src/editable_controller.ts",
         "replacements": [
           {
-            "find": "(plainCommit ? plain : modifierCommit)",
+            "find": "(this.commitKeyValue === \"enter\" ? plain : modifierCommit)",
+            "replace": "(this.commitKeyValue === \"enter\" ? plain || event.shiftKey : modifierCommit)"
+          }
+        ]
+      },
+      "expectedFailure": "editable-keyboard-negative fails. The check that reproduces the declared catalog/editable.html behavior also fails because it tests the same invariant"
+    },
+    {
+      "testId": "editable-commit-key-negative",
+      "guard": "Do not save on normal Enter with commit-key=modifier-enter",
+      "mutation": {
+        "description": "Save on normal Enter regardless of commit-key",
+        "file": "src/editable_controller.ts",
+        "replacements": [
+          {
+            "find": "(this.commitKeyValue === \"enter\" ? plain : modifierCommit)",
             "replace": "(plain || modifierCommit)"
           }
         ]
       },
-      "expectedFailure": "editable-keyboard-negative fails. editable-commit-key, editable-commit-key-value, and the check that reproduces the declared catalog/editable.html behavior also fail because they test the same invariant"
-    },
-    {
-      "testId": "editable-commit-key-negative",
-      "guard": "Save a single-line input on normal Enter with commit-key=modifier-enter",
-      "mutation": {
-        "description": "Save a single-line input on normal Enter regardless of commit-key",
-        "file": "src/editable_controller.ts",
-        "replacements": [
-          {
-            "find": "singleLine && this.commitKeyValue === \"enter\"",
-            "replace": "singleLine"
-          }
-        ]
-      },
-      "expectedFailure": "editable-commit-key-negative fails. editable-commit-key-value and the check that reproduces the declared catalog/editable.html behavior also fail because they test the same invariant"
+      "expectedFailure": "editable-commit-key-negative fails. editable-commit-key-value, editable-multiline, and the check that reproduces the declared catalog/editable.html behavior also fail because they test the same invariant"
     },
     {
       "testId": "editable-commit-key-submit-negative",

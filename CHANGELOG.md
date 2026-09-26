@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
-- `editable`: `data-editable-commit-key-value="modifier-enter"` saves single-line inputs and textareas with Control+Enter / Meta+Enter only. The default `enter` keeps the existing keys.
+- `editable`: `data-editable-commit-key-value` selects the save key for both field types. `enter` (default) saves with Enter, and `modifier-enter` saves with Control+Enter / Meta+Enter.
+
+### Changed
+
+- `editable`: With the default `enter` commit key, a textarea saves with Enter and inserts a newline with Shift+Enter. Control+Enter / Meta+Enter no longer save a textarea unless `modifier-enter` is set.
 
 ## [0.1.0] - 2026-09-08
 

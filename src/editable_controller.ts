@@ -493,11 +493,13 @@ export default class EditableController extends Controller<HTMLElement> {
 		const plain = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
 		const modifierCommit = !event.altKey && !event.shiftKey && event.ctrlKey !== event.metaKey;
 		const singleLine = this.elements.input instanceof HTMLInputElement;
-		const plainCommit = singleLine && this.commitKeyValue === "enter";
 		if (event.key === "Escape" && plain) {
 			event.preventDefault();
 			this.perform("cancel", "keyboard");
-		} else if (event.key === "Enter" && (plainCommit ? plain : modifierCommit)) {
+		} else if (
+			event.key === "Enter" &&
+			(this.commitKeyValue === "enter" ? plain : modifierCommit)
+		) {
 			event.preventDefault();
 			this.perform("commit", "keyboard");
 		} else if (event.key === "Enter" && plain && singleLine) {
