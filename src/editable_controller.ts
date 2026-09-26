@@ -8,6 +8,8 @@ type EditableInput = HTMLInputElement | HTMLTextAreaElement;
 type EditableAction = "edit" | "commit" | "cancel";
 type UserReason = "pointer" | "keyboard";
 
+const EDITABLE_COMMIT_KEYS = ["enter", "modifier-enter"] as const;
+
 export type EditableChangeDetail = {
 	value: string;
 	previousValue: string;
@@ -30,12 +32,16 @@ type EditableElements = {
  */
 export default class EditableController extends Controller<HTMLElement> {
 	static targets = ["preview", "editor", "input", "edit", "save", "cancel"];
+	static values = {
+		commitKey: { default: "enter", type: String },
+	};
 	declare readonly previewTargets: HTMLElement[];
 	declare readonly editorTargets: HTMLElement[];
 	declare readonly inputTargets: HTMLElement[];
 	declare readonly editTargets: HTMLElement[];
 	declare readonly saveTargets: HTMLElement[];
 	declare readonly cancelTargets: HTMLElement[];
+	declare commitKeyValue: string;
 
 	private resetTasks = createFormResetTasks();
 	private connected = false;
@@ -108,6 +114,7 @@ export default class EditableController extends Controller<HTMLElement> {
 	saveTargetDisconnected = () => this.scheduleReconcile();
 	cancelTargetConnected = () => this.scheduleReconcile();
 	cancelTargetDisconnected = () => this.scheduleReconcile();
+	commitKeyValueChanged = () => this.scheduleReconcile();
 
 	/**
 	 * Committed value: the native input value while viewing, or the value at edit start while
@@ -200,7 +207,10 @@ export default class EditableController extends Controller<HTMLElement> {
 			this.saveTargets,
 			this.cancelTargets,
 		];
-		if (!targets.every((group) => group.length === 1)) {
+		if (
+			!EDITABLE_COMMIT_KEYS.some((key) => key === this.commitKeyValue) ||
+			!targets.every((group) => group.length === 1)
+		) {
 			return undefined;
 		}
 		const [preview] = this.previewTargets;
@@ -263,7 +273,7 @@ export default class EditableController extends Controller<HTMLElement> {
 			if (!this.warningIssued) {
 				this.warningIssued = true;
 				console.warn(
-					"editable controller: Provide exactly one preview, editor, and named text input or textarea, with one button type=button edit target in preview and one save and cancel target in editor. Enhancement has been disabled.",
+					"editable controller: Provide exactly one preview, editor, and named text input or textarea, with one button type=button edit target in preview and one save and cancel target in editor, and set commit-key to enter or modifier-enter. Enhancement has been disabled.",
 				);
 			}
 			return;
@@ -481,20 +491,17 @@ export default class EditableController extends Controller<HTMLElement> {
 			return;
 		}
 		const plain = !event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey;
-		const multilineCommit =
-			this.elements.input instanceof HTMLTextAreaElement &&
-			!event.altKey &&
-			!event.shiftKey &&
-			event.ctrlKey !== event.metaKey;
+		const modifierCommit = !event.altKey && !event.shiftKey && event.ctrlKey !== event.metaKey;
+		const singleLine = this.elements.input instanceof HTMLInputElement;
+		const plainCommit = singleLine && this.commitKeyValue === "enter";
 		if (event.key === "Escape" && plain) {
 			event.preventDefault();
 			this.perform("cancel", "keyboard");
-		} else if (
-			event.key === "Enter" &&
-			((plain && this.elements.input instanceof HTMLInputElement) || multilineCommit)
-		) {
+		} else if (event.key === "Enter" && (plainCommit ? plain : modifierCommit)) {
 			event.preventDefault();
 			this.perform("commit", "keyboard");
+		} else if (event.key === "Enter" && plain && singleLine) {
+			event.preventDefault();
 		}
 	};
 

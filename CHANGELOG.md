@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `editable`: `data-editable-commit-key-value="modifier-enter"` saves single-line inputs and textareas with Control+Enter / Meta+Enter only. The default `enter` keeps the existing keys.
+
 ## [0.1.0] - 2026-09-08
 
 First public release of `@tknf/stimulus-ui`.

@@ -22,9 +22,13 @@ export const scenario: CatalogScenario = {
 			await userEvent.keyboard("{Enter}");
 			await userEvent.keyboard("{Alt>}{Enter}{/Alt}");
 			expect(root.dataset.state).toBe("editing");
-			if (input instanceof HTMLTextAreaElement) {
+			const modifierOnly =
+				input instanceof HTMLTextAreaElement ||
+				root.dataset.editableCommitKeyValue === "modifier-enter";
+			if (modifierOnly) {
 				await userEvent.keyboard("{End}{Enter}");
 				expect(root.dataset.state).toBe("editing");
+				if (input instanceof HTMLInputElement) expect(input.value).toBe(initial);
 				await userEvent.fill(input, initial);
 				await userEvent.keyboard("{Control>}{Enter}{/Control}");
 				await userEvent.click(edit);
