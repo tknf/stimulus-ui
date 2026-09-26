@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-26
+
 ### Added
 
 - `editable`: `data-editable-commit-key-value` selects the save key for both field types. `enter` (default) saves with Enter, and `modifier-enter` saves with Control+Enter / Meta+Enter.
